@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="MainActivity" default="help">
+
+    <!-- The local.properties file is created and updated by the 'android' tool.
+         It contains the path to the SDK. It should *NOT* be checked into
+         Version Control Systems. -->
+    <property file="local.properties" />
+
+    <!-- The ant.properties file can be created by you. It is only edited by the
+         'android' tool to add properties to it.
+         This is the place to change some Ant specific build properties.
+         Here are some properties you may want to change/update:
+
+         source.dir
+             The name of the source directory. Default is 'src'.
+         out.dir
+             The name of the output directory. Default is 'bin'.
+
+         For other overridable properties, look at the beginning of the rules
+         files in the SDK, at tools/ant/build.xml
+
+         Properties related to the SDK location or the project target should
+         be updated using the 'android' tool with the 'update' action.
+
+         This file is an integral part of the build system for your
+         application and should be checked into Version Control Systems.
+
+         -->
+    <property file="ant.properties" />
+
+    <!-- if sdk.dir was not set from one of the property file, then
+         get it from the ANDROID_HOME env var.
+         This must be done before we load project.properties since
+         the proguard config can use sdk.dir -->
+    <property environment="env" />
+    <condition property="sdk.dir" value="${env.ANDROID_HOME}">
+        <isset property="env.ANDROID_HOME" />
+    </condition>
+
+    <!-- The project.properties file is created and updated by the 'android'
+         tool, as well as ADT.
+
+         This contains project specific properties such as project target, and library
+         dependencies. Lower level build properties are stored in ant.properties
+         (or in .classpath for Eclipse projects).
+
+         This file is an integral part of the build system for your
+         application and should be checked into Version Control Systems. -->
+    <loadproperties srcFile="project.properties" />
+
+    <!-- quick check on sdk.dir -->
+    <fail
+            message="sdk.dir is missing. Make sure to generate local.properties using 'android update project' or to inject it through the ANDROID_HOME environment variable."
+            unless="sdk.dir"
+    />
+
+    <!--
+        Import per project custom build rules if present at the root of the project.
+        This is the place to put custom intermediary targets such as:
+            -pre-build
+            -pre-compile
+            -post-compile (This is typically used for code obfuscation.
+                           Compiled code location: ${out.classes.absolute.dir}
+                           If this is not done in place, override ${out.dex.input.absolute.dir})
+            -post-package
+            -post-build
+            -pre-clean
+    -->
+    <import file="custom_rules.xml" optional="true" />
+
+    <!-- Import the actual build file.
+
+         To customize existing targets, there are two options:
+         - Customize only one target:
+             - copy/paste the target into this file, *before* the
+               <import> task.
+             - customize it to your needs.
+         - Customize the whole content of build.xml
+             - copy/paste the content of the rules files (minus the top node)
+               into this file, replacing the <import> task.
+             - customize to your needs.
+
+         ***********************
+         ****** IMPORTANT ******
+         ***********************
+         In all cases you must update the value of version-tag below to read 'custom' instead of an integer,
+         in order to avoid having your file be overridden by tools such as "android update project"
+    -->
+    <!-- This is a modified version of the "dex-helper" macro.  It added the "input-dir" and
+                 "output-dex-file" required attributes.
+                 Configurable macro, which allows to pass as parameters input directory,
+                 output directory, output dex filename and external libraries to dex (optional) -->
+            <macrodef name="dex-helper-mod">
+                <attribute name="input-dir" />
+                <attribute name="output-dex-file" />
+                <element name="external-libs" optional="yes" />
+                <element name="extra-parameters" optional="yes" />
+                <attribute name="nolocals" default="false" />
+                <sequential>
+                    <!-- set the secondary dx input: the project (and library) jar files
+                         If a pre-dex task sets it to something else this has no effect -->
+                    <if>
+                        <condition>
+                            <isreference refid="out.dex.jar.input.ref" />
+                        </condition>
+                        <else>
+                            <path id="out.dex.jar.input.ref">
+                                <path refid="project.all.jars.path"/>
+                                <!--<path refid="jar.libs.ref" />-->
+                            </path>
+                        </else>
+                    </if>
+
+                    <echo>Converting compiled files and external libraries into @{output-dex-file}...</echo>
+                    <dex executable="${dx}"
+                            output="@{output-dex-file}"
+                            nolocals="@{nolocals}"
+                            verbose="${verbose}">
+                        <path path="@{input-dir}"/>
+                        <path refid="out.dex.jar.input.ref" />
+                        <external-libs />
+                    </dex>
+                </sequential>
+            </macrodef>
+        <!-- This is a modified version of "-dex" target taken from $SDK/tools/ant/main_rules.xml -->
+            <!-- Converts this project's .class files into .dex files -->
+            <target name="-dex" depends="-compile, -post-compile, -obfuscate"
+                    unless="do.not.compile">
+                <if condition="${manifest.hasCode}">
+                    <then>
+                        <!-- Create staging directories to store .class files to be converted to the -->
+                        <!-- default dex and the secondary dex. -->
+                        <mkdir dir="${out.classes.absolute.dir}.1"/>
+                        <mkdir dir="${out.classes.absolute.dir}.2"/>
+
+                        <!-- Primary dex to include everything but the concrete library implementation. -->
+                        <copy todir="${out.classes.absolute.dir}.1" >
+                            <fileset dir="${out.classes.absolute.dir}" >
+                                <exclude name="org/sandroproxy/proxy/plugin/**" />
+                            </fileset>
+                        </copy>
+                        <!-- Secondary dex to include the concrete library implementation. -->
+                        <copy todir="${out.classes.absolute.dir}.2" >
+                            <fileset dir="${out.classes.absolute.dir}" >
+                                <include name="org/sandroproxy/proxy/plugin/**" />
+                            </fileset>
+                        </copy>
+
+                        <!-- Compile .class files from the two stage directories to the apppropriate dex files. -->
+                        <dex-helper-mod input-dir="${out.classes.absolute.dir}.1"
+                            output-dex-file="${out.absolute.dir}/${dex.file.name}" />
+                        <mkdir dir="${out.absolute.dir}/custom_plugin_dir" />
+                        <dex-helper-mod input-dir="${out.classes.absolute.dir}.2"
+                            output-dex-file="${out.absolute.dir}/custom_plugin_dir/classes.dex" 
+                        />
+                        <!-- Jar the secondary dex file so it can be consumed by the DexClassLoader. -->
+                        <!-- Package the output in the assets directory of the apk. -->
+                        <jar destfile="${asset.absolute.dir}/custom_plugin_dex.jar"
+                             basedir="${out.absolute.dir}/custom_plugin_dir" includes="classes.dex" />
+                    </then>
+                    <else>
+                        <echo>hasCode = false. Skipping...</echo>
+                    </else>
+                </if>
+            </target>
+            <!-- sandroproxy specific stuff -->
+            <target name="-just-plugin-files" depends="-dex">
+               <!-- 
+                    dx 
+                    -verbose 
+                    -dex 
+                    -output <project_path>/SandroProxyPlugin/bin/custom_plugin_dir/classes.dex 
+                             <project_path>/SandroProxyPlugin/bin/classes.2
+               -->
+            </target>
+            <target name="just-jar" depends="-just-plugin-files">
+                <jar destfile="${asset.absolute.dir}/custom_plugin_dex.jar"
+                                             basedir="${out.absolute.dir}/custom_plugin_dir" includes="classes.dex" />
+            </target>
+    <!-- version-tag: 1 -->
+    <import file="${sdk.dir}/tools/ant/build.xml" />
+</project>
