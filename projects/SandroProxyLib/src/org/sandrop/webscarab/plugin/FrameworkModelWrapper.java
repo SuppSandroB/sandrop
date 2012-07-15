@@ -43,18 +43,18 @@ import org.sandrop.webscarab.model.Response;
 
 public class FrameworkModelWrapper {
 
-	private FrameworkModel _frameworkModel;
-	
-	public FrameworkModelWrapper(FrameworkModel frameworkModel) {
-		this._frameworkModel = frameworkModel;
-	}
-	
+    private FrameworkModel _frameworkModel;
+    
+    public FrameworkModelWrapper(FrameworkModel frameworkModel) {
+        this._frameworkModel = frameworkModel;
+    }
+    
     public String getConversationOrigin(ConversationID id) {
         return _frameworkModel.getConversationOrigin(id);
     }
     
     public Date getConversationDate(ConversationID id) {
-    	return _frameworkModel.getConversationDate(id);
+        return _frameworkModel.getConversationDate(id);
     }
     
     /**
@@ -64,7 +64,7 @@ public class FrameworkModelWrapper {
      */
     
     public HttpUrl getRequestUrl(ConversationID conversation) {
-    	return _frameworkModel.getRequestUrl(conversation);
+        return _frameworkModel.getRequestUrl(conversation);
     }
     
     /**
@@ -74,7 +74,7 @@ public class FrameworkModelWrapper {
      * @param value the value to use
      */
     public void setConversationProperty(ConversationID conversation, String property, String value) {
-    	_frameworkModel.setConversationProperty(conversation, property, value);
+        _frameworkModel.setConversationProperty(conversation, property, value);
     }
     
     /**
@@ -84,7 +84,7 @@ public class FrameworkModelWrapper {
      * @param value the value to add
      */
     public boolean addConversationProperty(ConversationID conversation, String property, String value) {
-    	return _frameworkModel.addConversationProperty(conversation, property, value);
+        return _frameworkModel.addConversationProperty(conversation, property, value);
     }
     
     /**
@@ -94,7 +94,7 @@ public class FrameworkModelWrapper {
      * @return the property value, or null if none has been set
      */
     public String getConversationProperty(ConversationID conversation, String property) {
-    	return getConversationProperty(conversation, property);
+        return getConversationProperty(conversation, property);
     }
     
     public String getRequestMethod(ConversationID id) {
@@ -112,7 +112,7 @@ public class FrameworkModelWrapper {
      * @return an array of strings representing the property values, possibly zero length
      */
     public String[] getConversationProperties(ConversationID conversation, String property) {
-    	return _frameworkModel.getConversationProperties(conversation, property);
+        return _frameworkModel.getConversationProperties(conversation, property);
     }
     
     /**
@@ -122,7 +122,7 @@ public class FrameworkModelWrapper {
      * @param value the value to use
      */
     public void setUrlProperty(HttpUrl url, String property, String value) {
-    	_frameworkModel.setUrlProperty(url, property, value);
+        _frameworkModel.setUrlProperty(url, property, value);
     }
     
     /**
@@ -132,7 +132,7 @@ public class FrameworkModelWrapper {
      * @param value the value to add
      */
     public boolean addUrlProperty(HttpUrl url, String property, String value) {
-    	return _frameworkModel.addUrlProperty(url, property, value);
+        return _frameworkModel.addUrlProperty(url, property, value);
     }
     
     /**
@@ -142,7 +142,7 @@ public class FrameworkModelWrapper {
      * @return an array of strings representing the property values, possibly zero length
      */
     public String[] getUrlProperties(HttpUrl url, String property) {
-    	return _frameworkModel.getUrlProperties(url, property);
+        return _frameworkModel.getUrlProperties(url, property);
     }
     
     /**
@@ -152,7 +152,7 @@ public class FrameworkModelWrapper {
      * @return the property value, or null if none has been set
      */
     public String getUrlProperty(HttpUrl url, String property) {
-    	return _frameworkModel.getUrlProperty(url, property);
+        return _frameworkModel.getUrlProperty(url, property);
     }
     
     /**
@@ -161,7 +161,7 @@ public class FrameworkModelWrapper {
      * @return the request
      */
     public Request getRequest(ConversationID conversation) {
-    	return _frameworkModel.getRequest(conversation);
+        return _frameworkModel.getRequest(conversation);
     }
     
     /**
@@ -170,7 +170,7 @@ public class FrameworkModelWrapper {
      * @return the response
      */
     public Response getResponse(ConversationID conversation) {
-    	return _frameworkModel.getResponse(conversation);
+        return _frameworkModel.getResponse(conversation);
     }
     
     /**
@@ -179,7 +179,7 @@ public class FrameworkModelWrapper {
      * @return the number of cookies
      */
     public int getCookieCount() {
-    	return _frameworkModel.getCookieCount();
+        return _frameworkModel.getCookieCount();
     }
     
     /**
@@ -188,7 +188,7 @@ public class FrameworkModelWrapper {
      * @return the number of values in the model
      */
     public int getCookieCount(String key) {
-    	return _frameworkModel.getCookieCount(key);
+        return _frameworkModel.getCookieCount(key);
     }
     
     /**
@@ -197,7 +197,7 @@ public class FrameworkModelWrapper {
      * @param index which cookie in the list
      */
     public String getCookieAt(int index) {
-    	return _frameworkModel.getCookieAt(index);
+        return _frameworkModel.getCookieAt(index);
     }
     
     /**
@@ -207,7 +207,7 @@ public class FrameworkModelWrapper {
      * @return the cookie
      */
     public Cookie getCookieAt(String key, int index) {
-    	return _frameworkModel.getCookieAt(key, index);
+        return _frameworkModel.getCookieAt(key, index);
     }
     
     /**
@@ -217,7 +217,7 @@ public class FrameworkModelWrapper {
      * @return the position in the list
      */
     public int getIndexOfCookie(Cookie cookie) {
-    	return _frameworkModel.getIndexOfCookie(cookie);
+        return _frameworkModel.getIndexOfCookie(cookie);
     }
     
     /**
@@ -227,11 +227,11 @@ public class FrameworkModelWrapper {
      * @return the position in the list
      */
     public int getIndexOfCookie(String key, Cookie cookie) {
-    	return _frameworkModel.getIndexOfCookie(key, cookie);
+        return _frameworkModel.getIndexOfCookie(key, cookie);
     }
     
     public Cookie getCurrentCookie(String key) {
-    	return _frameworkModel.getCurrentCookie(key);
+        return _frameworkModel.getCurrentCookie(key);
     }
     
     /**
@@ -239,7 +239,7 @@ public class FrameworkModelWrapper {
      * @param cookie the cookie to add
      */
     public void addCookie(Cookie cookie) {
-    	_frameworkModel.addCookie(cookie);
+        _frameworkModel.addCookie(cookie);
     }
     
     /**
@@ -247,7 +247,7 @@ public class FrameworkModelWrapper {
      * @param cookie the cookie to remove
      */
     public void removeCookie(Cookie cookie) {
-    	_frameworkModel.removeCookie(cookie);
+        _frameworkModel.removeCookie(cookie);
     }
     
     /**
@@ -256,7 +256,7 @@ public class FrameworkModelWrapper {
      * @return an array of cookies, or a zero length array if there are none applicable.
      */
     public Cookie[] getCookiesForUrl(HttpUrl url) {
-    	return _frameworkModel.getCookiesForUrl(url);
+        return _frameworkModel.getCookiesForUrl(url);
     }
 
 }

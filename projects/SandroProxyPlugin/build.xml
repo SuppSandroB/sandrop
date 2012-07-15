@@ -136,7 +136,7 @@
                         <!-- Primary dex to include everything but the concrete library implementation. -->
                         <copy todir="${out.classes.absolute.dir}.1" >
                             <fileset dir="${out.classes.absolute.dir}" >
-                                <exclude name="org/sandroproxy/proxy/plugin/**" />
+                                <!--<exclude name="org/sandroproxy/proxy/plugin/**" />-->
                             </fileset>
                         </copy>
                         <!-- Secondary dex to include the concrete library implementation. -->
@@ -149,12 +149,17 @@
                         <!-- Compile .class files from the two stage directories to the apppropriate dex files. -->
                         <dex-helper-mod input-dir="${out.classes.absolute.dir}.1"
                             output-dex-file="${out.absolute.dir}/${dex.file.name}" />
-                        <mkdir dir="${out.absolute.dir}/custom_plugin_dir" />
-                        <dex-helper-mod input-dir="${out.classes.absolute.dir}.2"
-                            output-dex-file="${out.absolute.dir}/custom_plugin_dir/classes.dex" 
-                        />
-                        <!-- Jar the secondary dex file so it can be consumed by the DexClassLoader. -->
-                        <!-- Package the output in the assets directory of the apk. -->
+                    	<!-- plugin stuff -->
+                    	<mkdir dir="${out.absolute.dir}/custom_plugin_dir" />
+                        <dex executable="${dx}"
+                                output="${out.absolute.dir}/custom_plugin_dir/classes.dex"
+                                nolocals="@{nolocals}"
+                                verbose="true"
+                                >
+                            <path path="${out.classes.absolute.dir}.2"/>
+                       </dex>
+                        <!-- Jar the secondary dex file-->
+                        <!-- Package the output in the assets directory -->
                         <jar destfile="${asset.absolute.dir}/custom_plugin_dex.jar"
                              basedir="${out.absolute.dir}/custom_plugin_dir" includes="classes.dex" />
                     </then>
@@ -163,20 +168,5 @@
                     </else>
                 </if>
             </target>
-            <!-- sandroproxy specific stuff -->
-            <target name="-just-plugin-files" depends="-dex">
-               <!-- 
-                    dx 
-                    -verbose 
-                    -dex 
-                    -output <project_path>/SandroProxyPlugin/bin/custom_plugin_dir/classes.dex 
-                             <project_path>/SandroProxyPlugin/bin/classes.2
-               -->
-            </target>
-            <target name="just-jar">
-                <jar destfile="${asset.absolute.dir}/custom_plugin_dex.jar"
-                                             basedir="${out.absolute.dir}/custom_plugin_dir" includes="classes.dex" />
-            </target>
-    <!-- version-tag: 1 -->
-    <import file="${sdk.dir}/tools/ant/build.xml" />
+            <import file="${sdk.dir}/tools/ant/build.xml" />
 </project>

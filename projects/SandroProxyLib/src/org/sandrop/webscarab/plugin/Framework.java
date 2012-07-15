@@ -108,9 +108,9 @@ public class Framework {
         }
         String whitelistRegex = Preferences.getPreference("WebScarab.whitelistRegex", null);
         try {
-        	setWhitelistPattern(whitelistRegex);
+            setWhitelistPattern(whitelistRegex);
         } catch (PatternSyntaxException pse) {
-        	_logger.warning("Got an invalid regular expression for conversations to whitelist: " + whitelistRegex + " results in " + pse.toString());
+            _logger.warning("Got an invalid regular expression for conversations to whitelist: " + whitelistRegex + " results in " + pse.toString());
         }
         _qp = new Framework.QueueProcessor();
         _queueThread = new Thread(_qp, "QueueProcessor");
@@ -120,7 +120,7 @@ public class Framework {
     }
     
     public Context GetAndroidContext(){
-    	return mContext;
+        return mContext;
     }
     
     public int getProxyPortFromSettings(){
@@ -157,8 +157,8 @@ public class Framework {
     
     public ScriptManager getScriptManager() {
         // sandrop commented until used
-    	//return _scriptManager;
-    	return null;
+        //return _scriptManager;
+        return null;
     }
     
     public CredentialManager getCredentialManager() {
@@ -169,14 +169,14 @@ public class Framework {
         return dropPattern == null ? "" : dropPattern.pattern();
     }
     public void setWhitelistPattern(String pattern) throws PatternSyntaxException{
-    	if (pattern == null || "".equals(pattern)) {
-    		whitelistPattern = null;
-    		Preferences.setPreference("WebScarab.whitelistRegex", "");
-    	} else {
-    		whitelistPattern = Pattern.compile(pattern);
-    		Preferences.setPreference("WebScarab.whitelistRegex", pattern);
-    	}
-    	System.out.println("Using WebScarab.whitelistRegex pattern : "+pattern+". Will not save any data for requests not matching this pattern");
+        if (pattern == null || "".equals(pattern)) {
+            whitelistPattern = null;
+            Preferences.setPreference("WebScarab.whitelistRegex", "");
+        } else {
+            whitelistPattern = Pattern.compile(pattern);
+            Preferences.setPreference("WebScarab.whitelistRegex", pattern);
+        }
+        System.out.println("Using WebScarab.whitelistRegex pattern : "+pattern+". Will not save any data for requests not matching this pattern");
     }
     public void setDropPattern(String pattern) throws PatternSyntaxException {
         if (pattern == null || "".equals(pattern)) {
@@ -397,7 +397,7 @@ public class Framework {
         //Do we have whitelisting? If so, check if it matches
         if(whitelistPattern != null && !whitelistPattern.matcher(request.getURL().toString()).matches())
         {
-        	return;
+            return;
         }
         // Also, check blacklist - drop pattern
         
@@ -529,7 +529,7 @@ public class Framework {
     }
 
     private class AnalyseConversationHook extends Hook {
-    	
+        
         public AnalyseConversationHook() {
             super("Analyse Conversation", 
             "Called when a new conversation is added to the framework.\n" +

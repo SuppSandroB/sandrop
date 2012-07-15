@@ -58,7 +58,6 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.EventListener;
 
 public class EventListenerList implements Serializable {
 
