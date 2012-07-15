@@ -173,7 +173,7 @@
                              <project_path>/SandroProxyPlugin/bin/classes.2
                -->
             </target>
-            <target name="just-jar" depends="-just-plugin-files">
+            <target name="just-jar">
                 <jar destfile="${asset.absolute.dir}/custom_plugin_dex.jar"
                                              basedir="${out.absolute.dir}/custom_plugin_dir" includes="classes.dex" />
             </target>
