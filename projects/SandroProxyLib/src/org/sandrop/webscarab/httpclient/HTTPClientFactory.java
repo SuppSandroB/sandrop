@@ -32,6 +32,7 @@
 
 package org.sandrop.webscarab.httpclient;
 
+import java.io.File;
 import java.io.IOException;
 
 import java.security.KeyManagementException;
@@ -43,10 +44,8 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
-import org.sandrop.webscarab.plugin.Framework;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -86,34 +85,39 @@ public class HTTPClientFactory {
             
             SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
             
-			String filename = pref.getString("preference_client_cert_file_path", ""); // "/mnt/sdcard/cert.p12";
-			_logger.info("certificate file name:" + filename);
-			String keyPassword =  pref.getString("preference_client_cert_password", ""); //"sandropssl";
-			if (keyPassword.length() > 0){
-			    _logger.info("certificate password:" + keyPassword.substring(0,1) + "... length " + keyPassword.length());
-			}else{
-			    _logger.info("certificate password empty!!");
-			}
-        	_sslContextManager.loadPKCS12Certificate(filename, keyPassword);
-			_sslContextManager.setDefaultKey("key");
-			_sslContextManager.unlockKey(0, 0, keyPassword);
-			_logger.info("client certificate used for ssl sessions");
-		} catch (KeyManagementException e) {
-		    _logger.info("error using client certificate:" + e.getMessage());
-			e.printStackTrace();
-		} catch (KeyStoreException e) {
-		    _logger.info("error using client certificate:" + e.getMessage());
-			e.printStackTrace();
-		} catch (CertificateException e) {
-		    _logger.info("error using client certificate:" + e.getMessage());
-			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-		    _logger.info("error using client certificate:" + e.getMessage());
-			e.printStackTrace();
-		} catch (IOException e) {
-		    _logger.info("error using client certificate:" + e.getMessage());
-			e.printStackTrace();
-		}
+            String filename = pref.getString("preference_client_cert_file_path", "");
+            File certFile = new File(filename);
+            if (certFile == null || !certFile.exists() || !certFile.canRead()){
+                _logger.info("client cert file name is not valid so it will not be used:" + filename);
+                return;
+            }
+            _logger.info("certificate file name:" + filename);
+            String keyPassword =  pref.getString("preference_client_cert_password", "");
+            if (keyPassword.length() > 0){
+                _logger.info("certificate password:" + keyPassword.substring(0,1) + "... length " + keyPassword.length());
+            }else{
+                _logger.info("certificate password empty!!");
+            }
+            _sslContextManager.loadPKCS12Certificate(filename, keyPassword);
+            _sslContextManager.setDefaultKey("key");
+            _sslContextManager.unlockKey(0, 0, keyPassword);
+            _logger.info("client certificate used for ssl sessions");
+        } catch (KeyManagementException e) {
+            _logger.info("error using client certificate:" + e.getMessage());
+            e.printStackTrace();
+        } catch (KeyStoreException e) {
+            _logger.info("error using client certificate:" + e.getMessage());
+            e.printStackTrace();
+        } catch (CertificateException e) {
+            _logger.info("error using client certificate:" + e.getMessage());
+            e.printStackTrace();
+        } catch (NoSuchAlgorithmException e) {
+            _logger.info("error using client certificate:" + e.getMessage());
+            e.printStackTrace();
+        } catch (IOException e) {
+            _logger.info("error using client certificate:" + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     public static HTTPClientFactory getInstance(Context context) {

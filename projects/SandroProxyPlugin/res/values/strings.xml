@@ -1,38 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <resources>
     <string name="app_name">SandroProxyPlugin</string>
-    <string name="hello_world">Hello world!</string>
     <string name="menu_settings">Settings</string>
-    <string name="title_activity_main">SandroProxy plugin test</string>
-    <string name="preference_proxy">Proxy</string>
+    <string name="preference_proxy">Proxy port</string>
     <string name="preference_proxy_port_text">Port</string>
-    <string name="preference_proxy_port_value">8008</string>
-    <string name="preference_proxy_data_storage_path">Data storage path</string>
-    <string name="preference_proxy_data_storage_path_summary"/>
-    <string name="preference_proxy_data_storage_path_value"/>
-    <string name="preference_proxy_non_local_text">Bind to non local</string>
-    <string name="preference_proxy_non_local_summary">Proxy is accessible from outside</string>
-    <string name="preference_proxy_transparent_text">Transparent proxy</string>
-    <string name="preference_proxy_transparent_summary">Listens on 80/443</string>
-    <string name="preference_certificate">Certificates</string>
-    <string name="preference_client_certificate">Client certificate </string>
-    <string name="preference_ca_certificate">CA certificate </string>
-    <string name="preference_client_cert_file_path_value">/mnt/sdcard/cert.p12</string>
-    <string name="preference_client_cert_password_value">sandropssl</string>
-    <string name="preference_ca_cert_file_path_value"/>
-    <string name="preference_ca_cert_password_value"/>
-    <string name="preference_cert_file_path_text">File location</string>
-    <string name="preference_cert_password_text">Password</string>
-    <string name="menu_onoff">On/Off</string>
-    <string name="revealhidden_enabled">RevealHidden.enabled</string>
-    <string name="reveal_hidden_fields">Reveal hidden fields</string>
-    <string name="show_hidden_input_fields_on_as_input">Show hidden input fields as input</string>
-    <string name="html_manipulation">Html manipulation</string>
-    <string name="new_fragment">TODO</string>
-    <string name="file_content_app_activate">View</string>
-    <string name="file_content_text">Show/hide as text</string>
-    <string name="not_implemented_yet">Not implemented yet</string>
-    <string name="cache_disabler_key">BrowserCache.enabled</string>
-    <string name="cache_disabler_text">Remove cache headers</string>
-    <string name="cache_disabler_summary">Remove cache headers so content is always fetched</string>
+    <string name="preference_proxy_port_value">9008</string>
+    <string name="no_data">No data</string>
+    <string name="preference_proxy_plugin_enabled">Use custom plugin</string>
+    <string name="title_activity_main">SandroProxyPlugin</string>
+    <string name="on_proxy">On</string>
+    <string name="off_proxy">Off</string>
+    <string name="data_storage_missing">Missing data storage!</string>
 </resources>
