@@ -3,7 +3,7 @@
  * This file is part of SandroProxy, 
  * For details, please see http://code.google.com/p/sandrop/
  *
- * Copyright (c) 20012 supp.sandrob@gmail.com
+ * Copyright (c) 2012 supp.sandrob@gmail.com
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
