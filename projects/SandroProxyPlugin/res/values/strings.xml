@@ -3,7 +3,7 @@
     <string name="app_name">SandroProxyPlugin</string>
     <string name="hello_world">Hello world!</string>
     <string name="menu_settings">Settings</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="title_activity_main">SandroProxy plugin test</string>
     <string name="preference_proxy">Proxy</string>
     <string name="preference_proxy_port_text">Port</string>
     <string name="preference_proxy_port_value">8008</string>

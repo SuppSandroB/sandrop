@@ -127,24 +127,6 @@ public class SSLContextManager {
         } catch (KeyManagementException kme) {
             _logger.severe("Error initialising the SSL Context: " + kme);
         }
-        try {
-        	if (System.getProperty("os.name").toLowerCase().indexOf("win") >= 0) {
-            	initPKCS11("P11-CAPI", "lib/p11-capi.dll", 0, "");
-        	}
-        } catch (Exception e) {
-        	e.printStackTrace();
-        }
-    }
-    
-    public boolean isProviderAvailable(String type) {
-        try {
-            if (type.equals("PKCS11")) {
-                Class.forName("sun.security.pkcs11.SunPKCS11");
-            }
-        } catch (Throwable t) {
-            return false;
-        }
-        return true;
     }
     
     private int addKeyStore(KeyStore ks, String description) {
@@ -232,36 +214,7 @@ public class SSLContextManager {
     public String getDefaultKey() {
         return _defaultKey;
     }
-    
-    public int initPKCS11(String name, String library, int slotListIndex, String kspassword) {
-        try {
-            if (!isProviderAvailable("PKCS11")) return -1;
-            
-            // Set up a virtual config file
-            StringBuffer cardConfig = new StringBuffer();
-            cardConfig.append("name = ").append(name).append("\n");
-            cardConfig.append("library = ").append(library).append("\n");
-            cardConfig.append("slotListIndex = ").append(Integer.toString(slotListIndex)).append("\n");
-            InputStream is = new ByteArrayInputStream(cardConfig.toString().getBytes());
-            
-            // create the provider
-            Class pkcs11Class = Class.forName("sun.security.pkcs11.SunPKCS11");
-            Constructor c = pkcs11Class.getConstructor(new Class[] { InputStream.class });
-            Provider pkcs11 = (Provider) c.newInstance(new Object[] { is });
-            Security.addProvider(pkcs11);
-            
-            // init the key store
-            KeyStore ks = KeyStore.getInstance("PKCS11");
-            ks.load(null, kspassword == null ? null : kspassword.toCharArray());
-            return addKeyStore(ks, name);
-        } catch (Exception e) {
-            System.err.println("Error instantiating the PKCS11 provider");
-            e.printStackTrace();
-            return -1;
-        }
-    }
-    
-    
+
     public int loadPKCS12Certificate(InputStream filenameStream, String alias, String ksPassword)
     throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
         InputStream is = filenameStream;

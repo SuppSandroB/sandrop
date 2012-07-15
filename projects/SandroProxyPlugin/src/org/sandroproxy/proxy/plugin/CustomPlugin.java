@@ -3,23 +3,18 @@ package org.sandroproxy.proxy.plugin;
 
 import java.io.IOException;
 import org.sandrop.webscarab.httpclient.HTTPClient;
-import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.plugin.proxy.ProxyPlugin;
-import org.sandroproxy.utils.PreferenceUtils;
 
 public class CustomPlugin extends ProxyPlugin {
     
-    private boolean _enabled = false;
+    private boolean _enabled = true;
     
     public CustomPlugin() {
-        parseProperties();
     }
     
     public void parseProperties() {
-        String prop = PreferenceUtils.proxyCustomPluginKey;
-        _enabled = Preferences.getPreferenceBoolean(prop, false);
     }
     
     public String getPluginName() {
@@ -28,8 +23,6 @@ public class CustomPlugin extends ProxyPlugin {
     
     public void setEnabled(boolean bool) {
         _enabled = bool;
-        String prop = PreferenceUtils.proxyCustomPluginKey;
-        Preferences.setPreference(prop,Boolean.toString(bool));
     }
 
     public boolean getEnabled() {

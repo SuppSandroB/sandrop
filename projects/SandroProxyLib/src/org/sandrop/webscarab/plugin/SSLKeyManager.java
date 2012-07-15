@@ -87,22 +87,6 @@ public class SSLKeyManager implements X509KeyManager {
      */
     public SSLKeyManager() {
         _logger.setLevel(Level.FINEST);
-        if (System.getProperty("os.name", "").toLowerCase().indexOf("windows")>-1) {
-            Provider provider;
-            try {
-                provider = (Provider) Class.forName("se.assembla.jce.provider.ms.MSProvider").newInstance();
-            } catch (Throwable t) {
-                return;
-            }
-            try {
-                Security.insertProviderAt(provider, 2);
-                KeyStore ks = KeyStore.getInstance("msks", "assembla");
-                ks.load(null, null);
-                addKeyStore("Microsoft CAPI store", ks, null);
-            } catch (Exception e) {
-                _logger.info("Microsoft CAPI interface not available: " + e);
-            }
-        }
     }
     
     public synchronized String addPKCS12KeyStore(String filename, String keyStorePassword, String keyPassword) throws KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
