@@ -194,9 +194,9 @@ public class Framework {
      */
     public void setSession(String type, Object store, String session) throws StoreException {
         _model.setSession(type, store, session);
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (!plugin.isRunning()) {
                 plugin.setSession(type, store, session);
             } else {
@@ -239,9 +239,9 @@ public class Framework {
      */
     public Plugin getPlugin(String name) {
         Plugin plugin = null;
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            plugin = (Plugin) it.next();
+            plugin = it.next();
             if (plugin.getPluginName().equals(name)) return plugin;
         }
         return null;
@@ -251,10 +251,10 @@ public class Framework {
      * starts all the plugins in the framework
      */
     public void startPlugins() {
-        HTTPClientFactory.getInstance(mContext).getSSLContextManager().invalidateSessions();
-        Iterator it = _plugins.iterator();
+        HTTPClientFactory.getValidInstance().getSSLContextManager().invalidateSessions();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (!plugin.isRunning()) {
                 Thread t = new Thread(plugin, plugin.getPluginName());
                 t.setDaemon(true);
@@ -268,18 +268,18 @@ public class Framework {
     }
     
     public boolean isBusy() {
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (plugin.isBusy()) return true;
         }
         return false;
     }
     
     public boolean isRunning() {
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (plugin.isRunning()) return true;
         }
         return false;
@@ -287,19 +287,19 @@ public class Framework {
     
     public boolean isModified() {
         if (_model.isModified()) return true;
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (plugin.isModified()) return true;
         }
         return false;
     }
     
     public String[] getStatus() {
-        List status = new ArrayList();
-        Iterator it = _plugins.iterator();
+        List<String> status = new ArrayList<String>();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             status.add(plugin.getPluginName() + " : " + plugin.getStatus());
         }
         return (String[]) status.toArray(new String[0]);
@@ -328,9 +328,9 @@ public class Framework {
      */
     public boolean stopPlugins() {
         if (isBusy()) return false;
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (plugin.isRunning()) {
                 // _logger.info("Stopping " + plugin.getPluginName());
                 plugin.stop();
@@ -355,9 +355,9 @@ public class Framework {
             _model.flush();
             _logger.info("Done");
         }
-        Iterator it = _plugins.iterator();
+        Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
-            Plugin plugin = (Plugin) it.next();
+            Plugin plugin = it.next();
             if (plugin.isModified()) {
                 try {
                     _logger.info("Flushing " + plugin.getPluginName());
@@ -397,7 +397,7 @@ public class Framework {
         //Do we have whitelisting? If so, check if it matches
         if(whitelistPattern != null && !whitelistPattern.matcher(request.getURL().toString()).matches())
         {
-            return;
+        	return;
         }
         // Also, check blacklist - drop pattern
         
@@ -529,7 +529,7 @@ public class Framework {
     }
 
     private class AnalyseConversationHook extends Hook {
-        
+    	
         public AnalyseConversationHook() {
             super("Analyse Conversation", 
             "Called when a new conversation is added to the framework.\n" +
