@@ -5,11 +5,11 @@
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.LIBRARIES"/>
 	<classpathentry kind="lib" path="libs/chardet.jar"/>
-	<classpathentry kind="lib" path="libs/concurrent.jar"/>
 	<classpathentry kind="lib" path="libs/htmlparser.jar"/>
 	<classpathentry kind="lib" path="libs/bc.jar"/>
 	<classpathentry kind="lib" path="libs/bsf-2.3.0.jar"/>
 	<classpathentry kind="lib" path="libs/bsh-2.0b1.jar"/>
 	<classpathentry kind="lib" path="libs/jcifs-1.3.14.jar"/>
+	<classpathentry kind="lib" path="libs/concurrent.jar"/>
 	<classpathentry kind="output" path="bin/classes"/>
 </classpath>
