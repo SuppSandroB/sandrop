@@ -29,18 +29,29 @@
  * For details, please see http://www.sourceforge.net/projects/owasp
  *
  */
-package org.sandrop.webscarab.plugin.proxy;
+/*
+ * FragmentListener.java
+ *
+ * Created on 13 April 2005, 06:23
+ */
 
-import java.io.PrintStream;
+package org.sandrop.webscarab.plugin.fragments;
+
+import java.util.EventListener;
+
+import org.sandrop.webscarab.model.ConversationID;
+import org.sandrop.webscarab.model.HttpUrl;
 
 /**
  *
- * @author  knoppix
+ * @author  rogan
  */
-public interface BeanShellUI {
+public interface FragmentListener extends EventListener {
     
-    PrintStream getOut();
+    void fragmentAdded(HttpUrl url, ConversationID id, String type, String key);
     
-    PrintStream getErr();
+    void fragmentAdded(String type, String key, int position);
+    
+    void fragmentsChanged();
     
 }
