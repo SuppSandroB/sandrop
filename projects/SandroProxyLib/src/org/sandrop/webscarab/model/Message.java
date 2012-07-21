@@ -59,7 +59,7 @@ import org.sandrop.webscarab.httpclient.FixedLengthInputStream;
  */
 public class Message {
     
-    private ArrayList _headers = null;
+    private ArrayList<NamedValue> _headers = null;
     private NamedValue[] NO_HEADERS = new NamedValue[0];
     
     private static final byte[] NO_CONTENT = new byte[0];
@@ -139,7 +139,7 @@ public class Message {
     public void write(OutputStream os, String crlf) throws IOException {
         if (_headers != null) {
             for (int i=0; i<_headers.size(); i++) {
-                NamedValue nv = (NamedValue) _headers.get(i);
+                NamedValue nv = _headers.get(i);
                 os.write(new String(nv.getName() + ": " + nv.getValue() + crlf).getBytes());
                 _logger.finest("Header: " + nv);
             }
@@ -222,7 +222,7 @@ public class Message {
         StringBuffer buff = new StringBuffer();
         if (_headers != null) {
             for (int i=0; i<_headers.size(); i++) {
-                NamedValue nv = (NamedValue) _headers.get(i);
+                NamedValue nv = _headers.get(i);
                 if (nv.getName().equalsIgnoreCase("Transfer-Encoding") && nv.getValue().indexOf("chunked")>-1) {
                     buff.append("X-" + nv.getName() + ": " + nv.getValue() + crlf);
                 } else if (nv.getName().equalsIgnoreCase("Content-Encoding") && nv.getValue().indexOf("gzip")>-1) {
@@ -279,10 +279,10 @@ public class Message {
     public void setHeader(NamedValue header) {
         updateFlagsForHeader(header);
         if (_headers == null) {
-            _headers = new ArrayList(1);
+            _headers = new ArrayList<NamedValue>(1);
         } else {
             for (int i=0; i<_headers.size(); i++) {
-                NamedValue nv = (NamedValue) _headers.get(i);
+                NamedValue nv = _headers.get(i);
                 if (nv.getName().equalsIgnoreCase(header.getName())) {
                     _headers.set(i,header);
                     return;
@@ -305,7 +305,7 @@ public class Message {
     public void addHeader(NamedValue header) {
         updateFlagsForHeader(header);
         if (_headers == null) {
-            _headers = new ArrayList(1);
+            _headers = new ArrayList<NamedValue>(1);
         }
         _headers.add(header);
     }
@@ -320,7 +320,7 @@ public class Message {
             return null;
         }
         for (int i=0; i<_headers.size(); i++) {
-            NamedValue nv = (NamedValue) _headers.get(i);
+            NamedValue nv = _headers.get(i);
             if (nv.getName().equalsIgnoreCase(name)) {
                 _headers.remove(i);
                 updateFlagsForHeader(new NamedValue(name, ""));
@@ -340,7 +340,7 @@ public class Message {
         }
         String[] names = new String[_headers.size()];
         for (int i=0; i<_headers.size(); i++) {
-            NamedValue nv = (NamedValue) _headers.get(i);
+            NamedValue nv = _headers.get(i);
             names[i] = nv.getName();
         }
         return names;
@@ -356,7 +356,7 @@ public class Message {
             return null;
         }
         for (int i=0; i<_headers.size(); i++) {
-            NamedValue nv = (NamedValue) _headers.get(i);
+            NamedValue nv = _headers.get(i);
             if (nv.getName().equalsIgnoreCase(name)) {
                 return nv.getValue();
             }
@@ -372,16 +372,16 @@ public class Message {
     public String[] getHeaders(String name) {
         if (_headers == null) 
             return null;
-        ArrayList values = new ArrayList();
+        ArrayList<String> values = new ArrayList<String>();
         for (int i=0; i<_headers.size(); i++) {
-            NamedValue nv = (NamedValue) _headers.get(i);
+            NamedValue nv = _headers.get(i);
             if (nv.getName().equalsIgnoreCase(name)) {
                 values.add(nv.getValue());
             }
         }
         if (values.size() == 0) 
             return null;
-        return (String[]) values.toArray(new String[0]);
+        return values.toArray(new String[0]);
     }
     
     /**
@@ -393,7 +393,7 @@ public class Message {
         if (_headers == null || _headers.size() == 0) {
             return new NamedValue[0];
         }
-        return (NamedValue[]) _headers.toArray(NO_HEADERS);
+        return _headers.toArray(NO_HEADERS);
     }
     
     /**
@@ -403,7 +403,7 @@ public class Message {
      */
     public void setHeaders(NamedValue[] headers) {
         if (_headers == null) {
-            _headers = new ArrayList();
+            _headers = new ArrayList<NamedValue>();
         } else {
             _headers.clear();
         }

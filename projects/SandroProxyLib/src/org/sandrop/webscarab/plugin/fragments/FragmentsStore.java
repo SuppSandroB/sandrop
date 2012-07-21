@@ -29,18 +29,37 @@
  * For details, please see http://www.sourceforge.net/projects/owasp
  *
  */
-package org.sandrop.webscarab.plugin.proxy;
 
-import java.io.PrintStream;
+/*
+ * FragmentsStore.java
+ *
+ * Created on August 25, 2004, 11:21 PM
+ */
+
+package org.sandrop.webscarab.plugin.fragments;
+
+import org.sandrop.webscarab.model.StoreException;
 
 /**
  *
  * @author  knoppix
  */
-public interface BeanShellUI {
+public interface FragmentsStore {
     
-    PrintStream getOut();
+    int getFragmentTypeCount();
     
-    PrintStream getErr();
+    String getFragmentType(int index);
+    
+    int getFragmentCount(String type);
+    
+    String getFragmentKeyAt(String type, int position);
+    
+    int indexOfFragment(String type, String key);
+    
+    int putFragment(String type, String key, String fragment);
+    
+    String getFragment(String key);
+    
+    void flush() throws StoreException;
     
 }

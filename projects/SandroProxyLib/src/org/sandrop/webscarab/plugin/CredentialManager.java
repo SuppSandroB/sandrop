@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+
 import org.sandrop.webscarab.httpclient.Authenticator;
 import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Preferences;
@@ -45,8 +46,8 @@ import org.sandrop.webscarab.util.Encoding;
 public class CredentialManager implements Authenticator {
     
     // contains Maps per host, indexed by Realm
-    private Map _basicCredentials = new TreeMap();
-    private Map _domainCredentials = new TreeMap();
+    private Map<String, Map<String, BasicCredential>> _basicCredentials = new TreeMap<String, Map<String, BasicCredential>>();
+    private Map<String, DomainCredential> _domainCredentials = new TreeMap<String, DomainCredential>();
     
     private CredentialManagerUI _ui = null;
     
@@ -90,9 +91,9 @@ public class CredentialManager implements Authenticator {
     
     public void addBasicCredentials(BasicCredential cred) {
         if ((cred.getUsername() == null || cred.getUsername().equals("")) && (cred.getPassword() == null || cred.getPassword().equals(""))) return;
-        Map realms = (Map) _basicCredentials.get(cred.getHost());
+        Map<String, BasicCredential> realms = _basicCredentials.get(cred.getHost());
         if (realms == null) {
-            realms = new TreeMap();
+            realms = new TreeMap<String, BasicCredential>();
             _basicCredentials.put(cred.getHost(), realms);
         }
         realms.put(cred.getRealm(), cred);
@@ -113,12 +114,12 @@ public class CredentialManager implements Authenticator {
     
     public void deleteBasicCredentialAt(int index) {
         int i = -1;
-        Iterator hosts = _basicCredentials.keySet().iterator();
+        Iterator<String> hosts = _basicCredentials.keySet().iterator();
         while (hosts.hasNext()) {
-            Map realms = (Map) _basicCredentials.get(hosts.next());
-            Iterator realm = realms.keySet().iterator();
+            Map<String, BasicCredential> realms = _basicCredentials.get(hosts.next());
+            Iterator<String> realm = realms.keySet().iterator();
             while (realm.hasNext()) {
-                Object key = realm.next();
+                String key = realm.next();
                 i++;
                 if (i == index)
                     realms.remove(key);
@@ -131,8 +132,8 @@ public class CredentialManager implements Authenticator {
     }
     
     public DomainCredential getDomainCredentialAt(int index) {
-        List all = new ArrayList();
-        Iterator hosts = _domainCredentials.keySet().iterator();
+        List<DomainCredential> all = new ArrayList<DomainCredential>();
+        Iterator<String> hosts = _domainCredentials.keySet().iterator();
         while (hosts.hasNext())
             all.add(_domainCredentials.get(hosts.next()));
         return (DomainCredential) all.toArray(new DomainCredential[0])[index];
@@ -140,9 +141,9 @@ public class CredentialManager implements Authenticator {
     
     public void deleteDomainCredentialAt(int index) {
         int i = -1;
-        Iterator hosts = _domainCredentials.keySet().iterator();
+        Iterator<String> hosts = _domainCredentials.keySet().iterator();
         while (hosts.hasNext()) {
-            Object key = hosts.next();
+            String key = hosts.next();
             i++;
             if (i == index)
                 _domainCredentials.remove(key);
@@ -150,11 +151,11 @@ public class CredentialManager implements Authenticator {
     }
     
     private BasicCredential[] getAllBasicCredentials() {
-        List all = new ArrayList();
-        Iterator hosts = _basicCredentials.keySet().iterator();
+        List<BasicCredential> all = new ArrayList<BasicCredential>();
+        Iterator<String> hosts = _basicCredentials.keySet().iterator();
         while (hosts.hasNext()) {
-            Map realms = (Map) _basicCredentials.get(hosts.next());
-            Iterator realm = realms.keySet().iterator();
+            Map<String, BasicCredential> realms = _basicCredentials.get(hosts.next());
+            Iterator<String> realm = realms.keySet().iterator();
             while (realm.hasNext())
                 all.add(realms.get(realm.next()));
         }
@@ -188,16 +189,16 @@ public class CredentialManager implements Authenticator {
     
     private String getBasicCredentials(String host, String challenge) {
         String realm = challenge.substring("Basic Realm=\"".length(), challenge.length()-1);
-        Map realms = (Map) _basicCredentials.get(host);
+        Map<String, BasicCredential> realms = _basicCredentials.get(host);
         if (realms == null) return null;
-        BasicCredential cred = (BasicCredential) realms.get(realm);
+        BasicCredential cred = realms.get(realm);
         if (cred == null) return null;
         String encoded = cred.getUsername() + ":" + cred.getPassword();
         return Encoding.base64encode(encoded.getBytes(), false);
     }
     
     private String getDomainCredentials(String host) {
-        DomainCredential cred = (DomainCredential) _domainCredentials.get(host);
+        DomainCredential cred = _domainCredentials.get(host);
         if (cred == null) return null;
         String encoded = cred.getDomain() + "\\" + cred.getUsername() + ":" + cred.getPassword();
         return Encoding.base64encode(encoded.getBytes(), false);

@@ -39,7 +39,7 @@ import java.util.LinkedHashMap;
  * maintains a Most-Recently-Used cache of its entries, up to the max size specified
  * @author knoppix
  */
-public class MRUCache extends LinkedHashMap {
+public class MRUCache<K, V> extends LinkedHashMap<K, V> {
     
     /**
 	 * 
@@ -82,7 +82,7 @@ public class MRUCache extends LinkedHashMap {
      * @param eldest the entry
      * @return true if this entry should be removed, false otherwise
      */    
-    protected boolean removeEldestEntry(Map.Entry eldest) {
+    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
         return size() > _maxSize;
     }
     
