@@ -33,6 +33,10 @@ package org.sandrop.webscarab.plugin.proxy;
 
 import java.io.PrintStream;
 
+/**
+ *
+ * @author  knoppix
+ */
 public interface BeanShellUI {
     
     PrintStream getOut();
