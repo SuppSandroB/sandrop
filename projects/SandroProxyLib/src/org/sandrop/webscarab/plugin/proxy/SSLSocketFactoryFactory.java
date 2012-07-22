@@ -66,15 +66,18 @@ import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
+import org.sandrob.bouncycastle.asn1.DERObjectIdentifier;
+import org.sandrob.bouncycastle.asn1.x509.BasicConstraints;
+import org.sandrob.bouncycastle.asn1.x509.X509Extensions;
 import org.sandrob.bouncycastle.x509.X509V3CertificateGenerator;
+import org.sandrob.bouncycastle.x509.extension.AuthorityKeyIdentifierStructure;
+import org.sandrob.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
 
-
-
-// sandrop specific
-// import org.owasp.webscarab.util.SunCertificateUtils;
+import android.util.Log;
 
 public class SSLSocketFactoryFactory {
 
+    private static String TAG = SSLSocketFactoryFactory.class.getName();
     private static final long DEFAULT_VALIDITY = 10L * 365L * 24L * 60L * 60L
             * 1000L;
 
@@ -93,10 +96,8 @@ public class SSLSocketFactoryFactory {
             //        + " at " + new Date()
             //        + ",ou=OWASP Custom CA,o=OWASP,l=OWASP,st=OWASP,c=OWASP");
             
-            CA_NAME = new X500Principal("cn=OWASP Custom CA for "
-                    + "sandrop"
-                    // + " at " + new Date()
-                    + ",ou=OWASP Custom CA,o=OWASP,l=OWASP,st=OWASP,c=OWASP");
+            CA_NAME = new X500Principal("cn=SandroProxy Custom CA"
+                    + ",ou=SandroProxy Custom CA,o=SandroProxy,l=SandroProxy,st=SandroProxy,c=SandroProxy");
             _logger.setLevel(Level.FINEST);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -108,55 +109,77 @@ public class SSLSocketFactoryFactory {
 
     private X509Certificate[] caCerts;
 
-    private String filename;
+    private String filenameCA;
+    private String filenameCert;
 
-    private KeyStore keystore;
+    private KeyStore keystoreCert;
+    private KeyStore keystoreCA;
 
-    private char[] password;
+    private char[] passwordCA;
+    private char[] passwordCerts;
 
     private boolean reuseKeys = false;
 
-    private Map contextCache = new HashMap();
+    private Map<String, SSLContext> contextCache = new HashMap<String, SSLContext>();
 
-    private Set serials = new HashSet();
+    private Set<BigInteger> serials = new HashSet<BigInteger>();
 
-    public SSLSocketFactoryFactory() throws GeneralSecurityException,
-            IOException {
-        this(null, "JKS", "password".toCharArray());
-    }
-
-    public SSLSocketFactoryFactory(String filename, String type, char[] password)
+    public SSLSocketFactoryFactory(String fileNameCA, String fileNameCert, String type,
+            char[] password)
             throws GeneralSecurityException, IOException {
-        this(filename, type, password, CA_NAME);
-    }
-
-    public SSLSocketFactoryFactory(String filename, String type,
-            char[] password, X500Principal caName)
-            throws GeneralSecurityException, IOException {
-        this.filename = filename;
-        this.password = password;
+        this.filenameCA = fileNameCA;
+        this.passwordCA = password;
+        this.passwordCerts = password;
+        this.filenameCert = fileNameCert;
         String keyStoreProvider = "BC";
-        keystore = KeyStore.getInstance(type, keyStoreProvider);
-        File file = new File(filename);
-        if (filename == null) {
+        keystoreCA = KeyStore.getInstance(type, keyStoreProvider);
+        File fileCA = new File(filenameCA);
+        if (filenameCA == null) {
             _logger.info("No keystore provided, keys and certificates will be transient!");
         }
-        if (file.exists()) {
-            _logger.fine("Loading keys from " + filename);
-            InputStream is = new FileInputStream(file);
-            keystore.load(is, password);
-            String firstAlias = keystore.aliases().nextElement();
-            caKey = (PrivateKey) keystore.getKey(firstAlias, password);
+        // ca stuff
+        if (fileCA.exists() && fileCA.canRead()) {
+            _logger.fine("Loading keys from " + filenameCA);
+            InputStream is = new FileInputStream(fileCA);
+            keystoreCA.load(is, password);
+            is.close();
+            String storeAlias;
+            Enumeration<String> enAliases = keystoreCA.aliases();
+            Date lastStoredAliasDate = null;
+            String lastStoredAliasValue = "";
+            // it should be just one 
+            while(enAliases.hasMoreElements()){
+                storeAlias = enAliases.nextElement();
+                Date lastStoredDate = keystoreCA.getCreationDate(storeAlias);
+                if (lastStoredAliasDate == null || lastStoredDate.after(lastStoredAliasDate)){
+                    lastStoredAliasDate = lastStoredDate;
+                    lastStoredAliasValue = storeAlias;
+                }
+            }
+            caKey = (PrivateKey) keystoreCA.getKey(lastStoredAliasValue, password);
             if (caKey == null) {
-                _logger.warning("Keystore does not contain an entry for '" + firstAlias
+                _logger.warning("Keystore does not contain an entry for '" + lastStoredAliasValue
                         + "'");
             }
-            caCerts = cast(keystore.getCertificateChain(firstAlias));
-            initSerials();
+            caCerts = cast(keystoreCA.getCertificateChain(lastStoredAliasValue));
         } else {
             _logger.info("Generating CA key");
-            keystore.load(null, password);
-            generateCA(caName);
+            keystoreCA.load(null, password);
+            generateCA(CA_NAME);
+            saveKeystore(keystoreCA, filenameCA, passwordCA);
+        }
+        // cert stuff
+        File fileCert = new File(filenameCert);
+        if (fileCert == null || !fileCert.exists()){
+            keystoreCert = KeyStore.getInstance(type, keyStoreProvider);
+            keystoreCert.load(null, passwordCerts);
+            saveKeystore(keystoreCert, filenameCert, passwordCerts);
+        }else{
+            InputStream is = new FileInputStream(fileCert);
+            keystoreCert = KeyStore.getInstance(type, keyStoreProvider);
+            keystoreCert.load(is, passwordCerts);
+            is.close();
+            initSerials();
         }
     }
 
@@ -188,7 +211,7 @@ public class SSLSocketFactoryFactory {
         SSLContext sslcontext = (SSLContext) contextCache.get(host);
         if (sslcontext == null) {
             X509KeyManager km;
-            if (!keystore.containsAlias(host)) {
+            if (!keystoreCert.containsAlias(host)) {
                 km = createKeyMaterial(host);
             } else {
                 km = loadKeyMaterial(host);
@@ -242,7 +265,7 @@ public class SSLSocketFactoryFactory {
     
     private X509KeyManager loadKeyMaterial(String host) throws GeneralSecurityException, IOException {
         X509Certificate[] certs = null;
-        Certificate[] chain = keystore.getCertificateChain(host);
+        Certificate[] chain = keystoreCert.getCertificateChain(host);
         if (chain != null) {
             certs = cast(chain);
         } else {
@@ -251,7 +274,7 @@ public class SSLSocketFactoryFactory {
                             + " not found!");
         }
 
-        PrivateKey pk = (PrivateKey) keystore.getKey(host, password);
+        PrivateKey pk = (PrivateKey) keystoreCert.getKey(host, passwordCerts);
         if (pk == null) {
             throw new GeneralSecurityException(
                     "Internal error: private key for " + host + " not found!");
@@ -259,7 +282,7 @@ public class SSLSocketFactoryFactory {
         return new HostKeyManager(host, pk, certs);
     }
 
-    private void saveKeystore() {
+    private void saveKeystore(KeyStore keystore, String filename, char[] password) {
         if (filename == null)
             return;
         try {
@@ -290,26 +313,23 @@ public class SSLSocketFactoryFactory {
         certGen.setIssuerDN(caName);
         certGen.setNotBefore(begin);
         certGen.setNotAfter(ends);
-        certGen.setSubjectDN(caName);                       // note: same as issuer
+        certGen.setSubjectDN(caName);
         certGen.setPublicKey(caPubKey);
         certGen.setSignatureAlgorithm("SHA256withRSA");
+        BasicConstraints bc = new BasicConstraints(true);
+        certGen.addExtension(new DERObjectIdentifier("2.5.29.19"), true, bc.toASN1Object().getEncoded());
         X509Certificate cert = certGen.generate(caKey, "BC");
 
-
-        // X509Certificate cert = SunCertificateUtils.sign(caName, caPubKey,
-        //        caName, caPubKey, caKey, begin, ends, BigInteger.ONE);
-        // X509Certificate cert = null;
         caCerts = new X509Certificate[] { cert };
 
-        keystore.setKeyEntry(CA, caKey, password, caCerts);
-        saveKeystore();
+        keystoreCA.setKeyEntry(CA, caKey, passwordCA, caCerts);
     }
 
     private void initSerials() throws GeneralSecurityException {
-        Enumeration e = keystore.aliases();
+        Enumeration<String> e = keystoreCert.aliases();
         while (e.hasMoreElements()) {
             String alias = (String) e.nextElement();
-            X509Certificate cert = (X509Certificate) keystore
+            X509Certificate cert = (X509Certificate) keystoreCert
                     .getCertificate(alias);
             BigInteger serial = cert.getSerialNumber();
             serials.add(serial);
@@ -317,7 +337,7 @@ public class SSLSocketFactoryFactory {
     }
 
     protected X500Principal getSubjectPrincipal(String host) {
-        return new X500Principal("cn=" + host + ",ou=UNTRUSTED,o=UNTRUSTED");
+        return new X500Principal("cn=" + host + ",ou=UNTRUSTED SandroProxy,o=UNTRUSTED SandroProxy");
     }
 
     protected BigInteger getNextSerialNo() {
@@ -347,28 +367,27 @@ public class SSLSocketFactoryFactory {
         
         X509V3CertificateGenerator certGen = new X509V3CertificateGenerator();
         certGen.setSerialNumber(getNextSerialNo());
-        certGen.setIssuerDN(subject);
+        certGen.setIssuerDN(caCerts[0].getSubjectX500Principal());
         certGen.setNotBefore(begin);
         certGen.setNotAfter(ends);
-        certGen.setSubjectDN(subject);                       // note: same as issuer
+        certGen.setSubjectDN(subject);
         certGen.setPublicKey(keyPair.getPublic());
         certGen.setSignatureAlgorithm("SHA256withRSA");
+        
+        certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, false,
+                              new AuthorityKeyIdentifierStructure(caCerts[0]));
+        certGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
+                             new SubjectKeyIdentifierStructure(keyPair.getPublic()));
         X509Certificate cert = certGen.generate(caKey, "BC");
 
-        // sandrop specific
-        //X509Certificate cert = SunCertificateUtils.sign(subject, keyPair
-        //        .getPublic(), caCerts[0].getSubjectX500Principal(), caCerts[0]
-        //        .getPublicKey(), caKey, begin, ends, getNextSerialNo());
-  
-        // X509Certificate cert = null;
         X509Certificate[] chain = new X509Certificate[caCerts.length + 1];
         System.arraycopy(caCerts, 0, chain, 1, caCerts.length);
         chain[0] = cert;
 
         PrivateKey pk = keyPair.getPrivate();
 
-        keystore.setKeyEntry(host, pk, password, chain);
-        saveKeystore();
+        keystoreCert.setKeyEntry(host, pk, passwordCerts, chain);
+        saveKeystore(keystoreCert, filenameCert, passwordCerts);
         return new HostKeyManager(host, pk, chain);
     }
 

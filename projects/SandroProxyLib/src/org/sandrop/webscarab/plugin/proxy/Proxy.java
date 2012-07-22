@@ -127,19 +127,8 @@ public class Proxy implements Plugin {
         parseListenerConfig();
         _certGenerator = null;
         try {
-            String keyStoreType = "PKCS12";
-            String caFilePath = Preferences.getPreference("preference_ca_cert_file_path", "");
-            if (caFilePath != ""){
-                String caPassword = Preferences.getPreference("preference_ca_cert_password", "");
-                try{
-                    _certGenerator = new SSLSocketFactoryFactory(caFilePath, keyStoreType, caPassword.toCharArray());
-                    _certGenerator.setReuseKeys(true);
-                    _logger.fine("Using CA from file: " + caFilePath);
-                }catch(Exception ex){
-                    _logger.fine("Error getting custom CA certificate:" + ex.getMessage());
-                }
-            }
             File dataStorageDir = PreferenceUtils.getDataStorageDir(_framework.GetAndroidContext());
+            
             if (dataStorageDir == null){
                 String errorText = "ERROR \nNo external storage available...";
                 _logger.fine(errorText);
@@ -147,13 +136,29 @@ public class Proxy implements Plugin {
                 return;
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
+            String keystoreCAFullPath = dataStorageDir.getAbsolutePath() + "/.keystoreca";
+            String keystoreCertFullPath = dataStorageDir.getAbsolutePath() + "/.keystorecert";
+            String keyStoreType = "PKCS12";
+            String caFilePath = Preferences.getPreference("preference_ca_cert_file_path", "");
+            if (caFilePath != null && caFilePath.length() > 0){
+                File caFile = new File(caFilePath);
+                if (caFile.exists() && caFile.canRead()){
+                    String caPassword = Preferences.getPreference("preference_ca_cert_password", "");
+                    try{
+                        _certGenerator = new SSLSocketFactoryFactory(caFilePath, keystoreCertFullPath, keyStoreType, caPassword.toCharArray());
+                        _certGenerator.setReuseKeys(false);
+                        _logger.fine("Using CA from file: " + caFilePath);
+                    }catch(Exception ex){
+                        _logger.fine("Error getting custom CA certificate:" + ex.getMessage());
+                    }
+                }else{
+                    _logger.fine("Error ca file do not exist!");
+                }
+            }
             if (_certGenerator == null){
-                String keystoreFullPath = dataStorageDir.getAbsolutePath() + "/.keystore";
-                
-                _certGenerator = new SSLSocketFactoryFactory(keystoreFullPath, keyStoreType,
-                        "password".toCharArray());
-                _certGenerator.setReuseKeys(true);
-                _logger.fine("Using sandrop local CA ");
+                _certGenerator = new SSLSocketFactoryFactory(keystoreCAFullPath, keystoreCertFullPath, keyStoreType, "password".toCharArray());
+                _certGenerator.setReuseKeys(false);
+                _logger.fine("Using sandroproxy local CA ");
             }
         } catch (NoClassDefFoundError e) {
             _certGenerator = null;
