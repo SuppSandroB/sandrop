@@ -34,6 +34,8 @@ package org.sandroproxy.utils;
 
 import java.io.File;
 
+import org.sandroproxy.constants.Constants;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
@@ -46,6 +48,8 @@ public class PreferenceUtils {
     public static String proxyCustomPluginKey = "preference_proxy_custom_plugins";
     public static String proxyPort = "preference_proxy_port";
     public static String proxyListenNonLocal = "preference_proxy_listen_non_local";
+    public static String caFileNamePath = "preference_ca_cert_file_path";
+    public static String caFilePassword = "preference_ca_cert_password";
     
     public static File getDataStorageDir(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
@@ -63,6 +67,61 @@ public class PreferenceUtils {
         }
         return null;
     }
+    
+    
+    public static String getCAFilePath(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        String fileName = pref.getString(caFileNamePath, null);
+        if (fileName != null && !fileName.equals("")){
+            File fileVal = new File(fileName);
+            if (fileVal.canRead()){
+                return fileVal.getAbsolutePath();
+            }
+        }else{
+            File dataDir = getDataStorageDir(context);
+            if (IsDirWritable(dataDir)){
+                return dataDir.getAbsolutePath() + Constants.CA_FILE_NAME;
+            }
+        }
+        return null;
+    }
+    
+    public static String getCAExportFilePath(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        String fileName = pref.getString(caFileNamePath, null);
+        if (fileName != null && !fileName.equals("")){
+            File fileVal = new File(fileName);
+            if (fileVal.canRead()){
+                return fileVal.getAbsolutePath() + Constants.CA_FILE_EXPORT_POSTFIX;
+            }
+        }else{
+            File dataDir = getDataStorageDir(context);
+            if (IsDirWritable(dataDir)){
+                return dataDir.getAbsolutePath() + Constants.CA_FILE_NAME + Constants.CA_FILE_EXPORT_POSTFIX;
+            }
+        }
+        return null;
+    }
+    
+    
+    
+    public static String getCertFilePath(Context context){
+        File dataDir = getDataStorageDir(context);
+        if (IsDirWritable(dataDir)){
+            return dataDir.getAbsolutePath() + Constants.CERTS_FILE_NAME;
+        }
+        return null;
+    }
+    
+    public static String getCAFilePassword(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        String caFilePasswordVal = pref.getString(caFilePassword, null);
+        if (caFilePasswordVal != null && caFilePasswordVal.length() > 0 ){
+            return caFilePasswordVal;
+        }
+        return Constants.CERT_DEFAULT_PASSWORD;
+    }
+    
     
     public static boolean IsDirWritable(File dir){
         if (dir != null && dir.exists() && dir.isDirectory() && dir.canWrite()){
