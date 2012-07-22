@@ -136,34 +136,23 @@ public class Proxy implements Plugin {
                 return;
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
-            String keystoreCAFullPath = dataStorageDir.getAbsolutePath() + "/.keystoreca";
-            String keystoreCertFullPath = dataStorageDir.getAbsolutePath() + "/.keystorecert";
+            String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.GetAndroidContext());
+            String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.GetAndroidContext());
+            String caPassword = PreferenceUtils.getCAFilePassword(_framework.GetAndroidContext());
             String keyStoreType = "PKCS12";
-            String caFilePath = Preferences.getPreference("preference_ca_cert_file_path", "");
-            if (caFilePath != null && caFilePath.length() > 0){
-                File caFile = new File(caFilePath);
-                if (caFile.exists() && caFile.canRead()){
-                    String caPassword = Preferences.getPreference("preference_ca_cert_password", "");
-                    try{
-                        _certGenerator = new SSLSocketFactoryFactory(caFilePath, keystoreCertFullPath, keyStoreType, caPassword.toCharArray());
-                        _certGenerator.setReuseKeys(false);
-                        _logger.fine("Using CA from file: " + caFilePath);
-                    }catch(Exception ex){
-                        _logger.fine("Error getting custom CA certificate:" + ex.getMessage());
-                    }
-                }else{
-                    _logger.fine("Error ca file do not exist!");
+            if (keystoreCAFullPath != null && keystoreCAFullPath.length() > 0 && 
+                keystoreCertFullPath != null && keystoreCertFullPath.length() > 0){
+                
+                try{
+                    _certGenerator = new SSLSocketFactoryFactory(keystoreCAFullPath, keystoreCertFullPath, keyStoreType, caPassword.toCharArray());
+                    _certGenerator.setReuseKeys(true);
+                    _logger.fine("Using CA from file: " + keystoreCAFullPath);
+                }catch(Exception ex){
+                    _logger.fine("Error getting custom CA certificate:" + ex.getMessage());
                 }
-            }
-            if (_certGenerator == null){
-                _certGenerator = new SSLSocketFactoryFactory(keystoreCAFullPath, keystoreCertFullPath, keyStoreType, "password".toCharArray());
-                _certGenerator.setReuseKeys(false);
-                _logger.fine("Using sandroproxy local CA ");
             }
         } catch (NoClassDefFoundError e) {
             _certGenerator = null;
-        } catch (GeneralSecurityException e) {
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }

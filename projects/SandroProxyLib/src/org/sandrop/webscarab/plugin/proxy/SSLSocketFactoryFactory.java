@@ -72,12 +72,10 @@ import org.sandrob.bouncycastle.asn1.x509.X509Extensions;
 import org.sandrob.bouncycastle.x509.X509V3CertificateGenerator;
 import org.sandrob.bouncycastle.x509.extension.AuthorityKeyIdentifierStructure;
 import org.sandrob.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
-
-import android.util.Log;
+import org.sandroproxy.constants.Constants;
 
 public class SSLSocketFactoryFactory {
 
-    private static String TAG = SSLSocketFactoryFactory.class.getName();
     private static final long DEFAULT_VALIDITY = 10L * 365L * 24L * 60L * 60L
             * 1000L;
 
@@ -85,7 +83,6 @@ public class SSLSocketFactoryFactory {
             .getLogger(SSLSocketFactoryFactory.class.getName());
 
     private static final String CA = "CA";
-
     private static X500Principal CA_NAME;
 
     static {
@@ -131,12 +128,14 @@ public class SSLSocketFactoryFactory {
         this.passwordCA = password;
         this.passwordCerts = password;
         this.filenameCert = fileNameCert;
+        boolean haveNewCA = false;
         String keyStoreProvider = "BC";
         keystoreCA = KeyStore.getInstance(type, keyStoreProvider);
         File fileCA = new File(filenameCA);
         if (filenameCA == null) {
             _logger.info("No keystore provided, keys and certificates will be transient!");
         }
+        String caAliasValue = "";
         // ca stuff
         if (fileCA.exists() && fileCA.canRead()) {
             _logger.fine("Loading keys from " + filenameCA);
@@ -146,31 +145,49 @@ public class SSLSocketFactoryFactory {
             String storeAlias;
             Enumeration<String> enAliases = keystoreCA.aliases();
             Date lastStoredAliasDate = null;
-            String lastStoredAliasValue = "";
             // it should be just one 
             while(enAliases.hasMoreElements()){
                 storeAlias = enAliases.nextElement();
                 Date lastStoredDate = keystoreCA.getCreationDate(storeAlias);
                 if (lastStoredAliasDate == null || lastStoredDate.after(lastStoredAliasDate)){
                     lastStoredAliasDate = lastStoredDate;
-                    lastStoredAliasValue = storeAlias;
+                    caAliasValue = storeAlias;
                 }
             }
-            caKey = (PrivateKey) keystoreCA.getKey(lastStoredAliasValue, password);
+            caKey = (PrivateKey) keystoreCA.getKey(caAliasValue, password);
             if (caKey == null) {
-                _logger.warning("Keystore does not contain an entry for '" + lastStoredAliasValue
+                _logger.warning("Keystore does not contain an entry for '" + caAliasValue
                         + "'");
             }
-            caCerts = cast(keystoreCA.getCertificateChain(lastStoredAliasValue));
+            caCerts = cast(keystoreCA.getCertificateChain(caAliasValue));
         } else {
             _logger.info("Generating CA key");
             keystoreCA.load(null, password);
             generateCA(CA_NAME);
+            haveNewCA = true;
             saveKeystore(keystoreCA, filenameCA, passwordCA);
+            caAliasValue = keystoreCA.aliases().nextElement();
+        }
+        // store ca cert to be used for export
+        {
+            FileOutputStream fos = null;
+            try{
+                X509Certificate caCert = (X509Certificate) keystoreCA.getCertificate(caAliasValue);
+                byte[] caByteArray = caCert.getEncoded();
+                fos = new FileOutputStream( filenameCA + Constants.CA_FILE_EXPORT_POSTFIX);
+                fos.write(caByteArray);
+                fos.close();
+            }catch (Exception ex){
+                ex.printStackTrace();
+                if (fos != null){
+                    fos.close();
+                }
+            }
+            
         }
         // cert stuff
         File fileCert = new File(filenameCert);
-        if (fileCert == null || !fileCert.exists()){
+        if (haveNewCA || fileCert == null || !fileCert.exists()){
             keystoreCert = KeyStore.getInstance(type, keyStoreProvider);
             keystoreCert.load(null, passwordCerts);
             saveKeystore(keystoreCert, filenameCert, passwordCerts);
