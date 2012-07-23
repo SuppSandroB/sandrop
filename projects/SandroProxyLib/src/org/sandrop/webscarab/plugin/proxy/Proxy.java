@@ -150,6 +150,8 @@ public class Proxy implements Plugin {
                 }catch(Exception ex){
                     _logger.fine("Error getting custom CA certificate:" + ex.getMessage());
                 }
+            }else{
+                _logger.fine("Error getting custom CA certificate: Invalid file path");
             }
         } catch (NoClassDefFoundError e) {
             _certGenerator = null;

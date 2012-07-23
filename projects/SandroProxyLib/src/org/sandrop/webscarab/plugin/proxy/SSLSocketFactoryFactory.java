@@ -124,6 +124,7 @@ public class SSLSocketFactoryFactory {
     public SSLSocketFactoryFactory(String fileNameCA, String fileNameCert, String type,
             char[] password)
             throws GeneralSecurityException, IOException {
+        _logger.setLevel(Level.FINEST);
         this.filenameCA = fileNameCA;
         this.passwordCA = password;
         this.passwordCerts = password;
@@ -140,7 +141,7 @@ public class SSLSocketFactoryFactory {
         if (fileCA.exists() && fileCA.canRead()) {
             _logger.fine("Loading keys from " + filenameCA);
             InputStream is = new FileInputStream(fileCA);
-            keystoreCA.load(is, password);
+            keystoreCA.load(is, passwordCA);
             is.close();
             String storeAlias;
             Enumeration<String> enAliases = keystoreCA.aliases();
@@ -154,7 +155,7 @@ public class SSLSocketFactoryFactory {
                     caAliasValue = storeAlias;
                 }
             }
-            caKey = (PrivateKey) keystoreCA.getKey(caAliasValue, password);
+            caKey = (PrivateKey) keystoreCA.getKey(caAliasValue, passwordCA);
             if (caKey == null) {
                 _logger.warning("Keystore does not contain an entry for '" + caAliasValue
                         + "'");
@@ -162,7 +163,7 @@ public class SSLSocketFactoryFactory {
             caCerts = cast(keystoreCA.getCertificateChain(caAliasValue));
         } else {
             _logger.info("Generating CA key");
-            keystoreCA.load(null, password);
+            keystoreCA.load(null, passwordCA);
             generateCA(CA_NAME);
             haveNewCA = true;
             saveKeystore(keystoreCA, filenameCA, passwordCA);
@@ -174,16 +175,17 @@ public class SSLSocketFactoryFactory {
             try{
                 X509Certificate caCert = (X509Certificate) keystoreCA.getCertificate(caAliasValue);
                 byte[] caByteArray = caCert.getEncoded();
-                fos = new FileOutputStream( filenameCA + Constants.CA_FILE_EXPORT_POSTFIX);
+                String exportFilename = filenameCA + Constants.CA_FILE_EXPORT_POSTFIX;
+                fos = new FileOutputStream(exportFilename);
                 fos.write(caByteArray);
                 fos.close();
+                _logger.fine("CA cert exported to " + exportFilename);
             }catch (Exception ex){
                 ex.printStackTrace();
                 if (fos != null){
                     fos.close();
                 }
             }
-            
         }
         // cert stuff
         File fileCert = new File(filenameCert);
@@ -193,8 +195,16 @@ public class SSLSocketFactoryFactory {
             saveKeystore(keystoreCert, filenameCert, passwordCerts);
         }else{
             InputStream is = new FileInputStream(fileCert);
-            keystoreCert = KeyStore.getInstance(type, keyStoreProvider);
-            keystoreCert.load(is, passwordCerts);
+            try{
+                keystoreCert = KeyStore.getInstance(type, keyStoreProvider);
+                keystoreCert.load(is, passwordCerts);
+            }catch(Exception ex){
+                // problems opening exisiting so we create new one
+                _logger.fine("problems opening exisiting cert keystore so we create new one");
+                keystoreCert = KeyStore.getInstance(type, keyStoreProvider);
+                keystoreCert.load(null, passwordCerts);
+                saveKeystore(keystoreCert, filenameCert, passwordCerts);
+            }
             is.close();
             initSerials();
         }
