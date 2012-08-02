@@ -60,7 +60,7 @@ public class MainActivity extends Activity {
                         @Override
                         public void run() {
                             framework = new Framework(getApplicationContext());
-                            Proxy proxy = new Proxy(framework);
+                            Proxy proxy = new Proxy(framework, null);
                             framework.addPlugin(proxy);
                             if (true){
                                 ProxyPlugin plugin = new CustomPlugin();
