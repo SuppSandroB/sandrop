@@ -35,6 +35,8 @@ package org.sandrop.webscarab.plugin.proxy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.logging.Level;
@@ -59,6 +61,7 @@ public class ConnectionHandler implements Runnable {
     private HttpUrl _base;
     private boolean _transparent = false;
     private boolean _transparentSecure = false;
+    private ITransparentProxyResolver _transparentResolver = null;
 
     private HTTPClient _httpClient = null;
 
@@ -67,13 +70,14 @@ public class ConnectionHandler implements Runnable {
     private InputStream _clientIn = null;
     private OutputStream _clientOut = null;
 
-    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure) {
+    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, ITransparentProxyResolver transparentProxyResolver) {
         _logger.setLevel(Level.FINEST);
         _proxy = proxy;
         _sock = sock;
         _base = base;
         _transparent = transparent;
         _transparentSecure = transparentSecure;
+        _transparentResolver = transparentProxyResolver;
         _plugins = _proxy.getPlugins();
         try {
             _sock.setTcpNoDelay(true);
@@ -146,7 +150,19 @@ public class ConnectionHandler implements Runnable {
             if (_base != null || _transparentSecure) {
                 if (_transparentSecure || _base.getScheme().equals("https")) {
                     _logger.fine("Intercepting SSL connection!");
-                    _sock = negotiateSSL(_sock, _base);
+                    String hostName = null;
+                    if (_transparentSecure){
+                        if (_transparentResolver != null){
+                            hostName = _transparentResolver.getSecureHostName();
+                        }
+                    }else{
+                        hostName = _base.getHost();
+                    }
+                    String host = "sandroproxy.untrusted";
+                    if (hostName == null || hostName.trim().length() == 0){
+                        hostName = host;
+                    }
+                    _sock = negotiateSSL(_sock, hostName);
                     _clientIn = _sock.getInputStream();
                     _clientOut = _sock.getOutputStream();
                 }
@@ -312,17 +328,17 @@ public class ConnectionHandler implements Runnable {
     }
 
 
-    private Socket negotiateSSL(Socket sock, HttpUrl base) throws Exception {
-        SSLSocketFactory factory = _proxy.getSocketFactory(base);
+    private Socket negotiateSSL(Socket sock, String hostName) throws Exception {
+        SSLSocketFactory factory = _proxy.getSocketFactory(hostName);
         if (factory == null)
             throw new RuntimeException(
                     "SSL Intercept not available - no keystores available");
         SSLSocket sslsock;
         try {
             int sockPort = sock.getPort();
-            String hostname = sock.getInetAddress().getHostName();
             
-            sslsock = (SSLSocket) factory.createSocket(sock, hostname, sockPort, false);
+            
+            sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
             sslsock.setUseClientMode(false);
             _logger.info("Finished negotiating SSL - algorithm is "
                     + sslsock.getSession().getCipherSuite());
