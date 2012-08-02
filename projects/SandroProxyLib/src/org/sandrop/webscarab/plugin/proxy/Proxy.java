@@ -80,6 +80,7 @@ public class Proxy implements Plugin {
     private boolean _running = false;
 
     private Framework _framework = null;
+    private ITransparentProxyResolver _transparentProxyResolver;
 
     private ProxyUI _ui = null;
 
@@ -121,9 +122,10 @@ public class Proxy implements Plugin {
      * @param model
      *            The Model to submit requests and responses to
      */
-    public Proxy(Framework framework) {
+    public Proxy(Framework framework, ITransparentProxyResolver transparentProxyResolver) {
         _logger.setLevel(Level.FINEST);
         _framework = framework;
+        _transparentProxyResolver = transparentProxyResolver;
         parseListenerConfig();
         _certGenerator = null;
         try {
@@ -167,6 +169,10 @@ public class Proxy implements Plugin {
 
     public Object getScriptableObject() {
         return null;
+    }
+    
+    public ITransparentProxyResolver getTransparentProxyResolver(){
+        return _transparentProxyResolver;
     }
 
     /**
@@ -436,13 +442,9 @@ public class Proxy implements Plugin {
                 + (_pending > 0 ? (_pending + " in progress") : "Idle");
     }
 
-    protected SSLSocketFactory getSocketFactory(HttpUrl base) {
+    protected SSLSocketFactory getSocketFactory(String host) {
         synchronized (_factoryMap) {
             // If it has been loaded already, use it
-            String host = "SandroProxy.untrusted";
-            if (base != null){
-                host = base.getHost();
-            }
             if (_factoryMap.containsKey(host))
                 return (SSLSocketFactory) _factoryMap.get(host);
             SSLSocketFactory factory;

@@ -49,6 +49,7 @@ import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.fragments.Fragments;
 import org.sandroproxy.utils.NetworkUtils;
+import org.sandroproxy.utils.PreferenceUtils;
 
 import EDU.oswego.cs.dl.util.concurrent.QueuedExecutor;
 import EDU.oswego.cs.dl.util.concurrent.ThreadFactory;
@@ -98,13 +99,13 @@ public class Framework {
         extractVersionFromManifest();
         _credentialManager = new CredentialManager();
         configureHTTPClient(mContext);
-        String dropRegex = Preferences.getPreference("WebScarab.dropRegex", null);
+        String dropRegex = Preferences.getPreference(PreferenceUtils.dataCaptureBlackListRegEx, null);
         try {
             setDropPattern(dropRegex);
         } catch (PatternSyntaxException pse) {
             _logger.warning("Got an invalid regular expression for conversations to ignore: " + dropRegex + " results in " + pse.toString());
         }
-        String whitelistRegex = Preferences.getPreference("WebScarab.whitelistRegex", null);
+        String whitelistRegex = Preferences.getPreference(PreferenceUtils.dataCaptureWhiteListRegEx, null);
         try {
             setWhitelistPattern(whitelistRegex);
         } catch (PatternSyntaxException pse) {
@@ -185,20 +186,17 @@ public class Framework {
     public void setWhitelistPattern(String pattern) throws PatternSyntaxException{
         if (pattern == null || "".equals(pattern)) {
             whitelistPattern = null;
-            Preferences.setPreference("WebScarab.whitelistRegex", "");
         } else {
             whitelistPattern = Pattern.compile(pattern);
-            Preferences.setPreference("WebScarab.whitelistRegex", pattern);
+            _logger.finest("Using whitelist regular expression " + pattern);
         }
-        System.out.println("Using WebScarab.whitelistRegex pattern : "+pattern+". Will not save any data for requests not matching this pattern");
     }
     public void setDropPattern(String pattern) throws PatternSyntaxException {
         if (pattern == null || "".equals(pattern)) {
             dropPattern = null;
-            Preferences.setPreference("WebScarab.dropRegex", "");
         } else {
             dropPattern = Pattern.compile(pattern);
-            Preferences.setPreference("WebScarab.dropRegex", pattern);
+            _logger.finest("Using blacklist regular expression " + pattern);
         }
     }
     
@@ -411,11 +409,13 @@ public class Framework {
         //Do we have whitelisting? If so, check if it matches
         if(whitelistPattern != null && !whitelistPattern.matcher(request.getURL().toString()).matches())
         {
-        	return;
+        	_logger.finest("storage skipped. Url not in whitelist");
+            return;
         }
         // Also, check blacklist - drop pattern
         
         if (dropPattern != null && dropPattern.matcher(request.getURL().toString()).matches()) {
+            _logger.finest("storage skipped. Url is in blacklist");
             return;
         }
         _model.addConversation(id, when, request, response, origin);
