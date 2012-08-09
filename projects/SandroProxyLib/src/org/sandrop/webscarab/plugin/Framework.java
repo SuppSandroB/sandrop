@@ -319,12 +319,10 @@ public class Framework {
     
     public void start(){
         configureHTTPClient(mContext);
-        Plugin proxy = getPlugin("Proxy");
-        proxy.run();
+        startPlugins();
     }
     
     public void stop(){
-        
         try {
             stopPlugins();
             saveSessionData();
@@ -332,7 +330,6 @@ public class Framework {
         } catch (Exception e) {
             _logger.log(Level.SEVERE, "Error stoping " + e.getMessage());
         }
-        
     }
     
     /**

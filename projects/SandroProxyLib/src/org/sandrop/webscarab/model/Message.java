@@ -156,7 +156,8 @@ public class Message {
         } else if (_content != null && _content.size() > 0) {
             _logger.finer("Writing content bytes");
             os.write(_content.toByteArray());
-            _logger.finest("Content: \n" + new String(_content.toByteArray()));
+            // content can be big so this can create out of memmory exception
+            // _logger.finest("Content: \n" + new String(_content.toByteArray()));
             _logger.finer("Done writing content bytes");
         }
         if (_chunked) {
@@ -553,6 +554,39 @@ public class Message {
         _contentStream = null;
         if (ioe != null) throw ioe;
     }
+    
+    /* Writes the bytes read to the supplied outputstream
+     * This method immediately throws any IOExceptions that occur while reading
+     * the contentStream, but defers any exceptions that occur writing to the
+     * supplied outputStream until the entire contentStream has been read and
+     * saved.
+     */
+    public void flushContentStreamToOutputStream(OutputStream os) throws IOException {
+        IOException ioe = null;
+        if (_contentStream == null) return;
+        byte[] buf = new byte[4096];
+        _logger.finest("Reading initial bytes from contentStream " + _contentStream);
+        int got = _contentStream.read(buf);
+        _logger.finest("Got " + got + " bytes");
+        while (got > 0) {
+            if (os != null) {
+                try {
+                    os.write(buf,0,got);
+                } catch (IOException e) {
+                    _logger.info("IOException ioe writing to output stream : " + e);
+                    _logger.info("Had seen " + (_content.size()-got) + " bytes, was writing " + got);
+                    ioe = e;
+                    os = null;
+                }
+            }
+            got = _contentStream.read(buf);
+            _logger.finest("Got " + got + " bytes");
+        }
+        _contentStream = null;
+        if (ioe != null) throw ioe;
+    }
+    
+    
     
     /**
      * sets the message to not have a body. This is typical for a CONNECT request or
