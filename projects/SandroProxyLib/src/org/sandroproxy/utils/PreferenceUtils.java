@@ -54,6 +54,12 @@ public class PreferenceUtils {
     public static String dataCaptureWhiteListRegEx = "preference_data_capture_whitelist";
     public static String dataCaptureBlackListRegEx = "preference_data_capture_blacklist";
     
+    public static String chainProxyHttp = "preference_chain_proxy_http";
+    public static String chainProxyHttps = "preference_chain_proxy_https";
+    public static String chainProxyExcludeList = "preference_chain_proxy_no_proxy_list";
+    public static String chainProxyUsername = "preference_chain_proxy_username";
+    public static String chainProxyPassword = "preference_chain_proxy_password";
+    
     public static File getDataStorageDir(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         String dirName = pref.getString(dataStorageKey, null);

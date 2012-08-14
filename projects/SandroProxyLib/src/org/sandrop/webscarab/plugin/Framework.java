@@ -98,6 +98,17 @@ public class Framework {
         //_scriptManager.registerHooks("Framework", new Hook[] { _allowAddConversation, _analyseConversation });
         extractVersionFromManifest();
         _credentialManager = new CredentialManager();
+
+        String proxyCredentialsUsername = Preferences.getPreference(PreferenceUtils.chainProxyUsername, null);
+        String proxyCredentialsPassword = Preferences.getPreference(PreferenceUtils.chainProxyPassword, null);
+        String proxyHost = Preferences.getPreference(PreferenceUtils.chainProxyHttp, null);
+        if (proxyHost != null && !proxyHost.equals("") && proxyCredentialsUsername != null && !proxyCredentialsUsername.equals("")){
+         String[] userNameParts =  proxyCredentialsUsername.split("\\\\");
+         String[] hostParts = proxyHost.split(":");
+          _credentialManager.addDomainCredentials(new DomainCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
+          _credentialManager.addBasicCredentials(new BasicCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
+        }
+        
         configureHTTPClient(mContext);
         String dropRegex = Preferences.getPreference(PreferenceUtils.dataCaptureBlackListRegEx, null);
         try {
@@ -440,19 +451,19 @@ public class Framework {
         try {
             // FIXME for some reason, we get "" instead of null for value,
             // and do not use our default value???
-            prop = "WebScarab.httpProxy";
+            prop = PreferenceUtils.chainProxyHttp;
             value = Preferences.getPreference(prop);
             if (value == null || value.equals("")) value = ":3128";
             colon = value.indexOf(":");
             factory.setHttpProxy(value.substring(0,colon), Integer.parseInt(value.substring(colon+1).trim()));
             
-            prop = "WebScarab.httpsProxy";
+            prop = PreferenceUtils.chainProxyHttps;
             value = Preferences.getPreference(prop);
             if (value == null || value.equals("")) value = ":3128";
             colon = value.indexOf(":");
             factory.setHttpsProxy(value.substring(0,colon), Integer.parseInt(value.substring(colon+1).trim()));
             
-            prop = "WebScarab.noProxy";
+            prop = PreferenceUtils.chainProxyExcludeList;
             value = Preferences.getPreference(prop, "");
             if (value == null) value = "";
             factory.setNoProxy(value.split(" *, *"));
