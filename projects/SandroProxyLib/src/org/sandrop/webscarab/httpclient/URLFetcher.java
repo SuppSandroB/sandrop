@@ -366,8 +366,31 @@ public class URLFetcher implements HTTPClient {
                 String oldAuthHeader = null;
                 String authHeader = constructAuthenticationHeader(null, _proxyAuthCreds);
                 String status;
+                int loopCountMax = 10;
+                int loopCount = 0;
+                boolean startNewConnection = false;
                 do {
+                    // we create new connection if we receive response header to do so
+                    if (startNewConnection){
+                        
+                        // clean up previous socket objects
+                        if (_in != null) _in.close();
+                        if (_out != null) _out.close();
+                        if (_socket != null) _socket.close();
+                        _in = null; _out = null; _socket = null;
+                        
+                        // creating new socket to proxy
+                        _socket = new Socket();
+                        _socket.setSoTimeout(_timeout);
+                        _socket.connect(new InetSocketAddress(_httpsProxy, _httpsProxyPort), _connectTimeout);
+                        _in = _socket.getInputStream();
+                        _out = _socket.getOutputStream();
+                        startNewConnection = false;
+                    }
                     _out.write(("CONNECT " + _host + ":" + _port + " HTTP/1.0\r\n").getBytes());
+                    // setting headers to alive connection on http 1.0
+                    _out.write(("Proxy-Connection:" + "Keep-Alive\r\n").getBytes());
+                    _out.write(("Connection:" + "Keep-Alive\r\n").getBytes());
                     if (authHeader != null) {
                         _out.write(("Proxy-Authorization: " + authHeader + "\r\n").getBytes());
                     }
@@ -393,9 +416,28 @@ public class URLFetcher implements HTTPClient {
                             _response = response;
                             return;
                         }
+                        String[] headerConnection = response.getHeaders("Connection");
+                        String[] headerProxyConnection = response.getHeaders("Proxy-Connection");
+                        if(headerConnection != null && headerConnection.length > 0){
+                            String val = headerConnection[0];
+                            if (val != null && val.trim().equalsIgnoreCase("close")){
+                                startNewConnection = true;
+                            }
+                        }
+                        if(headerProxyConnection != null && headerProxyConnection.length > 0){
+                            String val = headerProxyConnection[0];
+                            if (val != null && val.trim().equalsIgnoreCase("close")){
+                                startNewConnection = true;
+                            }
+                        }
                     }
-                } while (status.equals("407") && authHeader != null);
-                _logger.fine("HTTPS CONNECT successful");
+                    loopCount++;
+                } while (status.equals("407") && authHeader != null && loopCount < loopCountMax);
+                if (loopCount >= loopCountMax){
+                    _logger.finest("HTTPS CONNECT looping count reached " + loopCountMax);
+                }else{
+                    _logger.fine("HTTPS CONNECT successful");
+                }
             }
         } else {
             _logger.fine("Connect to " + _host + ":" + _port );

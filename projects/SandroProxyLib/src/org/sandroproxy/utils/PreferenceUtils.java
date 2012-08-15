@@ -54,6 +54,7 @@ public class PreferenceUtils {
     public static String dataCaptureWhiteListRegEx = "preference_data_capture_whitelist";
     public static String dataCaptureBlackListRegEx = "preference_data_capture_blacklist";
     
+    public static String chainProxyEnabled = "preference_chain_proxy_enabled";
     public static String chainProxyHttp = "preference_chain_proxy_http";
     public static String chainProxyHttps = "preference_chain_proxy_https";
     public static String chainProxyExcludeList = "preference_chain_proxy_no_proxy_list";
