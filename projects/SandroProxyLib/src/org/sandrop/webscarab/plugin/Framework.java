@@ -99,16 +99,18 @@ public class Framework {
         extractVersionFromManifest();
         _credentialManager = new CredentialManager();
 
-        String proxyCredentialsUsername = Preferences.getPreference(PreferenceUtils.chainProxyUsername, null);
-        String proxyCredentialsPassword = Preferences.getPreference(PreferenceUtils.chainProxyPassword, null);
-        String proxyHost = Preferences.getPreference(PreferenceUtils.chainProxyHttp, null);
-        if (proxyHost != null && !proxyHost.equals("") && proxyCredentialsUsername != null && !proxyCredentialsUsername.equals("")){
-         String[] userNameParts =  proxyCredentialsUsername.split("\\\\");
-         String[] hostParts = proxyHost.split(":");
-          _credentialManager.addDomainCredentials(new DomainCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
-          _credentialManager.addBasicCredentials(new BasicCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
+        if (Preferences.getPreferenceBoolean(PreferenceUtils.chainProxyEnabled, false)){
+            String proxyCredentialsUsername = Preferences.getPreference(PreferenceUtils.chainProxyUsername, null);
+            String proxyCredentialsPassword = Preferences.getPreference(PreferenceUtils.chainProxyPassword, null);
+            String proxyHost = Preferences.getPreference(PreferenceUtils.chainProxyHttp, null);
+            if (proxyHost != null && !proxyHost.equals("") && proxyCredentialsUsername != null && !proxyCredentialsUsername.equals("")){
+             String[] userNameParts =  proxyCredentialsUsername.split("\\\\");
+             String[] hostParts = proxyHost.split(":");
+              _credentialManager.addDomainCredentials(new DomainCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
+              _credentialManager.addBasicCredentials(new BasicCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
+            }
         }
-        
+
         configureHTTPClient(mContext);
         String dropRegex = Preferences.getPreference(PreferenceUtils.dataCaptureBlackListRegEx, null);
         try {
@@ -451,20 +453,27 @@ public class Framework {
         try {
             // FIXME for some reason, we get "" instead of null for value,
             // and do not use our default value???
-            prop = PreferenceUtils.chainProxyHttp;
-            value = Preferences.getPreference(prop);
+            value = null;
+            if (Preferences.getPreferenceBoolean(PreferenceUtils.chainProxyEnabled, false)){
+                value = Preferences.getPreference(PreferenceUtils.chainProxyHttp);
+            }
+
             if (value == null || value.equals("")) value = ":3128";
             colon = value.indexOf(":");
             factory.setHttpProxy(value.substring(0,colon), Integer.parseInt(value.substring(colon+1).trim()));
-            
-            prop = PreferenceUtils.chainProxyHttps;
-            value = Preferences.getPreference(prop);
+
+            value = null;
+            if (Preferences.getPreferenceBoolean(PreferenceUtils.chainProxyEnabled, false)){
+                value = Preferences.getPreference(PreferenceUtils.chainProxyHttps);
+            }
             if (value == null || value.equals("")) value = ":3128";
             colon = value.indexOf(":");
             factory.setHttpsProxy(value.substring(0,colon), Integer.parseInt(value.substring(colon+1).trim()));
-            
-            prop = PreferenceUtils.chainProxyExcludeList;
-            value = Preferences.getPreference(prop, "");
+
+            value = null;
+            if (Preferences.getPreferenceBoolean(PreferenceUtils.chainProxyEnabled, false)){
+                value = Preferences.getPreference(PreferenceUtils.chainProxyExcludeList);
+            }
             if (value == null) value = "";
             factory.setNoProxy(value.split(" *, *"));
             
