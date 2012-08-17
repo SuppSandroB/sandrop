@@ -108,6 +108,7 @@ public class Framework {
              String[] hostParts = proxyHost.split(":");
               _credentialManager.addDomainCredentials(new DomainCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
               _credentialManager.addBasicCredentials(new BasicCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
+              _credentialManager.addDigestCredentials(new DigestCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
             }
         }
 

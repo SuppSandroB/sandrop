@@ -52,6 +52,7 @@ import jcifs.ntlmssp.Type1Message;
 import jcifs.ntlmssp.Type2Message;
 import jcifs.ntlmssp.Type3Message;
 import jcifs.util.Base64;
+import junit.framework.Assert;
 
 
 import org.sandrop.webscarab.model.HttpUrl;
@@ -202,12 +203,12 @@ public class URLFetcher implements HTTPClient {
         String oldProxyAuthHeader = null;
         if (_proxyAuthCreds == null && _authenticator!= null && useProxy(url))
             _proxyAuthCreds = _authenticator.getProxyCredentials(url.toString().startsWith("https") ? _httpsProxy : _httpProxy, null);
-        String proxyAuthHeader = constructAuthenticationHeader(null, _proxyAuthCreds);
+        String proxyAuthHeader = constructAuthenticationHeader(null, _proxyAuthCreds, url.getPath(), request.getMethod());
 
         String oldAuthHeader = null;
         if (_authCreds == null && _authenticator!= null)
             _authCreds = _authenticator.getCredentials(url, null);
-        String authHeader = constructAuthenticationHeader(null, _authCreds);
+        String authHeader = constructAuthenticationHeader(null, _authCreds, url.getPath(), request.getMethod());
 
         int tries = 0;
         do {
@@ -216,7 +217,7 @@ public class URLFetcher implements HTTPClient {
             request.deleteHeader("Proxy-Authorization");
 
             _response = null;
-            connect(url);
+            connect(url, request.getMethod());
             if (_response != null) { // there was an error opening the socket
                 return _response;
             }
@@ -280,7 +281,7 @@ public class URLFetcher implements HTTPClient {
                 if (_proxyAuthCreds == null && _authenticator != null) {
                     _proxyAuthCreds = _authenticator.getProxyCredentials(_httpProxy, challenges);
                 }
-                proxyAuthHeader = constructAuthenticationHeader(challenges, _proxyAuthCreds);
+                proxyAuthHeader = constructAuthenticationHeader(challenges, _proxyAuthCreds, url.getPath(), request.getMethod());
                 if (proxyAuthHeader != null && oldProxyAuthHeader != null && oldProxyAuthHeader.equals(proxyAuthHeader)) {
                     _logger.info("No possible authentication");
                     proxyAuthHeader = null;
@@ -294,7 +295,7 @@ public class URLFetcher implements HTTPClient {
                 if (_authCreds == null && _authenticator != null)
                     _authCreds = _authenticator.getCredentials(url, challenges);
                 _logger.finer("Auth creds are " + _authCreds);
-                authHeader = constructAuthenticationHeader(challenges, _authCreds);
+                authHeader = constructAuthenticationHeader(challenges, _authCreds, url.getPath(), request.getMethod());
                 _logger.finer("Auth header is " + authHeader);
                 if (authHeader != null && oldAuthHeader != null && oldAuthHeader.equals(authHeader)) {
                     _logger.info("No possible authentication");
@@ -340,7 +341,7 @@ public class URLFetcher implements HTTPClient {
         return _response;
     }
 
-    private void connect(HttpUrl url) throws IOException {
+    private void connect(HttpUrl url, String method) throws IOException {
         if (! invalidSocket(url)) return;
         _logger.fine("Opening a new connection");
         _socket = new Socket();
@@ -364,7 +365,8 @@ public class URLFetcher implements HTTPClient {
                 _in = _socket.getInputStream();
                 _out = _socket.getOutputStream();
                 String oldAuthHeader = null;
-                String authHeader = constructAuthenticationHeader(null, _proxyAuthCreds);
+                String connectMethod = "CONNECT";
+                String authHeader = constructAuthenticationHeader(null, _proxyAuthCreds, _host + ":" + _port, connectMethod);
                 String status;
                 int loopCountMax = 10;
                 int loopCount = 0;
@@ -387,10 +389,10 @@ public class URLFetcher implements HTTPClient {
                         _out = _socket.getOutputStream();
                         startNewConnection = false;
                     }
-                    _out.write(("CONNECT " + _host + ":" + _port + " HTTP/1.0\r\n").getBytes());
+                    _out.write((connectMethod + " " + _host + ":" + _port + " HTTP/1.0\r\n").getBytes());
                     // setting headers to alive connection on http 1.0
-                    _out.write(("Proxy-Connection:" + "Keep-Alive\r\n").getBytes());
-                    _out.write(("Connection:" + "Keep-Alive\r\n").getBytes());
+                    _out.write(("Proxy-Connection: " + "Keep-Alive\r\n").getBytes());
+                    _out.write(("Connection: " + "Keep-Alive\r\n").getBytes());
                     if (authHeader != null) {
                         _out.write(("Proxy-Authorization: " + authHeader + "\r\n").getBytes());
                     }
@@ -411,7 +413,7 @@ public class URLFetcher implements HTTPClient {
                             _response = response;
                             return;
                         }
-                        authHeader = constructAuthenticationHeader(challenges, _proxyAuthCreds);
+                        authHeader = constructAuthenticationHeader(challenges, _proxyAuthCreds, _host + ":" + _port, connectMethod);
                         if (authHeader == null || oldAuthHeader != null && oldAuthHeader.equals(authHeader)) {
                             _response = response;
                             return;
@@ -528,7 +530,7 @@ public class URLFetcher implements HTTPClient {
         return true;
     }
 
-    private String constructAuthenticationHeader(String[] challenges, String credentials) {
+    private String constructAuthenticationHeader(String[] challenges, String credentials, String url, String method) {
         /* credentials string looks like:
          * Basic BASE64(username:password)
          * or
@@ -539,6 +541,62 @@ public class URLFetcher implements HTTPClient {
             return null;
         if (credentials.startsWith("Basic")) {
             return credentials;
+        }
+        if (credentials.startsWith("Digest")){
+            // digest handshake
+            String proxyAuthHeader = challenges[0];
+            int i = proxyAuthHeader.indexOf(' ');
+            String authParameters = proxyAuthHeader.substring(i + 1);
+            String realm = "";
+            String nonce = "";
+            String QOP   = "";
+            String algorithm = "";
+            String opaque = "";
+            boolean stale;
+            if (authParameters != null) {
+                int parPos;
+                do {
+                    parPos = authParameters.indexOf(',');
+                    if (parPos < 0) {
+                        // have only one parameter
+                        // parseParameter(authParameters);
+                    } else {
+                        String tokenVal = authParameters.substring(0,parPos);
+                        int tokenValPos = tokenVal.indexOf('=');
+                        if (tokenValPos >= 0) {
+                            String token = tokenVal.substring(0, tokenValPos).trim();
+                            String value = AuthDigestManager.trimDoubleQuotesIfAny(tokenVal.substring(tokenValPos + 1).trim());
+                            
+                            if (token.equalsIgnoreCase(AuthDigestManager.REALM_TOKEN)) {
+                                realm = value;
+                            }
+                            if (token.equalsIgnoreCase(AuthDigestManager.NONCE_TOKEN)) {
+                                nonce = value;
+                            }
+                            if (token.equalsIgnoreCase(AuthDigestManager.STALE_TOKEN)) {
+                                if (value.equalsIgnoreCase("true")) {
+                                    stale = true;
+                                }
+                            }
+                            if (token.equalsIgnoreCase(AuthDigestManager.OPAQUE_TOKEN)) {
+                                opaque = value;
+                            }
+                            if (token.equalsIgnoreCase(AuthDigestManager.QOP_TOKEN)) {
+                                QOP = value.toLowerCase();
+                            }
+                            if (token.equalsIgnoreCase(AuthDigestManager.ALGORITHM_TOKEN)) {
+                                algorithm = value.toLowerCase();
+                            }
+                            authParameters = authParameters.substring(parPos + 1);
+                        }
+                    }
+                } while (parPos >= 0);
+            }
+            String userNamePassword = credentials.substring(credentials.indexOf(" ") + 1);
+            userNamePassword = new String(Base64.decode(userNamePassword)); // decode the base64
+            String username = userNamePassword.substring(0, userNamePassword.indexOf(":"));
+            String password = userNamePassword.substring(username.length() + 1);
+            return "Digest " + AuthDigestManager.computeDigestAuthResponse(username, password, realm, nonce, QOP, algorithm, opaque, method, url);
         }
         if (challenges != null) {
             for (int i=0; i<challenges.length; i++) {
@@ -555,7 +613,7 @@ public class URLFetcher implements HTTPClient {
         }
         return null;
     }
-
+    
     private String attemptNegotiation(String challenge, String credentials) {
         String authMethod = null;
         String authorization = null;
