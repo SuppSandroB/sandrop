@@ -52,7 +52,6 @@ import jcifs.ntlmssp.Type1Message;
 import jcifs.ntlmssp.Type2Message;
 import jcifs.ntlmssp.Type3Message;
 import jcifs.util.Base64;
-import junit.framework.Assert;
 
 
 import org.sandrop.webscarab.model.HttpUrl;
@@ -534,6 +533,8 @@ public class URLFetcher implements HTTPClient {
         /* credentials string looks like:
          * Basic BASE64(username:password)
          * or
+         * Digest BASE64(username:password
+         * or)
          * NTLM BASE64(domain\ username:password)
          */
         // _logger.info("Constructing auth header from " + credentials);
