@@ -543,7 +543,7 @@ public class URLFetcher implements HTTPClient {
         if (credentials.startsWith("Basic")) {
             return credentials;
         }
-        if (credentials.startsWith("Digest")){
+        if (credentials.startsWith("Digest") && challenges != null && challenges.length > 0){
             // digest handshake
             String proxyAuthHeader = challenges[0];
             int i = proxyAuthHeader.indexOf(' ');

@@ -509,6 +509,29 @@ public class Message {
         }
     }
     
+    public void flushContentToOutputStream(OutputStream os) throws IOException {
+        try {
+            flushContentStream(null);
+        } catch (IOException ioe) {
+            _logger.info("IOException flushing the contentStream: " + ioe);
+        }
+        if (_content != null && _gzipped) {
+            try {
+                GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(_content.toByteArray()));
+                byte[] buff = new byte[1024];
+                int got;
+                while ((got = gzis.read(buff))>-1) {
+                    os.write(buff, 0, got);
+                }
+            } catch (IOException ioe) {
+                _logger.info("IOException unzipping content : " + ioe);
+            }
+        }
+        if (_content != null) {
+            os.write(_content.toByteArray());
+        }
+    }
+    
     /**
      * reads all content from the content stream if one exists. Bytes read are stored internally, and returned via getContent()
      */
