@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.sandrop.webscarab.httpclient.AuthDigestManager;
 import org.sandrop.webscarab.httpclient.Authenticator;
 import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Preferences;
@@ -47,6 +48,7 @@ public class CredentialManager implements Authenticator {
     
     // contains Maps per host, indexed by Realm
     private Map<String, Map<String, BasicCredential>> _basicCredentials = new TreeMap<String, Map<String, BasicCredential>>();
+    private Map<String, Map<String, DigestCredential>> _digestCredentials = new TreeMap<String, Map<String, DigestCredential>>();
     private Map<String, DomainCredential> _domainCredentials = new TreeMap<String, DomainCredential>();
     
     private CredentialManagerUI _ui = null;
@@ -66,7 +68,7 @@ public class CredentialManager implements Authenticator {
         if (prompt && _ui != null && challenges != null && challenges.length > 0) {
             boolean ask = false;
             for (int i=0; i<challenges.length; i++)
-                if (challenges[i].startsWith("Basic") || challenges[i].startsWith("NTLM") || challenges[i].startsWith("Negotiate"))
+                if (challenges[i].startsWith("Basic") || challenges[i].startsWith("NTLM") || challenges[i].startsWith("Negotiate") || challenges[i].startsWith("Digest"))
                     ask = true;
             if (ask)
                 _ui.requestCredentials(url.getHost(), challenges);
@@ -81,7 +83,7 @@ public class CredentialManager implements Authenticator {
         if (prompt && _ui != null && challenges != null && challenges.length > 0) {
             boolean ask = false;
             for (int i=0; i<challenges.length; i++)
-                if (challenges[i].startsWith("Basic") || challenges[i].startsWith("NTLM") || challenges[i].startsWith("Negotiate"))
+                if (challenges[i].startsWith("Basic") || challenges[i].startsWith("NTLM") || challenges[i].startsWith("Negotiate") || challenges[i].startsWith("Digest"))
                     ask = true;
             if (ask)
                 _ui.requestCredentials(hostname, challenges);
@@ -95,6 +97,16 @@ public class CredentialManager implements Authenticator {
         if (realms == null) {
             realms = new TreeMap<String, BasicCredential>();
             _basicCredentials.put(cred.getHost(), realms);
+        }
+        realms.put(cred.getRealm(), cred);
+    }
+    
+    public void addDigestCredentials(DigestCredential cred) {
+        if ((cred.getUsername() == null || cred.getUsername().equals("")) && (cred.getPassword() == null || cred.getPassword().equals(""))) return;
+        Map<String, DigestCredential> realms = _digestCredentials.get(cred.getHost());
+        if (realms == null) {
+            realms = new TreeMap<String, DigestCredential>();
+            _digestCredentials.put(cred.getHost(), realms);
         }
         realms.put(cred.getRealm(), cred);
     }
@@ -184,7 +196,39 @@ public class CredentialManager implements Authenticator {
                 if (creds != null) return "Negotiate " + creds;
             }
         }
+        for (int i=0; i<challenges.length; i++) {
+            if (challenges[i].startsWith("Digest")) {
+                String creds = getDigestCredentials(host, challenges[i]);
+                if (creds != null) return "Digest " + creds;
+            }
+        }
         return null;
+    }
+    
+    private String getDigestCredentials(String host, String challenge) {
+        int i = challenge.indexOf(' ');
+        String authParameters = challenge.substring(i + 1);
+        String realm = null;
+        String[] params = authParameters.split(",");
+        if (params != null && params.length > 0){
+            for (String param : params) {
+                if (param != null){
+                    String[] paramParts = param.split("=");
+                    String tokenName = paramParts[0].trim();
+                    String tokenVal = paramParts[1].trim();
+                    if (tokenVal != null && tokenName != null && tokenName.equalsIgnoreCase(AuthDigestManager.REALM_TOKEN)){
+                        realm = AuthDigestManager.trimDoubleQuotesIfAny(tokenVal);
+                        break;
+                    }
+                }
+            }
+        }
+        Map<String, DigestCredential> realms = _digestCredentials.get(host);
+        if (realms == null) return null;
+        DigestCredential cred = realms.get(realm);
+        if (cred == null) return null;
+        String encoded = cred.getUsername() + ":" + cred.getPassword();
+        return Encoding.base64encode(encoded.getBytes(), false);
     }
     
     private String getBasicCredentials(String host, String challenge) {
