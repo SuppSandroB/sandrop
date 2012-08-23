@@ -121,6 +121,17 @@ public class Message {
         }
     }
     
+    public InputStream getContentStream(){
+        return _contentStream;
+    }
+    
+    public boolean isCompressed(){
+        return _gzipped;
+    }
+    
+    
+    
+    
     /**
      * Writes the Message headers and content to the supplied OutputStream
      * @param os The OutputStream to write the Message headers and content to
