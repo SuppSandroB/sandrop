@@ -1,12 +1,3 @@
-{"aaData":[
-{"id":"1","schema":"http","hostname":"code.google.com","method":"GET","query":"name=sandrob_demo_1_0_0_10.apk&can=2&q=","url":"\/p\/sandrob\/downloads\/detail"},
-{"id":"4","schema":"http","hostname":"www.gstatic.com","method":"GET","query":"","url":"\/codesite\/ph\/images\/phosting.ico"},
-{"id":"6","schema":"http","hostname":"code.google.com","method":"GET","query":"cct=1307734646","url":"\/p\/sandrob\/logo"},
-{"id":"3","schema":"http","hostname":"www.gstatic.com","method":"GET","query":"","url":"\/codesite\/ph\/images\/dl_arrow.gif"},
-{"id":"5","schema":"http","hostname":"www.gstatic.com","method":"GET","query":"","url":"\/codesite\/ph\/12276823267970246310\/js\/ph_core.js"},
-{"id":"7","schema":"http","hostname":"www.google-analytics.com","method":"GET","query":"","url":"\/ga.js"},
-{"id":"2","schema":"http","hostname":"www.gstatic.com","method":"GET","query":"","url":"\/codesite\/ph\/12276823267970246310\/js\/dit_scripts.js"},
-{"id":"9","schema":"http","hostname":"www.gstatic.com","method":"GET","query":"","url":"\/codesite\/ph\/12276823267970246310\/css\/core.css"},
-{"id":"8","schema":"http","hostname":"www.gstatic.com","method":"GET","query":"","url":"\/codesite\/ph\/12276823267970246310\/css\/ph_detail.css"},
-{"id":"13","schema":"https","hostname":"apis.google.com","method":"GET","query":"","url":"\/js\/plusone.js"},
-]}
+{"aaData":
+    [{"id":"43","schema":"http","hostname":"code.google.com","method":"GET","query":"","url":"\/p\/sandrop\/"}]
+}
