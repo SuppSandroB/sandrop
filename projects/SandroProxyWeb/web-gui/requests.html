@@ -1,0 +1,266 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>SandroProxy data</title>
+        <style type="text/css" title="currentStyle">
+            @import "css/jquery.dataTables_themeroller.css";
+            @import "css/TableTools.css";
+            @import "css/ui-darkness/jquery-ui-1.8.23.custom.css";
+            @import "css/shCoreDefault.css";
+            @import "css/ColVis.css";
+            @import "css/ColReorder.css";
+        </style>
+        <script type="text/javascript" language="javascript" src="js/jquery-1.8.0.min.js"></script>
+        <script type="text/javascript" language="javascript" src="js/jquery.dataTables.js"></script>
+        <script type="text/javascript" language="javascript" src="js/TableTools.js"></script>
+        <script type="text/javascript" language="javascript" src="js/ZeroClipboard.js"></script>
+        <script type="text/javascript" language="javascript" src="js/ColVis.js"></script>
+        <script type="text/javascript" language="javascript" src="js/ColReorder.js"></script>
+        <script type="text/javascript" language="javascript" src="js/sh/shCore.js"></script>
+        <script type="text/javascript" language="javascript" src="js/sh/shBrushCss.js"></script>
+        <script type="text/javascript" language="javascript" src="js/sh/shBrushXml.js"></script>
+        <script type="text/javascript" language="javascript" src="js/sh/shBrushJScript.js"></script>
+        <script type="text/javascript" charset="utf-8">
+        
+            function updateRequestHeaders(url){
+                var oTable = $('#table_request_headers').dataTable();
+                oTable.fnClearTable();
+                $.ajax({
+                    type: "GET",
+                    url: url,
+                    dataType: "json",
+                    success: function(data) {
+                        var oTable = $('#table_request_headers').dataTable();
+                        $.each(data.aaData, function() {
+                            if (this.name == "Content-Type"){
+                                var contentType = this.value;
+                                updateRequestContent(contentType, "../data/request/content.json?id=" + aData.id);
+                            }
+                            oTable.fnAddData([this.name, this.value]);
+                        });
+                    },
+                    error: function(xhr, ajaxOptions, thrownError){
+                        alert(xhr.responseText);
+                    }
+               });
+            }
+            
+            function updateRequestContent(type, url){
+                if (type == null) return;
+                var parts = type.split(";");
+                if (parts[0] == "application/json" || parts[0] == "application/x-www-form-urlencoded"){
+                    $.ajax({
+                        url: url,
+                        type: 'GET',
+                        dataType: 'text',
+                        success: function(code)
+                        {
+                            var brushObj = new SyntaxHighlighter.brushes["Xml"]()
+                            if ( brushObj != null && brushObj != undefined){
+                                brushObj.init({ toolbar: false });
+                                var divRequestContent = $('#request_content');
+                                divRequestContent.html(brushObj.getHtml(code));
+                            }
+                        }
+                    });
+                }
+            }
+            
+            
+            function updateResponseHeaders(url){
+                var oTable = $('#table_response_headers').dataTable();
+                oTable.fnClearTable();
+                // oTable.fnDestroy();
+                $.ajax({
+                    type: "GET",
+                    url: url,
+                    dataType: "json",
+                    success: function(data) {
+                        var oTable = $('#table_response_headers').dataTable();
+                        $.each(data.aaData, function() {
+                            if (this.name == "Content-Type"){
+                                var contentType = this.value;
+                                updateResponseContent(contentType, "../data/response/content.json?id=" + aData.id);
+                            }
+                            if (this.name == "Content-Disposition"){
+                                var contentType = this.value;
+                                createResponseContentLink(contentType, "../data/response/content.json?id=" + aData.id);
+                            }
+                            oTable.fnAddData([this.name, this.value]);
+                        });
+                    },
+                    error: function(xhr, ajaxOptions, thrownError){
+                        alert(xhr.responseText);
+                    }
+               });
+            }
+            
+            function createResponseContentLink(type, url){
+                var divResponseContent = $('#response_content');
+                divResponseContent.html("<a href='"+ url+ "' target='_blank'>Download response content</>");
+            }
+            
+            function updateResponseContent(type, url){
+                if (type == null) return;
+                var parts = type.split(";");
+                var typePart = parts[0].split("/");
+                if (typePart[0] == "image"){
+                    var divResponseContent = $('#response_content');
+                    divResponseContent.html("<img src='"+ url+ "'/>");
+                }
+                if (typePart[0] == "text" || typePart[0] == "application"){
+                    var divResponseContent = $('#response_content');
+                    $.ajax({
+                        url: url,
+                        type: 'GET',
+                        dataType: 'text',
+                        success: function(code)
+                        {
+                                var ext = typePart[1].trim();
+                                var brushObj = null;
+                                if (ext == "vnd.ms-sync.wbxml" || ext == "html" || ext == "xml" || ext == "htm" || ext == "xhtml" || ext == "plain"){
+                                    brushObj = new SyntaxHighlighter.brushes["Xml"]()
+                                }
+                                if (ext == "javascript" || ext == "x-javascript" || ext == "x-js" || ext == "json"){
+                                    brushObj = new SyntaxHighlighter.brushes["JScript"]()
+                                }
+                                if (ext == "css"){
+                                    brushObj = new SyntaxHighlighter.brushes["CSS"]()
+                                }
+                                if ( brushObj != null && brushObj != undefined){
+                                    brushObj.init({ toolbar: false });
+                                    var divResponseContent = $('#response_content');
+                                    divResponseContent.html(brushObj.getHtml(code));
+                                }else{
+                                    // TODO we do plain text?
+                                }
+                        }
+                    });
+                }
+            }
+        
+            $(document).ready(function() {
+                $('#details_div').hide();
+                SyntaxHighlighter.all();
+                var oTableRequests = $('#table_requests').dataTable( {
+                    "bProcessing": true,
+                    "bScrollInfinite": true,
+                    "bScrollCollapse": true,
+                    "sScrollY": "200px",
+                    "sAjaxSource": "../data/request/list.json",
+                    "aoColumns": [
+                        { "mData": "id" },
+                        { "mData": "schema" },
+                        { "mData": "method" },
+                        { "mData": "hostname" },
+                        { "mData": "url" },
+                        { "mData": "query" },
+                    ],
+                    "bJQueryUI": true,
+                    "sDom": 'RTClfrti',
+                    "oTableTools": {
+                        "aButtons": [
+                            "copy",
+                            "print",
+                            {
+                                "sExtends":    "collection",
+                                "sButtonText": "Save",
+                                "aButtons":    [ "csv", "xls", "pdf" ]
+                            }
+                        ],
+                        "sRowSelect": "single",
+                        "fnRowSelected": function(node){
+                            aData = oTableRequests.fnGetData(node);
+                            updateRequestHeaders("../data/request/headers.json?id=" + aData.id);
+                            updateResponseHeaders("../data/response/headers.json?id=" + aData.id);
+                            var divResponseContent = $('#response_content');
+                            var divRequestContent = $('#request_content');
+                            divRequestContent.html("");
+                            divResponseContent.html("");
+                            $('#details_div').show();
+                       }
+                    }
+                });
+                var objTableResponseHeaders = $('#table_response_headers').dataTable( {
+                            "bProcessing": true,
+                            "bFilter": false,
+                            "bInfo": false,
+                            "bJQueryUI": true,
+                            "bScrollInfinite": true,
+                            "bScrollCollapse": true,
+                            "sScrollY": "100px",
+                });
+                var objTableRequestHeaders = $('#table_request_headers').dataTable( {
+                            "bProcessing": true,
+                            "bFilter": false,
+                            "bInfo": false,
+                            "bJQueryUI": true,
+                            "bScrollInfinite": true,
+                            "bScrollCollapse": true,
+                            "sScrollY": "100px",
+                });
+            } );
+        </script>
+    </head>
+    <body id="dt_example">
+        <div id="container">
+            <div id="dynamic">
+                <table cellpadding="0" cellspacing="0" border="1" class="display" id="table_requests">
+                    <thead>
+                        <tr>
+                            <th width="5%">Id</th>
+                            <th width="5%">Schema</th>
+                            <th width="10%">Method</th>
+                            <th width="20%">Host</th>
+                            <th width="40%">Url</th>
+                            <th width="40%">Query</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+                <div id="details_div">
+                <table cellpadding="0" cellspacing="0" border="1" class="display" id="table_request_headers">
+                    <thead>
+                        <tr>
+                            <th width="30%">Name</th>
+                            <th width="70%">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+                <br/>
+                <div id="request_content">
+                </div>
+                <br/>
+                <table cellpadding="0" cellspacing="0" border="1" class="display" id="table_response_headers">
+                    <thead>
+                        <tr>
+                            <th width="30%">Name</th>
+                            <th width="70%">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+                <br/>
+                <div id="response_content">
+                </div>
+            </div>
+            </div>
+        </div>
+        <script type="text/javascript"><!--
+            google_ad_client = "ca-pub-1132987599900806";
+            /* SandroProxy web gui */
+            google_ad_slot = "0677730744";
+            google_ad_width = 300;
+            google_ad_height = 250;
+            //-->
+            </script>
+            <script type="text/javascript"
+            src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+        </script>
+    </body>
+</html>
