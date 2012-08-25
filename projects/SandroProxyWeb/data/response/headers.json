@@ -1,0 +1,15 @@
+{"aaData":[
+    {"value":"200 OK","name":"Status"},
+    {"value":"Sat, 25 Aug 2012 10:15:48 GMT","name":"Date"},
+    {"value":"no-cache","name":"Pragma"},
+    {"value":"Fri, 01 Jan 1990 00:00:00 GMT","name":"Expires"},
+    {"value":"no-cache, must-revalidate","name":"Cache-Control"},
+    {"value":"text\/html; charset=UTF-8","name":"Content-Type"},
+    {"value":"nosniff","name":"X-Content-Type-Options"},
+    {"value":"PREF=ID=cookie_data; expires=Mon, 25-Aug-2017 10:15:48 GMT; path=\/; domain=.google.com","name":"Set-Cookie"},
+    {"value":"gzip","name":"Content-Encoding"},
+    {"value":"codesite","name":"Server"},
+    {"value":"3425","name":"Content-Length"},
+    {"value":"1; mode=block","name":"X-XSS-Protection"},
+    {"value":"SAMEORIGIN","name":"X-Frame-Options"}
+    ]}
