@@ -180,6 +180,14 @@
                             divResponseContent.html("");
                             $('#details_div').show();
                        }
+                    },
+                    "fnInitComplete": function(oSettings, json) {
+                            $("#table_requests TR").contextMenu({
+                                    menu: 'requestListMenu'
+                                },
+                                function(action, el, pos) {
+                                    alert('Activate acion ' + action +  'on request. Not yet implemented');
+                                });
                     }
                 });
                 var objTableResponseHeaders = $('#table_response_headers').dataTable({
@@ -264,6 +272,25 @@
             <script type="text/javascript"
             src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
         </script>
+        </div>
+        <div id="menus">
+            <ul id="requestListMenu" class="contextMenu">
+            <li class="edit">
+                <a href="#edit">Manual Request</a>
+            </li>
+            <li class="cut separator">
+                <a href="#cut">Details</a>
+            </li>
+            <li class="copy">
+                <a href="#copy">Copy</a>
+            </li>
+            <li class="paste">
+                <a href="#paste">Print</a>
+            </li>
+            <li class="delete">
+                <a href="#delete">Save</a>
+            </li>
+        </ul>
         </div>
     </body>
 </html>
