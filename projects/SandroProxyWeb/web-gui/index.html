@@ -35,7 +35,7 @@
                         $.each(data.aaData, function() {
                             if (this.name == "Content-Type"){
                                 var contentType = this.value;
-                                updateRequestContent(contentType, "../data/request/content.json?id=" + aData.id);
+                                updateRequestContent(contentType, "../data/request/content.json?id=" + aData.request.id);
                             }
                             oTable.fnAddData([this.name, this.value]);
                         });
@@ -81,11 +81,11 @@
                         $.each(data.aaData, function() {
                             if (this.name == "Content-Type"){
                                 var contentType = this.value;
-                                updateResponseContent(contentType, "../data/response/content.json?id=" + aData.id);
+                                updateResponseContent(contentType, "../data/response/content.json?id=" + aData.request.id);
                             }
                             if (this.name == "Content-Disposition"){
                                 var contentType = this.value;
-                                createResponseContentLink(contentType, "../data/response/content.json?id=" + aData.id);
+                                createResponseContentLink(contentType, "../data/response/content.json?id=" + aData.request.id);
                             }
                             oTable.fnAddData([this.name, this.value]);
                         });
