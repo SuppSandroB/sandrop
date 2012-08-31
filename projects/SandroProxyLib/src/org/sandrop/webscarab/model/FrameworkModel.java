@@ -110,6 +110,10 @@ public class FrameworkModel {
         
     }
     
+    public boolean haveValidStore(){
+        return _store != null;
+    }
+    
     public Sync readLock() {
         return _rwl.readLock();
     }
@@ -137,8 +141,8 @@ public class FrameworkModel {
                 } finally {
                     _rwl.readLock().release();
                 }
-            } catch (InterruptedException ie) {
-                _logger.severe("Interrupted! " + ie);
+            } catch (Exception ie) {
+                _logger.severe("Error flushing store " + ie);
             }
         }
     }
@@ -171,26 +175,28 @@ public class FrameworkModel {
      */
     public void addConversation(ConversationID id, Date when, Request request, Response response, String origin) {
         try {
-            HttpUrl url = request.getURL();
-            addUrl(url); // fires appropriate events
-            _rwl.writeLock().acquire();
-            int index = _store.addConversation(id, when, request, response);
-            _store.setConversationProperty(id, "METHOD", request.getMethod());
-            _store.setConversationProperty(id, "URL", request.getURL().toString());
-            _store.setConversationProperty(id, "STATUS", response.getStatusLine());
-            _store.setConversationProperty(id, "WHEN", Long.toString(when.getTime()));
-            _store.setConversationProperty(id, "ORIGIN", origin);
-            byte[] content=response.getContent();
-            if (content != null && content.length > 0)
-            	_store.setConversationProperty(id, "RESPONSE_SIZE", Integer.toString(content.length));
-            _rwl.readLock().acquire();
-            _rwl.writeLock().release();
-            _conversationModel.fireConversationAdded(id, index); // FIXME
-            _rwl.readLock().release();
-            addUrlProperty(url, "METHODS", request.getMethod());
-            addUrlProperty(url, "STATUS", response.getStatusLine());
-        } catch (InterruptedException ie) {
-            _logger.severe("Interrupted! " + ie);
+            if (_store != null){
+                HttpUrl url = request.getURL();
+                addUrl(url); // fires appropriate events
+                _rwl.writeLock().acquire();
+                int index = _store.addConversation(id, when, request, response);
+                _store.setConversationProperty(id, "METHOD", request.getMethod());
+                _store.setConversationProperty(id, "URL", request.getURL().toString());
+                _store.setConversationProperty(id, "STATUS", response.getStatusLine());
+                _store.setConversationProperty(id, "WHEN", Long.toString(when.getTime()));
+                _store.setConversationProperty(id, "ORIGIN", origin);
+                byte[] content=response.getContent();
+                if (content != null && content.length > 0)
+                    _store.setConversationProperty(id, "RESPONSE_SIZE", Integer.toString(content.length));
+                _rwl.readLock().acquire();
+                _rwl.writeLock().release();
+                _conversationModel.fireConversationAdded(id, index); // FIXME
+                _rwl.readLock().release();
+                addUrlProperty(url, "METHODS", request.getMethod());
+                addUrlProperty(url, "STATUS", response.getStatusLine());
+            }
+        } catch (Exception ie) {
+            _logger.severe("Exception adding conversation " + ie);
         }
         _modified = true;
     }
@@ -346,7 +352,7 @@ public class FrameworkModel {
         try {
             _rwl.readLock().acquire();
             try {
-                if (!_store.isKnownUrl(url)) {
+                if (_store != null && !_store.isKnownUrl(url)) {
                     HttpUrl[] path = url.getUrlHierarchy();
                     for (int i=0; i<path.length; i++) {
                         if (!_store.isKnownUrl(path[i])) {
