@@ -433,9 +433,11 @@ public class Framework {
         if (!conversation.shouldAnalyse()) return;
         _analyseConversation.runScripts(conversation);
         try {
-            this.analysisQueuedExecutor.execute(new QueueProcessor(id));
-            this.analysisLongRunningQueuedExecutor.execute(new QueueProcessor(id, true));
-        } catch (InterruptedException ex) {
+            if (_model.haveValidStore()){
+                this.analysisQueuedExecutor.execute(new QueueProcessor(id));
+                this.analysisLongRunningQueuedExecutor.execute(new QueueProcessor(id, true));
+            }
+        } catch (Exception ex) {
             _logger.severe("error scheduling analysis task: " + ex.getMessage());
         }
     }
