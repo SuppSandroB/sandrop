@@ -148,14 +148,14 @@
                     "bScrollInfinite": true,
                     "bScrollCollapse": true,
                     "sScrollY": "200px",
-                    "sAjaxSource": "../data/request/list.json",
+                    "sAjaxSource": "../data/conversation/list.json",
                     "aoColumns": [
-                        { "mData": "id" },
-                        { "mData": "schema" },
-                        { "mData": "method" },
-                        { "mData": "hostname" },
-                        { "mData": "url" },
-                        { "mData": "query" }
+                        { "mData": "request.id" },
+                        { "mData": "request.schema" },
+                        { "mData": "request.method" },
+                        { "mData": "request.hostname" },
+                        { "mData": "request.url" },
+                        { "mData": "request.query" }
                     ],
                     "bJQueryUI": true,
                     "sDom": 'RTClfrti',
@@ -172,8 +172,8 @@
                         "sRowSelect": "single",
                         "fnRowSelected": function(node){
                             aData = oTableRequests.fnGetData(node);
-                            updateRequestHeaders("../data/request/headers.json?id=" + aData.id);
-                            updateResponseHeaders("../data/response/headers.json?id=" + aData.id);
+                            updateRequestHeaders("../data/request/headers.json?id=" + aData.request.id);
+                            updateResponseHeaders("../data/response/headers.json?id=" + aData.request.id);
                             var divResponseContent = $('#response_content');
                             var divRequestContent = $('#request_content');
                             divRequestContent.html("");
