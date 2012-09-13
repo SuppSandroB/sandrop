@@ -434,8 +434,9 @@ public class Framework {
         _analyseConversation.runScripts(conversation);
         try {
             if (_model.haveValidStore()){
-                this.analysisQueuedExecutor.execute(new QueueProcessor(id));
-                this.analysisLongRunningQueuedExecutor.execute(new QueueProcessor(id, true));
+                // sandrop not used yet and having problems with script interceptor
+                // this.analysisQueuedExecutor.execute(new QueueProcessor(id));
+                // this.analysisLongRunningQueuedExecutor.execute(new QueueProcessor(id, true));
             }
         } catch (Exception ex) {
             _logger.severe("error scheduling analysis task: " + ex.getMessage());
