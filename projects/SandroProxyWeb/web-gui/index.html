@@ -109,7 +109,7 @@
                     var divResponseContent = $('#response_content');
                     divResponseContent.html("<img src='"+ url+ "'/>");
                 }
-                if (typePart[0] == "text" || typePart[0] == "application"){
+                if (typePart[0] == "text" || typePart[0] == "application" || typePart[0] == "video"){
                     var divResponseContent = $('#response_content');
                     $.ajax({
                         url: url,
