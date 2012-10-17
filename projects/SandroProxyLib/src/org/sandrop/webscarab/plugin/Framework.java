@@ -43,6 +43,7 @@ import java.util.regex.PatternSyntaxException;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.FrameworkModel;
+import org.sandrop.webscarab.model.Message;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
@@ -113,6 +114,10 @@ public class Framework {
         }
 
         configureHTTPClient(mContext);
+
+        // setting when to switch to files instead of memory buffers
+        Message.setLargeContentSize(Preferences.getPreference(PreferenceUtils.dataLargeSize, "100000"));
+
         String dropRegex = Preferences.getPreference(PreferenceUtils.dataCaptureBlackListRegEx, null);
         try {
             setDropPattern(dropRegex);
