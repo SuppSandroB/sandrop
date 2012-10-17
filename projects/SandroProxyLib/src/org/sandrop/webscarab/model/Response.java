@@ -134,7 +134,7 @@ public class Response extends Message {
      * @param os
      * @throws IOException
      */    
-    public void write(OutputStream os) throws IOException {
+    public void write(OutputStream os) throws Exception {
         write(os, "\r\n");
     }
     
