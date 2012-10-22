@@ -88,7 +88,10 @@ public class Framework {
     public Framework(Context context) {
         _logger.setLevel(Level.FINEST);
         mContext = context;
-        Preferences.init(mContext);
+        
+        // sandrop this is done in application class 
+        // Preferences.init(mContext);
+        
         _model = new FrameworkModel();
         _wrapper = new FrameworkModelWrapper(_model);
         // sandrop commented until used
@@ -116,7 +119,7 @@ public class Framework {
         configureHTTPClient(mContext);
 
         // setting when to switch to files instead of memory buffers
-        Message.setLargeContentSize(Preferences.getPreference(PreferenceUtils.dataLargeSize, "100000"));
+        Message.setLargeContentSize(Preferences.getPreference(PreferenceUtils.dataLargeSize, "1000000"));
 
         String dropRegex = Preferences.getPreference(PreferenceUtils.dataCaptureBlackListRegEx, null);
         try {
