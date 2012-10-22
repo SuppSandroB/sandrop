@@ -163,7 +163,7 @@ public class MultiPartContent {
                 baos.write(CRLF);
             }
             return baos.toByteArray();
-        } catch (IOException ioe) {
+        } catch (Exception ioe) {
             System.err.println("Shouldn't happen!! " + ioe);
         }
         return null;

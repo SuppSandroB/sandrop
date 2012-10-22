@@ -2,6 +2,7 @@ package org.sandroproxy.plugin.gui;
 
 import java.io.File;
 
+import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.plugin.Framework;
 import org.sandrop.webscarab.plugin.proxy.Proxy;
 import org.sandrop.webscarab.plugin.proxy.ProxyPlugin;
@@ -59,6 +60,7 @@ public class MainActivity extends Activity {
                     {
                         @Override
                         public void run() {
+                            Preferences.init(getApplicationContext());
                             framework = new Framework(getApplicationContext());
                             Proxy proxy = new Proxy(framework, null);
                             framework.addPlugin(proxy);

@@ -509,8 +509,8 @@ public class FileSystemStore implements SiteModelStore {
             FileOutputStream fos = new FileOutputStream(f);
             request.write(fos);
             fos.close();
-        } catch (IOException ioe) {
-            _logger.severe("IOException writing request(" +id + ") : " + ioe);
+        } catch (Exception ioe) {
+            _logger.severe("Exception writing request(" +id + ") : " + ioe);
         }
     }
     
@@ -556,8 +556,8 @@ public class FileSystemStore implements SiteModelStore {
             FileOutputStream fos = new FileOutputStream(f);
             response.write(fos);
             fos.close();
-        } catch (IOException ioe) {
-            _logger.severe("IOException writing response(" +id + ") : " + ioe);
+        } catch (Exception ioe) {
+            _logger.severe("Exception writing response(" +id + ") : " + ioe);
         }
     }
     

@@ -44,6 +44,7 @@ public class PreferenceUtils {
     
 
     public static String dataStorageKey = "preference_proxy_data_storage";
+    public static String dataLargeSize = "preference_performance_data_large_size";
     public static String proxyTransparentKey = "preference_proxy_transparent";
     public static String proxyTransparentHostNameKey = "preference_proxy_transparent_hostname";
     public static String proxyCustomPluginKey = "preference_proxy_custom_plugins";
@@ -60,6 +61,7 @@ public class PreferenceUtils {
     public static String chainProxyExcludeList = "preference_chain_proxy_no_proxy_list";
     public static String chainProxyUsername = "preference_chain_proxy_username";
     public static String chainProxyPassword = "preference_chain_proxy_password";
+    
     
     public static File getDataStorageDir(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
