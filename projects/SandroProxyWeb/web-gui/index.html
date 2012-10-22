@@ -81,7 +81,11 @@
                         $.each(data.aaData, function() {
                             if (this.name == "Content-Type"){
                                 var contentType = this.value;
-                                updateResponseContent(contentType, "../data/response/content.json?id=" + aData.request.id);
+                                if (contentType.substring(0,5) == "video"){
+                                    createVideoLink(contentType, "../data/response/content.json?id=" + aData.request.id);
+                                }else{
+                                    updateResponseContent(contentType, "../data/response/content.json?id=" + aData.request.id);
+                                }
                             }
                             if (this.name == "Content-Disposition"){
                                 var contentType = this.value;
@@ -101,6 +105,14 @@
                 divResponseContent.html("<a href='"+ url+ "' target='_blank'>Download response content</>");
             }
             
+            function createVideoLink(type, url){
+                var divResponseContent = $('#response_content');
+                var videoHtml = "<video width=\"640\" height=\"360\" controls id=\"video-player\">\n";
+                videoHtml +=    " <source src=\""+ url+ "\" type='"+ type + "'>\n";
+                videoHtml +=    "</video>\n";
+                divResponseContent.html(videoHtml);
+            }
+
             function updateResponseContent(type, url){
                 if (type == null) return;
                 var parts = type.split(";");
