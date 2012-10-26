@@ -77,6 +77,7 @@ public class SSLContextManager {
     private Map _aliasPasswords = new HashMap();
     private List _keyStores = new ArrayList();
     private Map _keyStoreDescriptions = new HashMap();
+    private TrustManager[] _trustManagers;
     
     static{
         try{
@@ -113,11 +114,17 @@ public class SSLContextManager {
     
     
     /** Creates a new instance of SSLContextManager */
-    public SSLContextManager() {
-    	System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true");
+    public SSLContextManager(TrustManager[] trustManagers) {
+        // System.setProperty("sun.security.ssl.allowUnsafeRenegotiation", "true");
         try {
             _noClientCertContext = SSLContext.getInstance("TLS");
-            _noClientCertContext.init(null, _trustAllCerts, new SecureRandom());
+            if (trustManagers != null){
+                _trustManagers = trustManagers;
+            }else{
+                _trustManagers = _trustAllCerts;
+            }
+            _noClientCertContext.init(null, _trustManagers, new SecureRandom());
+            
         } catch (NoSuchAlgorithmException nsao) {
             _logger.severe("Could not get an instance of the SSL algorithm: " + nsao.getMessage());
         } catch (KeyManagementException kme) {
@@ -256,8 +263,7 @@ public class SSLContextManager {
             _logger.severe("Could not get an instance of the SSL algorithm: " + nsao.getMessage());
             return;
         }
-        
-        sc.init(new KeyManager[] { akm }, _trustAllCerts, new SecureRandom());
+        sc.init(new KeyManager[] { akm }, _trustManagers, new SecureRandom());
         
         String key = fingerprint;
         if (key.indexOf(" ")>0)

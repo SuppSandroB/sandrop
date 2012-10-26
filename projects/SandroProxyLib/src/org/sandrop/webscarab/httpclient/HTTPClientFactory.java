@@ -36,6 +36,7 @@ import java.io.File;
 import java.io.IOException;
 
 import java.security.KeyManagementException;
+import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -44,8 +45,12 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
+import org.sandroproxy.utils.PreferenceUtils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -80,7 +85,7 @@ public class HTTPClientFactory {
     /** Creates a new instance of HttpClientFactory */
     protected HTTPClientFactory(Context context) {
         _logger.setLevel(Level.FINEST);
-        _sslContextManager = new SSLContextManager();
+        
         try {
             
             SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
@@ -98,23 +103,25 @@ public class HTTPClientFactory {
             }else{
                 _logger.info("certificate password empty!!");
             }
+            
+            TrustManager[] trustManagers = null;
+            
+            if (!pref.getBoolean(PreferenceUtils.ssTrustAllManager, false)){
+                _logger.info("using ssl os trust managers");
+                TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                tmf.init((KeyStore) null);
+                trustManagers = tmf.getTrustManagers();
+            }else{
+                _logger.info("warrning: using ssl trust all manager!!!");
+            }
+            _sslContextManager = new SSLContextManager(trustManagers);
             _sslContextManager.loadPKCS12Certificate(filename, keyPassword);
             _sslContextManager.setDefaultKey("key");
+            
+            
             _sslContextManager.unlockKey(0, 0, keyPassword);
             _logger.info("client certificate used for ssl sessions");
-        } catch (KeyManagementException e) {
-            _logger.info("error using client certificate:" + e.getMessage());
-            e.printStackTrace();
-        } catch (KeyStoreException e) {
-            _logger.info("error using client certificate:" + e.getMessage());
-            e.printStackTrace();
-        } catch (CertificateException e) {
-            _logger.info("error using client certificate:" + e.getMessage());
-            e.printStackTrace();
-        } catch (NoSuchAlgorithmException e) {
-            _logger.info("error using client certificate:" + e.getMessage());
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (Exception e) {
             _logger.info("error using client certificate:" + e.getMessage());
             e.printStackTrace();
         }
