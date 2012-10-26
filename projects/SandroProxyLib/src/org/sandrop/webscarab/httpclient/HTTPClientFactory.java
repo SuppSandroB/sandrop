@@ -90,6 +90,17 @@ public class HTTPClientFactory {
             
             SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
             
+            TrustManager[] trustManagers = null;
+            if (!pref.getBoolean(PreferenceUtils.ssTrustAllManager, false)){
+                _logger.info("using ssl os trust managers");
+                TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                tmf.init((KeyStore) null);
+                trustManagers = tmf.getTrustManagers();
+            }else{
+                _logger.info("warrning: using ssl trust all manager!!!");
+            }
+            _sslContextManager = new SSLContextManager(trustManagers);
+            
             String filename = pref.getString("preference_client_cert_file_path", "");
             File certFile = new File(filename);
             if (certFile == null || !certFile.exists() || !certFile.canRead()){
@@ -104,20 +115,8 @@ public class HTTPClientFactory {
                 _logger.info("certificate password empty!!");
             }
             
-            TrustManager[] trustManagers = null;
-            
-            if (!pref.getBoolean(PreferenceUtils.ssTrustAllManager, false)){
-                _logger.info("using ssl os trust managers");
-                TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-                tmf.init((KeyStore) null);
-                trustManagers = tmf.getTrustManagers();
-            }else{
-                _logger.info("warrning: using ssl trust all manager!!!");
-            }
-            _sslContextManager = new SSLContextManager(trustManagers);
             _sslContextManager.loadPKCS12Certificate(filename, keyPassword);
             _sslContextManager.setDefaultKey("key");
-            
             
             _sslContextManager.unlockKey(0, 0, keyPassword);
             _logger.info("client certificate used for ssl sessions");
