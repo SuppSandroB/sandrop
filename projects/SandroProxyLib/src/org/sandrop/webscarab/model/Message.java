@@ -146,6 +146,23 @@ public class Message {
         return _gzipped;
     }
     
+    public boolean isChunked(){
+        return _chunked;
+    }
+    
+    public boolean isMemoryStoreContent() throws Exception{
+        if (_content != null){
+            if(_content instanceof ByteArrayOutputStream){
+                return true;
+            }
+            if (_content instanceof FileOutputStream){
+                return false;
+            }
+            throw new Exception("Unknown content store type");
+        }
+        return true;
+    }
+    
     public int getContentSize(){
         if (_content != null){
             if(_content instanceof ByteArrayOutputStream){
@@ -224,6 +241,29 @@ public class Message {
         }
     }
     
+    public void moveContentToFile(File file) throws Exception{
+        if (_content instanceof ByteArrayOutputStream){
+            byte[] contentData = getContent();
+            FileOutputStream fs = new FileOutputStream(file);
+            fs.write(contentData);
+            fs.flush();
+            fs.close();
+            largeContentTempfileName = file.getAbsolutePath();
+        }else{
+            if (largeContentTempfileName.length() > 0 && !file.getAbsolutePath().equalsIgnoreCase(largeContentTempfileName)){
+                File fs = new File(largeContentTempfileName);
+                if (fs.exists()){
+                    fs.renameTo(file);
+                    largeContentTempfileName = file.getAbsolutePath();
+                   return;
+                }else{
+                    throw new IOException("cleanContentInputStream: file " + largeContentTempfileName + " not exist");
+                }
+            }
+            throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
+        }
+    }
+    
     /**
      * Writes the Message headers and content to the supplied OutputStream
      * @param os The OutputStream to write the Message headers and content to
@@ -265,9 +305,6 @@ public class Message {
                 os.write(buff, 0, got);
             }
             is.close();
-            cleanContentInputStream();
-            // content can be big so this can create out of memmory exception
-            // _logger.finest("Content: \n" + new String(_content.toByteArray()));
             _logger.finer("Done writing content bytes");
         }
         
@@ -601,7 +638,6 @@ public class Message {
             }
             flushContentStream(null);
             if (getContentSize() > LARGE_CONTENT_SIZE){
-                cleanContentInputStream();
                 return CONTENT_TOO_BIG;
             }
         } catch (IOException ioe) {
