@@ -612,7 +612,7 @@ public class URLFetcher implements HTTPClient {
                 _logger.info("Can't do auth for " + challenges[i]);
             }
         }
-        return null;
+        return credentials;
     }
     
     private String attemptNegotiation(String challenge, String credentials) {
