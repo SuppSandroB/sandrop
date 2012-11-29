@@ -356,9 +356,10 @@ public class Framework {
     
     /**
      * stops all the plugins in the framework
+     * @throws InterruptedException 
      */
-    public boolean stopPlugins() {
-        if (isBusy()) return false;
+    public boolean stopPlugins() throws InterruptedException {
+        // sandrob force stop not looking at if (isBusy()) return false;
         Iterator<Plugin> it = _plugins.iterator();
         while (it.hasNext()) {
             Plugin plugin = it.next();

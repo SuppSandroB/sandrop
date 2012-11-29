@@ -55,6 +55,8 @@ import org.sandrop.webscarab.httpclient.ChunkedOutputStream;
 import org.sandrop.webscarab.httpclient.FixedLengthInputStream;
 import org.sandroproxy.utils.PreferenceUtils;
 
+import android.util.Log;
+
 
 /** Message is a class that is used to represent the bulk of an HTTP message, namely
  * the headers, and (possibly null) body. Messages should not be instantiated
@@ -179,7 +181,11 @@ public class Message {
         return 0;
     }
     
-    private String largeContentTempfileName = "";
+    private String contentFileName = "";
+    
+    public void setContentFileName(String fileName){
+        contentFileName = fileName;
+    }
     
     private boolean createRandomFileName() {
         String rootDirName = Preferences.getPreference(PreferenceUtils.dataStorageKey, null);
@@ -204,7 +210,7 @@ public class Message {
             fileName = ((Long)Math.round(Math.random() * randRange)).toString() + ".webscarab.temp";
             fullName = prefix + fileName;
         }
-        largeContentTempfileName = fullName;
+        contentFileName = fullName;
         return true;
     }
 
@@ -213,12 +219,12 @@ public class Message {
             byte[] contentByteArray = ((ByteArrayOutputStream)_content).toByteArray();
             return new ByteArrayInputStream(contentByteArray);
         }else{
-            if (largeContentTempfileName.length() > 0){
-                File fs = new File(largeContentTempfileName);
+            if (contentFileName.length() > 0){
+                File fs = new File(contentFileName);
                 if (fs.exists()){
                     return new FileInputStream(fs);
                 }else{
-                    throw new IOException("getContentInputStream: file " + largeContentTempfileName + " not exist");
+                    throw new IOException("getContentInputStream: file " + contentFileName + " not exist");
                 }
             }
             throw new IOException("getContentInputStream: Empty file name to retrive stream not exist");
@@ -228,39 +234,46 @@ public class Message {
     private void cleanContentInputStream() throws IOException{
         if (_content instanceof ByteArrayOutputStream){
         }else{
-            if (largeContentTempfileName.length() > 0){
-                File fs = new File(largeContentTempfileName);
+            if (contentFileName.length() > 0){
+                File fs = new File(contentFileName);
                 if (fs.exists()){
                     fs.delete();
                     return;
                 }else{
-                    throw new IOException("cleanContentInputStream: file " + largeContentTempfileName + " not exist");
+                    throw new IOException("cleanContentInputStream: file " + contentFileName + " not exist");
                 }
             }
             throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
         }
     }
     
-    public void moveContentToFile(File file) throws Exception{
+    public boolean moveContentToFile(File file) throws Exception{
         if (_content instanceof ByteArrayOutputStream){
             byte[] contentData = getContent();
             FileOutputStream fs = new FileOutputStream(file);
             fs.write(contentData);
+            Log.d("STORE FILE", " byte buffer storing content to file " + file.getAbsolutePath());
             fs.flush();
             fs.close();
-            largeContentTempfileName = file.getAbsolutePath();
+            contentFileName = file.getAbsolutePath();
+            return true;
         }else{
-            if (largeContentTempfileName.length() > 0 && !file.getAbsolutePath().equalsIgnoreCase(largeContentTempfileName)){
-                File fs = new File(largeContentTempfileName);
+            if (contentFileName.length() > 0 && !file.getAbsolutePath().equalsIgnoreCase(contentFileName)){
+                File fs = new File(contentFileName);
                 if (fs.exists()){
                     fs.renameTo(file);
-                    largeContentTempfileName = file.getAbsolutePath();
-                   return;
+                    Log.d("STORE FILE", " rename file storing content to file " + file.getAbsolutePath());
+                    contentFileName = file.getAbsolutePath();
+                   return true;
                 }else{
-                    throw new IOException("cleanContentInputStream: file " + largeContentTempfileName + " not exist");
+                    // throw new IOException("cleanContentInputStream: file " + contentFileName + " not exist");
+                    Log.d("STORE FILE", "empty file storing content to file " + file.getAbsolutePath());
+                    return false;
                 }
             }
-            throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
+            // throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
+            Log.d("STORE FILE", "NOT storing content to file " + file.getAbsolutePath());
+            return false;
         }
     }
     
@@ -643,7 +656,7 @@ public class Message {
         } catch (IOException ioe) {
             _logger.info("IOException flushing the contentStream: " + ioe);
         }
-        if (_content != null && _gzipped) {
+        if ((_content != null || contentFileName.length() > 0) && _gzipped) {
             try {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 GZIPInputStream gzis = new GZIPInputStream(getContentInputStream());
@@ -658,7 +671,7 @@ public class Message {
                 return NO_CONTENT;
             }
         }
-        if (_content != null) {
+        if ((_content != null || contentFileName.length() > 0)) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             InputStream is;
             try {
@@ -746,7 +759,7 @@ public class Message {
             sum += got;
             if (sum > LARGE_CONTENT_SIZE && (_content instanceof ByteArrayOutputStream)){
                 if (createRandomFileName()){
-                    FileOutputStream fo =  new FileOutputStream(new File(largeContentTempfileName));
+                    FileOutputStream fo =  new FileOutputStream(new File(contentFileName));
                     fo.write(((ByteArrayOutputStream)_content).toByteArray());
                     fo.flush();
                     _content = fo;
