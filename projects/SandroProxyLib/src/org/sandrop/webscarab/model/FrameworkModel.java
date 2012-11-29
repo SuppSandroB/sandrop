@@ -94,6 +94,8 @@ public class FrameworkModel {
                 } catch (Exception e) {
                     throw new StoreException("Error initialising session : " + e.getMessage());
                 }
+            }else if (type.equals("Database")){
+                _store = (SiteModelStore)store;
             } else {
                 _rwl.writeLock().release();
                 throw new StoreException("Unknown store type " + type + " and store " + store);
