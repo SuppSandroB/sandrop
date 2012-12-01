@@ -141,6 +141,16 @@ public class Message {
     }
     
     public InputStream getContentStream(){
+        if (_contentStream != null){
+            return _contentStream;
+        }
+        if (contentFileName.length() > 0){
+            try{
+                _contentStream = new FileInputStream(new File(contentFileName));
+            }catch (Exception ex){
+                ex.printStackTrace();
+            }
+        }
         return _contentStream;
     }
     
@@ -184,7 +194,9 @@ public class Message {
     private String contentFileName = "";
     
     public void setContentFileName(String fileName){
-        contentFileName = fileName;
+        if (fileName != null){
+            contentFileName = fileName;
+        }
     }
     
     private boolean createRandomFileName() {
@@ -227,7 +239,7 @@ public class Message {
                     throw new IOException("getContentInputStream: file " + contentFileName + " not exist");
                 }
             }
-            throw new IOException("getContentInputStream: Empty file name to retrive stream not exist");
+            return null;
         }
     }
     
@@ -248,10 +260,19 @@ public class Message {
     }
     
     public boolean moveContentToFile(File file) throws Exception{
-        if (_content instanceof ByteArrayOutputStream){
+        if (contentFileName.length() == 0){
             byte[] contentData = getContent();
+            InputStream is =  getContentInputStream();
+            if (is == null){
+                return false;
+            }
             FileOutputStream fs = new FileOutputStream(file);
-            fs.write(contentData);
+            byte[] buffer = new byte[1024]; // Adjust if you want
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1)
+            {
+                fs.write(buffer, 0, bytesRead);
+            }
             Log.d("STORE FILE", " byte buffer storing content to file " + file.getAbsolutePath());
             fs.flush();
             fs.close();
@@ -656,7 +677,7 @@ public class Message {
         } catch (IOException ioe) {
             _logger.info("IOException flushing the contentStream: " + ioe);
         }
-        if ((_content != null || contentFileName.length() > 0) && _gzipped) {
+        if (_content != null && _gzipped) {
             try {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 GZIPInputStream gzis = new GZIPInputStream(getContentInputStream());
@@ -673,10 +694,14 @@ public class Message {
         }
         if ((_content != null || contentFileName.length() > 0)) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            InputStream is;
-            try {
-                is = getContentInputStream();
             
+            try {
+                InputStream is;
+                if (_gzipped){
+                    is = new GZIPInputStream(getContentInputStream());
+                }else{
+                    is = getContentInputStream();
+                }
                 byte[] buff = new byte[1024];
                 int got;
                 while ((got = is.read(buff))>-1) {
@@ -792,6 +817,9 @@ public class Message {
      */
     public void flushContentStreamToOutputStream(OutputStream os) throws IOException {
         IOException ioe = null;
+        if (_contentStream == null && contentFileName.length() > 0){
+            _contentStream = new FileInputStream(new File(contentFileName));
+        }
         if (_contentStream == null) return;
         byte[] buf = new byte[4096];
         _logger.finest("Reading initial bytes from contentStream " + _contentStream);
