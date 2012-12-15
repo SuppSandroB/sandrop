@@ -790,5 +790,18 @@ public class FileSystemStore implements SiteModelStore {
         }
         
     }
+
+    @Override
+    public long createNewConversation(Date when, int type, String clientAddress) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public long updateConversation(long conversationId, Date when,
+            Request request, Response response){
+        // TODO Auto-generated method stub
+        return 0;
+    }
     
 }

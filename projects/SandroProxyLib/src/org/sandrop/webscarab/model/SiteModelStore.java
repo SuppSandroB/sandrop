@@ -41,6 +41,14 @@ import java.util.Date;
  */
 public interface SiteModelStore {
     
+    
+    long createNewConversation(Date when, int type, String clientAddress);
+    
+
+    long updateConversation(long  conversationId, Date when, Request request, Response response); 
+    
+    
+    
     /**
      * adds a new conversation
      * @param id the id of the new conversation

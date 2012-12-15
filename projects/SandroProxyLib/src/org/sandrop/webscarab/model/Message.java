@@ -199,6 +199,10 @@ public class Message {
         }
     }
     
+    public String getContentFileName(){
+        return contentFileName;
+    }
+    
     private boolean createRandomFileName() {
         String rootDirName = Preferences.getPreference(PreferenceUtils.dataStorageKey, null);
         String tempDirName = null;

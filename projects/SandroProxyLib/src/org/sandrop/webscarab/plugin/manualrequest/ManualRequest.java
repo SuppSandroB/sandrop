@@ -36,6 +36,7 @@ package org.sandrop.webscarab.plugin.manualrequest;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.Cookie;
+import org.sandrop.webscarab.model.FrameworkModel;
 import org.sandrop.webscarab.model.NamedValue;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
@@ -94,10 +95,13 @@ public class ManualRequest implements Plugin {
             try {
                 _model.setBusy(true);
                 _model.setStatus("Started, Fetching response");
+                long conversationId = _framework.createConversation(new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_MANUAL, "localhost");
+                _framework.updateConversation(conversationId, new Date(System.currentTimeMillis()), _request, null);
                 _response = HTTPClientFactory.getValidInstance().fetchResponse(_request);
                 if (_response != null) {
                     _responseDate = new Date();
-                    _framework.addConversation(_request, _response, "Manual Request");
+                    _framework.updateConversation(conversationId, new Date(System.currentTimeMillis()), _request, _response);
+                    // _framework.addConversation(_request, _response, "Manual Request");
                     if (_ui != null) _ui.responseChanged(_response);
                 }
             } finally {
