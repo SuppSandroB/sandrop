@@ -59,6 +59,17 @@ public class FrameworkModel {
     
     private static final Cookie[] NO_COOKIES = new Cookie[0];
     
+    
+    public static final int CONVERSATION_TYPE_PROXY = 0;
+    public static final int CONVERSATION_TYPE_MANUAL = 1;
+    public static final int CONVERSATION_TYPE_INTERCEPT = 2;
+    
+    public static final int CONVERSATION_STATUS_NEW = 0;
+    public static final int CONVERSATION_STATUS_REQ_SEND = 1;
+    public static final int CONVERSATION_STATUS_RESP_RECEIVED = 2;
+    public static final int CONVERSATION_STATUS_ABORTED = 3;
+
+    
     // sandrop
     //private EventListenerList _listenerList = new EventListenerList();
     
@@ -165,6 +176,14 @@ public class FrameworkModel {
      */
     public ConversationID reserveConversationID() {
         return new ConversationID();
+    }
+    
+    public long createNewConversation(Date when, int type, String clientAddress){
+        return _store.createNewConversation(when, type, clientAddress);
+    }
+    
+    public long updateConversation(long conversationId, Date when, Request request, Response response){
+        return _store.updateConversation(conversationId, when, request, response);
     }
     
     /**

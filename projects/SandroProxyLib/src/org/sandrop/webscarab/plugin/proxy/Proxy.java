@@ -42,6 +42,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.TreeMap;
@@ -53,6 +54,7 @@ import java.util.logging.Logger;
 
 import org.sandrop.R;
 import org.sandrop.webscarab.model.ConversationID;
+import org.sandrop.webscarab.model.FrameworkModel;
 import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
@@ -63,6 +65,8 @@ import org.sandrop.webscarab.plugin.Hook;
 import org.sandrop.webscarab.plugin.Plugin;
 import org.sandroproxy.constants.Constants;
 import org.sandroproxy.utils.PreferenceUtils;
+
+import android.database.sqlite.SQLiteStatement;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -413,12 +417,9 @@ public class Proxy implements Plugin {
      *            the request to log
      * @return the conversation ID
      */
-    protected ConversationID gotRequest(Request request) {
-        ConversationID id = _framework.reserveConversationID();
-        if (_ui != null)
-            _ui.requested(id, request.getMethod(), request.getURL());
-        _pending++;
-        _status = "Started, " + _pending + " in progress";
+    protected long gotRequest(Request request, String from) {
+        long id = _framework.createConversation(new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , from);
+        _framework.updateConversation(id, new Date(System.currentTimeMillis()), request, null);
         return id;
     }
 
@@ -432,14 +433,8 @@ public class Proxy implements Plugin {
      * @param response
      *            the Response
      */
-    protected void gotResponse(ConversationID id, Response response) {
-        if (_ui != null)
-            _ui.received(id, response.getStatusLine());
-        _framework.addConversation(id, response.getRequest(), response,
-                getPluginName());
-        _pending--;
-        _status = "Started, "
-                + (_pending > 0 ? (_pending + " in progress") : "Idle");
+    protected void gotResponse(long id, Response response) {
+        _framework.updateConversation(id, new Date(System.currentTimeMillis()), null, response);
     }
 
     protected SSLSocketFactory getSocketFactory(String host) {
@@ -628,12 +623,9 @@ public class Proxy implements Plugin {
      * @param id
      *            the conversation ID
      */
-    protected void failedResponse(ConversationID id, String reason) {
-        if (_ui != null)
-            _ui.aborted(id, reason);
-        _pending--;
-        _status = "Started, "
-                + (_pending > 0 ? (_pending + " in progress") : "Idle");
+    protected void failedResponse(long id, String reason) {
+        // TODO sandrop mark conversation status as aborted
+        _framework.updateConversation(id, new Date(System.currentTimeMillis()), null, null);
     }
 
     private void parseListenerConfig() {

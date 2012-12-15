@@ -101,7 +101,7 @@ public class ConnectionHandler implements Runnable {
                     + ioe);
             return;
         }
-        ConversationID id = null;
+        long conversationId = -1;
         try {
             Request request = null;
             // if we do not already have a base URL (i.e. we operate as a normal
@@ -197,7 +197,7 @@ public class ConnectionHandler implements Runnable {
             String version = null;
 
             do {
-                id = null;
+                conversationId = -1;
                 // if we are reading the first from a reverse proxy, or the
                 // continuation of a CONNECT from a normal proxy
                 // read the request, otherwise we already have it.
@@ -219,7 +219,7 @@ public class ConnectionHandler implements Runnable {
                         + request.getURL().toString());
 
                 // report the request to the listener, and get the allocated ID
-                id = _proxy.gotRequest(request);
+                conversationId = _proxy.gotRequest(request, from);
 
                 // pass the request for possible modification or analysis
                 connection.setRequest(request);
@@ -231,7 +231,7 @@ public class ConnectionHandler implements Runnable {
                 if (request == null)
                     throw new IOException("Request was cancelled");
                 if (response != null) {
-                    _proxy.failedResponse(id, "Response provided by script");
+                    _proxy.failedResponse(conversationId, "Response provided by script");
                     _proxy = null;
                 } else {
 
@@ -249,12 +249,12 @@ public class ConnectionHandler implements Runnable {
                         response = errorResponse(request, ioe);
                         // prevent the conversation from being
                         // submitted/recorded
-                        _proxy.failedResponse(id, ioe.toString());
+                        _proxy.failedResponse(conversationId, ioe.toString());
                         _proxy = null;
                     }
                     if (response == null) {
                         _logger.severe("Got a null response from the fetcher");
-                        _proxy.failedResponse(id, "Null response");
+                        _proxy.failedResponse(conversationId, "Null response");
                         return;
                     }
                 }
@@ -292,7 +292,7 @@ public class ConnectionHandler implements Runnable {
                     response.setRequest(request);
                 }
                 if (_proxy != null && !request.getMethod().equals("CONNECT")) {
-                    _proxy.gotResponse(id, response);
+                    _proxy.gotResponse(conversationId, response);
                 }
 
                 keepAlive = response.getHeader("Connection");
@@ -308,8 +308,8 @@ public class ConnectionHandler implements Runnable {
                             .equalsIgnoreCase(keepAlive)));
             _logger.fine("Finished handling connection");
         } catch (Exception e) {
-            if (id != null)
-                _proxy.failedResponse(id, e.getMessage());
+            if (conversationId != -1)
+                _proxy.failedResponse(conversationId, e.getMessage());
             _logger.severe("ConnectionHandler got an error : " + e);
             e.printStackTrace();
         } finally {

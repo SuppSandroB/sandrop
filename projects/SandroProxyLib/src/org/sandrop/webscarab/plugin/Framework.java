@@ -418,6 +418,14 @@ public class Framework {
         return _model.reserveConversationID();
     }
     
+    public long createConversation(Date when, int type, String clientAddress) {
+        return _model.createNewConversation(when, type, clientAddress);
+    }
+    
+    public long updateConversation(long conversationId, Date when, Request request, Response response) {
+        return _model.updateConversation(conversationId, when, request, response);
+    }
+    
     public void addConversation(ConversationID id, Request request, Response response, String origin) {
         addConversation(id, new Date(), request, response, origin);
     }
