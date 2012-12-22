@@ -103,8 +103,16 @@ delete this._isInFallbackSelection;
 
 _tabSelected: function(event)
 {
-if (event.data.isUserGesture)
+if (!event.data.isUserGesture)
+return;
+
 WebInspector.settings.resourceViewTab.set(event.data.tabId);
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.NetworkRequestTabSelected,
+tab: event.data.tabId,
+url: this._request.url
+});
 },
 
 
@@ -216,7 +224,7 @@ _buildCookiesTable: function()
 {
 this.detachChildViews();
 
-this._cookiesTable = new WebInspector.CookiesTable(null, true);
+this._cookiesTable = new WebInspector.CookiesTable(true);
 this._cookiesTable.addCookiesFolder(WebInspector.UIString("Request Cookies"), this._request.requestCookies);
 this._cookiesTable.addCookiesFolder(WebInspector.UIString("Response Cookies"), this._request.responseCookies);
 this._cookiesTable.show(this.element);
@@ -776,26 +784,46 @@ _createEmptyView: function()
 return new WebInspector.EmptyView(WebInspector.UIString("This request has no preview available."));
 },
 
-_createPreviewView: function()
+_jsonView: function()
 {
-if (this.request.content) {
-if (this.request.hasErrorStatusCode() || (this.request.type === WebInspector.resourceTypes.XHR && this.request.mimeType === "text/html")) {
-var dataURL = this.request.asDataURL();
-if (dataURL !== null)
-return new WebInspector.RequestHTMLView(this.request, dataURL);
-}
-}
-
-if (this.request.type === WebInspector.resourceTypes.XHR && this.request.content) {
 var parsedJSON = WebInspector.RequestJSONView.parseJSON(this.request.content);
 if (parsedJSON)
 return new WebInspector.RequestJSONView(this.request, parsedJSON);
+},
+
+_htmlView: function()
+{
+var dataURL = this.request.asDataURL();
+if (dataURL !== null)
+return new WebInspector.RequestHTMLView(this.request, dataURL);
+},
+
+_createPreviewView: function()
+{
+if (this.request.content) {
+if (this.request.hasErrorStatusCode()) {
+var htmlView = this._htmlView();
+if (htmlView)
+return htmlView;
 }
 
-if (this.request.content && this.request.type === WebInspector.resourceTypes.Script && this.request.mimeType === "application/json") {
-var parsedJSONP = WebInspector.RequestJSONView.parseJSONP(this.request.content);
-if (parsedJSONP)
-return new WebInspector.RequestJSONView(this.request, parsedJSONP);
+if (this.request.type === WebInspector.resourceTypes.XHR) {
+var jsonView = this._jsonView();
+if (jsonView)
+return jsonView;
+}
+
+if (this.request.type === WebInspector.resourceTypes.XHR && this.request.mimeType === "text/html") {
+var htmlView = this._htmlView();
+if (htmlView)
+return htmlView;
+}
+
+if (this.request.type === WebInspector.resourceTypes.Script && this.request.mimeType === "application/json") {
+var jsonView = this._jsonView();
+if (jsonView)
+return jsonView;
+}
 }
 
 if (this._responseView.sourceView)
@@ -1079,6 +1107,7 @@ this._mainRequestLoadTime = -1;
 this._mainRequestDOMContentTime = -1;
 this._hiddenCategories = {};
 this._matchedRequests = [];
+this._highlightedSubstringChanges = [];
 this._filteredOutRequests = new Map();
 
 this._matchedRequestsMap = {};
@@ -1323,6 +1352,12 @@ this._timelineSortSelector.selectedIndex = 0;
 this._updateOffscreenRows();
 
 this.searchCanceled();
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.NetworkSort,
+column: columnIdentifier,
+sortOrder: this._dataGrid.sortOrder
+});
 },
 
 _sortByTimeline: function()
@@ -1703,12 +1738,15 @@ boundariesChanged = this.calculator.updateBoundariesForEventTime(this._mainReque
 for (var requestId in this._staleRequests) {
 var request = this._staleRequests[requestId];
 var node = this._requestGridNode(request);
-if (!node) {
+if (node)
+node.refreshRequest();
+else {
 
 node = this._createRequestGridNode(request);
 this._dataGrid.rootNode().appendChild(node);
-}
 node.refreshRequest();
+this._applyFilter(node);
+}
 
 if (this.calculator.updateBoundaries(request))
 boundariesChanged = true;
@@ -1928,18 +1966,40 @@ _getPopoverAnchor: function(element)
 if (!this._allowPopover)
 return;
 var anchor = element.enclosingNodeOrSelfWithClass("network-graph-bar") || element.enclosingNodeOrSelfWithClass("network-graph-label");
-if (!anchor)
+if (anchor && anchor.parentElement.request && anchor.parentElement.request.timing)
+return anchor;
+anchor = element.enclosingNodeOrSelfWithClass("network-script-initiated");
+if (anchor && anchor.request && anchor.request.initiator)
+return anchor;
+
 return null;
-var request = anchor.parentElement.request;
-return request && request.timing ? anchor : null;
 },
 
 
 _showPopover: function(anchor, popover)
 {
-var request = anchor.parentElement.request;
-var tableElement = WebInspector.RequestTimingView.createTimingTable(request);
-popover.show(tableElement, anchor);
+var content;
+if (anchor.hasStyleClass("network-script-initiated"))
+content = this._generateScriptInitiatedPopoverContent(anchor.request);
+else
+content = WebInspector.RequestTimingView.createTimingTable(anchor.parentElement.request);
+popover.show(content, anchor);
+},
+
+
+_generateScriptInitiatedPopoverContent: function(request)
+{
+var stackTrace = request.initiator.stackTrace;
+var framesTable = document.createElement("table");
+for (var i = 0; i < stackTrace.length; ++i) {
+var stackFrame = stackTrace[i];
+var row = document.createElement("tr");
+row.createChild("td").textContent = stackFrame.functionName ? stackFrame.functionName : WebInspector.UIString("(anonymous function)");
+row.createChild("td").textContent = " @ ";
+row.createChild("td").appendChild(this._linkifier.linkifyLocation(stackFrame.url, stackFrame.lineNumber - 1, 0));
+framesTable.appendChild(row);
+}
+return framesTable;
 },
 
 _contextMenu: function(event)
@@ -2127,21 +2187,18 @@ this._highlightNthMatchedRequestForSearch(matchedRequestIndex, false);
 
 _removeAllHighlights: function()
 {
-if (this._highlightedSubstringChanges) {
 for (var i = 0; i < this._highlightedSubstringChanges.length; ++i)
 WebInspector.revertDomChanges(this._highlightedSubstringChanges[i]);
-this._highlightedSubstringChanges = null;
-}
+this._highlightedSubstringChanges = [];
 },
 
 
-_highlightMatchedRequests: function(requests, reveal, regExp)
+_highlightMatchedRequest: function(request, reveal, regExp)
 {
-this._highlightedSubstringChanges = [];
-for (var i = 0; i < requests.length; ++i) {
-var request = requests[i];
 var node = this._requestGridNode(request);
-if (node) {
+if (!node)
+return;
+
 var nameMatched = request.name().match(regExp);
 var pathMatched = request.path().match(regExp);
 if (!nameMatched && pathMatched && !this._largerRequestsButton.toggled)
@@ -2150,8 +2207,6 @@ var highlightedSubstringChanges = node._highlightMatchedSubstring(regExp);
 this._highlightedSubstringChanges.push(highlightedSubstringChanges);
 if (reveal)
 node.reveal();
-}
-}
 },
 
 
@@ -2161,7 +2216,7 @@ var request = this.requestById(this._matchedRequests[matchedRequestIndex]);
 if (!request)
 return;
 this._removeAllHighlights();
-this._highlightMatchedRequests([request], reveal, this._searchRegExp);
+this._highlightMatchedRequest(request, reveal, this._searchRegExp);
 var node = this._requestGridNode(request);
 if (node)
 this._currentMatchedRequestIndex = matchedRequestIndex;
@@ -2195,25 +2250,33 @@ this._highlightNthMatchedRequestForSearch(newMatchedRequestIndex, false);
 },
 
 
+_applyFilter: function(node) {
+var filter = this._filterRegExp;
+var request = node._request;
+if (!filter)
+return;
+if (filter.test(request.name()) || filter.test(request.path()))
+this._highlightMatchedRequest(request, false, filter);
+else {
+node.element.addStyleClass("filtered-out");
+this._filteredOutRequests.put(request, true);
+}
+},
+
+
 performFilter: function(query)
 {
-this._filteredOutRequests.clear();
-var filterRegExp = createPlainTextSearchRegex(query, "i");
-var shownRequests = [];
-for (var i = 0; i < this._dataGrid.rootNode().children.length; ++i) {
-var node = this._dataGrid.rootNode().children[i];
-node.element.removeStyleClass("filtered-out");
-var nameMatched = node._request.name().match(filterRegExp);
-var pathMatched = node._request.path().match(filterRegExp);
-if (!nameMatched && !pathMatched) {
-node.element.addStyleClass("filtered-out");
-this._filteredOutRequests.put(this._requests[i], true);
-} else 
-shownRequests.push(node._request);
-}
 this._removeAllHighlights();
+this._filteredOutRequests.clear();
+delete this._filterRegExp;
 if (query)
-this._highlightMatchedRequests(shownRequests, false, filterRegExp);
+this._filterRegExp = createPlainTextSearchRegex(query, "i");
+
+var nodes = this._dataGrid.rootNode().children;
+for (var i = 0; i < nodes.length; ++i) {
+nodes[i].element.removeStyleClass("filtered-out");
+this._applyFilter(nodes[i]);
+}
 this._updateSummaryBar();
 this._updateOffscreenRows();
 },
@@ -2779,7 +2842,7 @@ this._initiatorCell = this._createDivInTD("initiator");
 this._sizeCell = this._createDivInTD("size");
 this._timeCell = this._createDivInTD("time");
 this._createTimelineCell();
-this._nameCell.addEventListener("click", this.select.bind(this), false);
+this._nameCell.addEventListener("click", this._onClick.bind(this), false);
 this._nameCell.addEventListener("dblclick", this._openInNewTab.bind(this), false);
 },
 
@@ -2792,10 +2855,21 @@ return false;
 return this._request.type.name() in this._parentView._hiddenCategories;
 },
 
+_onClick: function()
+{
+if (!this._parentView._allowRequestSelection)
+this.select();
+},
+
 select: function()
 {
 this._parentView.dispatchEventToListeners(WebInspector.NetworkLogView.EventTypes.RequestSelected, this._request);
 WebInspector.DataGridNode.prototype.select.apply(this, arguments);
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.NetworkRequestSelected,
+url: this._request.url
+});
 },
 
 _highlightMatchedSubstring: function(regexp)
@@ -2963,9 +3037,13 @@ this._typeCell.setTextAndTitle(WebInspector.UIString("Pending"));
 
 _refreshInitiatorCell: function()
 {
+this._initiatorCell.removeStyleClass("network-dim-cell");
+this._initiatorCell.removeStyleClass("network-script-initiated");
+delete this._initiatorCell.request;
+this._initiatorCell.title = null;
+
 var initiator = this._request.initiator;
 if ((initiator && initiator.type !== "other") || this._request.redirectSource) {
-this._initiatorCell.removeStyleClass("network-dim-cell");
 this._initiatorCell.removeChildren();
 if (this._request.redirectSource) {
 var redirectSource = this._request.redirectSource;
@@ -2980,10 +3058,12 @@ this._initiatorCell.addStyleClass("network-dim-cell");
 this._initiatorCell.setTextAndTitle(WebInspector.UIString("Other"));
 return;
 }
-this._initiatorCell.title = topFrame.url + ":" + topFrame.lineNumber;
 var urlElement = this._parentView._linkifier.linkifyLocation(topFrame.url, topFrame.lineNumber - 1, 0);
+urlElement.title = null;
 this._initiatorCell.appendChild(urlElement);
 this._appendSubtitle(this._initiatorCell, WebInspector.UIString("Script"));
+this._initiatorCell.addStyleClass("network-script-initiated");
+this._initiatorCell.request = this._request;
 } else { 
 this._initiatorCell.title = initiator.url + ":" + initiator.lineNumber;
 this._initiatorCell.appendChild(WebInspector.linkifyResourceAsNode(initiator.url, initiator.lineNumber - 1));

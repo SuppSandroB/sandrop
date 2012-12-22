@@ -1355,11 +1355,12 @@ WebInspector.StylesSidebarPane.createExclamationMark = function(propertyName)
 {
 var exclamationElement = document.createElement("img");
 exclamationElement.className = "exclamation-mark";
-exclamationElement.title = WebInspector.CSSCompletions.cssPropertiesMetainfo.keySet()[propertyName.toLowerCase()] ? WebInspector.UIString("Invalid property value.") : WebInspector.UIString("Unknown property name.");
+exclamationElement.title = WebInspector.CSSMetadata.cssPropertiesMetainfo.keySet()[propertyName.toLowerCase()] ? WebInspector.UIString("Invalid property value.") : WebInspector.UIString("Unknown property name.");
 return exclamationElement;
 }
 
 WebInspector.StylesSidebarPane.prototype = {
+
 _contextMenuEventFired: function(event)
 {
 
@@ -1387,6 +1388,7 @@ var inputs = this._elementStatePane.inputs;
 for (var i = 0; i < inputs.length; ++i)
 inputs[i].checked = nodePseudoState.indexOf(inputs[i].state) >= 0;
 },
+
 
 update: function(node, forceUpdate)
 {
@@ -1737,7 +1739,7 @@ continue;
 
 var canonicalName = WebInspector.StylesSidebarPane.canonicalPropertyName(property.name);
 
-if (styleRule.isInherited && !WebInspector.CSSKeywordCompletions.InheritedProperties[canonicalName])
+if (styleRule.isInherited && !WebInspector.CSSMetadata.InheritedProperties[canonicalName])
 continue;
 
 if (foundImportantProperties.hasOwnProperty(canonicalName))
@@ -1837,7 +1839,7 @@ var properties = style.allProperties;
 for (var i = 0; i < properties.length; ++i) {
 var property = properties[i];
 
-if (property.isLive && property.name in WebInspector.CSSKeywordCompletions.InheritedProperties)
+if (property.isLive && property.name in WebInspector.CSSMetadata.InheritedProperties)
 return true;
 }
 return false;
@@ -1905,42 +1907,6 @@ sections.splice(index, 1);
 if (section.element.parentNode)
 section.element.parentNode.removeChild(section.element);
 }
-},
-
-registerShortcuts: function()
-{
-var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("Styles Pane"));
-var shortcut = WebInspector.KeyboardShortcut;
-var keys = [
-shortcut.shortcutToString(shortcut.Keys.Tab),
-shortcut.shortcutToString(shortcut.Keys.Tab, shortcut.Modifiers.Shift)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Next/previous property"));
-keys = [
-shortcut.shortcutToString(shortcut.Keys.Up),
-shortcut.shortcutToString(shortcut.Keys.Down)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Increment/decrement value"));
-keys = [
-shortcut.shortcutToString(shortcut.Keys.Up, shortcut.Modifiers.Shift),
-shortcut.shortcutToString(shortcut.Keys.Down, shortcut.Modifiers.Shift)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Increment/decrement by %f", 10));
-keys = [
-shortcut.shortcutToString(shortcut.Keys.PageUp),
-shortcut.shortcutToString(shortcut.Keys.PageDown)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Increment/decrement by %f", 10));
-keys = [
-shortcut.shortcutToString(shortcut.Keys.PageUp, shortcut.Modifiers.Shift),
-shortcut.shortcutToString(shortcut.Keys.PageDown, shortcut.Modifiers.Shift)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Increment/decrement by %f", 100));
-keys = [
-shortcut.shortcutToString(shortcut.Keys.PageUp, shortcut.Modifiers.Alt),
-shortcut.shortcutToString(shortcut.Keys.PageDown, shortcut.Modifiers.Alt)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Increment/decrement by %f", 0.1));
 },
 
 _toggleElementStatePane: function(event)
@@ -2095,7 +2061,6 @@ mediaTextElement.title = media.text;
 
 var selectorContainer = document.createElement("div");
 this._selectorElement = document.createElement("span");
-this._selectorElement.addStyleClass("selector-matches");
 this._selectorElement.textContent = styleRule.selectorText;
 selectorContainer.appendChild(this._selectorElement);
 
@@ -2158,7 +2123,7 @@ isPropertyInherited: function(propertyName)
 if (this.isInherited) {
 
 
-return !(propertyName in WebInspector.CSSKeywordCompletions.InheritedProperties);
+return !(propertyName in WebInspector.CSSMetadata.InheritedProperties);
 }
 return false;
 },
@@ -2169,7 +2134,7 @@ isPropertyOverloaded: function(propertyName, isShorthand)
 if (!this._usedProperties || this.noAffect)
 return false;
 
-if (this.isInherited && !(propertyName in WebInspector.CSSKeywordCompletions.InheritedProperties)) {
+if (this.isInherited && !(propertyName in WebInspector.CSSMetadata.InheritedProperties)) {
 
 return false;
 }
@@ -2225,6 +2190,9 @@ return (curSection && curSection.editable) ? curSection : null;
 
 update: function(full)
 {
+if (this.styleRule.selectorText)
+this._selectorElement.textContent = this.styleRule.selectorText;
+this._markSelectorMatches();
 if (full) {
 this.propertiesTreeOutline.removeChildren();
 this.populated = false;
@@ -2260,7 +2228,7 @@ this.uniqueProperties.push(property);
 if (property.styleBased)
 continue;
 
-var isShorthand = !!WebInspector.CSSCompletions.cssPropertiesMetainfo.longhands(property.name);
+var isShorthand = !!WebInspector.CSSMetadata.cssPropertiesMetainfo.longhands(property.name);
 var inherited = this.isPropertyInherited(property.name);
 var overloaded = property.inactive || this.isPropertyOverloaded(property.name);
 var item = new WebInspector.StylePropertyTreeElement(this, this._parentPane, this.styleRule, style, property, isShorthand, inherited, overloaded);
@@ -2274,10 +2242,10 @@ var generatedShorthands = {};
 for (var i = 0; i < allProperties.length; ++i) {
 var property = allProperties[i];
 this.uniqueProperties.push(property);
-var isShorthand = !!WebInspector.CSSCompletions.cssPropertiesMetainfo.longhands(property.name);
+var isShorthand = !!WebInspector.CSSMetadata.cssPropertiesMetainfo.longhands(property.name);
 
 
-var shorthands = isShorthand ? null : WebInspector.CSSCompletions.cssPropertiesMetainfo.shorthands(property.name);
+var shorthands = isShorthand ? null : WebInspector.CSSMetadata.cssPropertiesMetainfo.shorthands(property.name);
 var shorthandPropertyAvailable = false;
 for (var j = 0; shorthands && !shorthandPropertyAvailable && j < shorthands.length; ++j) {
 var shorthand = shorthands[j];
@@ -2329,11 +2297,14 @@ var rule = this.styleRule.rule;
 if (!rule)
 return;
 
-var selectors = rule.selectors;
 var matchingSelectors = rule.matchingSelectors;
-if (selectors.length < 2 || !matchingSelectors)
+
+if (this.noAffect || matchingSelectors)
+this._selectorElement.className = "selector";
+if (!matchingSelectors)
 return;
 
+var selectors = rule.selectors;
 var fragment = document.createDocumentFragment();
 var currentMatch = 0;
 for (var i = 0, lastSelectorIndex = selectors.length - 1; i <= lastSelectorIndex ; ++i) {
@@ -2352,7 +2323,6 @@ if (i !== lastSelectorIndex)
 fragment.appendChild(document.createTextNode(", "));
 }
 
-this._selectorElement.className = "selector";
 this._selectorElement.removeChildren();
 this._selectorElement.appendChild(fragment);
 },
@@ -2523,6 +2493,8 @@ this._selectorElement.textContent = newContent;
 return this._moveEditorFromSelector(moveDirection);
 }
 
+var selectedNode = this._parentPane.node;
+
 function successCallback(newRule, doesAffectSelectedNode)
 {
 if (!doesAffectSelectedNode) {
@@ -2536,13 +2508,20 @@ this.element.removeStyleClass("no-affect");
 this.rule = newRule;
 this.styleRule = { section: this, style: newRule.style, selectorText: newRule.selectorText, media: newRule.media, sourceURL: newRule.sourceURL, rule: newRule };
 
-this._parentPane.update();
+this._parentPane.update(selectedNode);
 
-this._moveEditorFromSelector(moveDirection);
+finishOperationAndMoveEditor.call(this, moveDirection);
 }
 
-var selectedNode = this._parentPane.node;
-WebInspector.cssModel.setRuleSelector(this.rule.id, selectedNode ? selectedNode.id : 0, newContent, successCallback.bind(this), this._moveEditorFromSelector.bind(this, moveDirection));
+function finishOperationAndMoveEditor(direction)
+{
+delete this._parentPane._userOperation;
+this._moveEditorFromSelector(direction);
+}
+
+
+this._parentPane._userOperation = true;
+WebInspector.cssModel.setRuleSelector(this.rule.id, selectedNode ? selectedNode.id : 0, newContent, successCallback.bind(this), finishOperationAndMoveEditor.bind(this, moveDirection));
 },
 
 editingSelectorCancelled: function()
@@ -2637,7 +2616,7 @@ for (var j = 0; j < section.uniqueProperties.length; ++j) {
 var property = section.uniqueProperties[j];
 if (property.disabled)
 continue;
-if (section.isInherited && !(property.name in WebInspector.CSSKeywordCompletions.InheritedProperties))
+if (section.isInherited && !(property.name in WebInspector.CSSMetadata.InheritedProperties))
 continue;
 
 var treeElement = this._propertyTreeElements[property.name];
@@ -2714,15 +2693,19 @@ this.expand();
 if (this.element.parentElement) 
 this._moveEditorFromSelector(moveDirection);
 
+this._markSelectorMatches();
 delete this._parentPane._userOperation;
 }
 
+if (newContent)
+newContent = newContent.trim();
 this._parentPane._userOperation = true;
 WebInspector.cssModel.addRule(this.pane.node.id, newContent, successCallback.bind(this), this.editingSelectorCancelled.bind(this));
 },
 
 editingSelectorCancelled: function()
 {
+delete this._parentPane._userOperation;
 if (!this.isBlank) {
 WebInspector.StylePropertiesSection.prototype.editingSelectorCancelled.call(this);
 return;
@@ -3090,7 +3073,7 @@ return container;
 var colorRegex = /((?:rgb|hsl)a?\([^)]+\)|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|\b\w+\b(?!-))/g;
 var colorProcessor = processValue.bind(window, colorRegex, processColor, null);
 
-valueElement.appendChild(processValue(/url\(\s*([^)\s]+)\s*\)/g, linkifyURL.bind(this), WebInspector.CSSKeywordCompletions.isColorAwareProperty(self.name) ? colorProcessor : null, value));
+valueElement.appendChild(processValue(/url\(\s*([^)\s]+)\s*\)/g, linkifyURL.bind(this), WebInspector.CSSMetadata.isColorAwareProperty(self.name) ? colorProcessor : null, value));
 }
 
 this.listItemElement.removeChildren();
@@ -3334,7 +3317,7 @@ if (selectElement.parentElement)
 selectElement.parentElement.scrollIntoViewIfNeeded(false);
 
 var applyItemCallback = !isEditingName ? this._applyFreeFlowStyleTextEdit.bind(this, true) : undefined;
-this._prompt = new WebInspector.StylesSidebarPane.CSSPropertyPrompt(isEditingName ? WebInspector.CSSCompletions.cssPropertiesMetainfo : WebInspector.CSSKeywordCompletions.forProperty(this.nameElement.textContent), this, isEditingName);
+this._prompt = new WebInspector.StylesSidebarPane.CSSPropertyPrompt(isEditingName ? WebInspector.CSSMetadata.cssPropertiesMetainfo : WebInspector.CSSMetadata.keywordsForProperty(this.nameElement.textContent), this, isEditingName);
 if (applyItemCallback) {
 this._prompt.addEventListener(WebInspector.TextPrompt.Events.ItemApplied, applyItemCallback, this);
 this._prompt.addEventListener(WebInspector.TextPrompt.Events.ItemAccepted, applyItemCallback, this);
@@ -3834,8 +3817,6 @@ if (this.sidebarPanes[pane].onattach)
 this.sidebarPanes[pane].onattach();
 }
 
-this._registerShortcuts();
-
 this._popoverHelper = new WebInspector.PopoverHelper(this.element, this._getPopoverAnchor.bind(this), this._showPopover.bind(this));
 this._popoverHelper.setTimeout(0);
 
@@ -3932,6 +3913,13 @@ this.treeOutline.updateOpenCloseTags(node);
 WebInspector.cssModel.forcePseudoState(node.id, node.getUserProperty(WebInspector.ElementsTreeOutline.PseudoStateDecorator.PropertyName));
 this._metricsPaneEdited();
 this._stylesPaneEdited();
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.ForcedElementState,
+selector: node.appropriateSelectorFor(false),
+enabled: enable,
+state: pseudoClass
+});
 },
 
 _selectedNodeChanged: function()
@@ -4715,27 +4703,6 @@ return;
 
 eventListenersSidebarPane.update(this.selectedDOMNode());
 eventListenersSidebarPane.needsUpdate = false;
-},
-
-_registerShortcuts: function()
-{
-var shortcut = WebInspector.KeyboardShortcut;
-var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("Elements Panel"));
-var keys = [
-shortcut.shortcutToString(shortcut.Keys.Up),
-shortcut.shortcutToString(shortcut.Keys.Down)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Navigate elements"));
-
-keys = [
-shortcut.shortcutToString(shortcut.Keys.Right),
-shortcut.shortcutToString(shortcut.Keys.Left)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Expand/collapse"));
-section.addKey(shortcut.shortcutToString(shortcut.Keys.Enter), WebInspector.UIString("Edit attribute"));
-section.addKey(shortcut.shortcutToString(shortcut.Keys.F2), WebInspector.UIString("Toggle edit as HTML"));
-
-this.sidebarPanes.styles.registerShortcuts();
 },
 
 handleShortcut: function(event)

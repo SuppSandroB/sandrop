@@ -360,12 +360,6 @@ return index;
 }
 }
 
-Array.convert = function(list)
-{
-
-return Array.prototype.slice.call(list);
-}
-
 
 String.sprintf = function(format, var_arg)
 {
@@ -749,43 +743,9 @@ _importedScripts[scriptName] = true;
 var xhr = new XMLHttpRequest();
 xhr.open("GET", scriptName, false);
 xhr.send(null);
-window.eval(xhr.responseText + "\n//@ sourceURL=" + scriptName);
+var sourceURL = WebInspector.ParsedURL.completeURL(window.location.href, scriptName); 
+window.eval(xhr.responseText + "\n//@ sourceURL=" + sourceURL);
 }
-
-
-
-function NonLeakingMutationObserver(handler)
-{
-this._observer = new WebKitMutationObserver(handler);
-NonLeakingMutationObserver._instances.push(this);
-if (!window.testRunner && !WebInspector.isUnderTest && !NonLeakingMutationObserver._unloadListener) {
-NonLeakingMutationObserver._unloadListener = function() {
-while (NonLeakingMutationObserver._instances.length)
-NonLeakingMutationObserver._instances[NonLeakingMutationObserver._instances.length - 1].disconnect();
-};
-window.addEventListener("unload", NonLeakingMutationObserver._unloadListener, false);
-}
-}
-
-NonLeakingMutationObserver._instances = [];
-
-NonLeakingMutationObserver.prototype = {
-
-observe: function(element, config)
-{
-if (this._observer)
-this._observer.observe(element, config);
-},
-
-disconnect: function()
-{
-if (this._observer)
-this._observer.disconnect();
-NonLeakingMutationObserver._instances.remove(this);
-delete this._observer;
-}
-}
-
 
 
 
@@ -1323,21 +1283,26 @@ else
 this.style.removeProperty("top");
 }
 
-Element.prototype.pruneEmptyTextNodes = function()
-{
-var sibling = this.firstChild;
-while (sibling) {
-var nextSibling = sibling.nextSibling;
-if (sibling.nodeType === Node.TEXT_NODE && sibling.nodeValue === "")
-this.removeChild(sibling);
-sibling = nextSibling;
-}
-}
-
 Element.prototype.isScrolledToBottom = function()
 {
 
 return this.scrollTop + this.clientHeight === this.scrollHeight;
+}
+
+Element.prototype.remove = function()
+{
+if (this.parentElement)
+this.parentElement.removeChild(this);
+}
+
+
+function removeSubsequentNodes(fromNode, toNode)
+{
+for (var node = fromNode; node && node !== toNode; ) {
+var nodeToRemove = node;
+node = node.nextSibling;
+nodeToRemove.remove();
+}
 }
 
 
@@ -1378,13 +1343,6 @@ for (var node = this; node && node !== this.ownerDocument; node = node.parentNod
 if (node.nodeType === Node.ELEMENT_NODE && node.hasStyleClass(className))
 return node;
 return null;
-}
-
-Node.prototype.enclosingNodeWithClass = function(className)
-{
-if (!this.parentNode)
-return null;
-return this.parentNode.enclosingNodeOrSelfWithClass(className);
 }
 
 Element.prototype.query = function(query)
@@ -1647,12 +1605,6 @@ return node;
 return this.parentNode;
 }
 
-HTMLTextAreaElement.prototype.moveCursorToEnd = function()
-{
-var length = this.value.length;
-this.setSelectionRange(length, length);
-}
-
 function isEnterKey(event) {
 
 return event.keyCode !== 229 && event.keyIdentifier === "Enter";
@@ -1662,6 +1614,42 @@ function consumeEvent(e)
 {
 e.consume();
 }
+
+window.isUnderTest = false;
+
+
+function NonLeakingMutationObserver(handler)
+{
+this._observer = new WebKitMutationObserver(handler);
+NonLeakingMutationObserver._instances.push(this);
+if (!window.testRunner && !window.isUnderTest && !NonLeakingMutationObserver._unloadListener) {
+NonLeakingMutationObserver._unloadListener = function() {
+while (NonLeakingMutationObserver._instances.length)
+NonLeakingMutationObserver._instances[NonLeakingMutationObserver._instances.length - 1].disconnect();
+};
+window.addEventListener("unload", NonLeakingMutationObserver._unloadListener, false);
+}
+}
+
+NonLeakingMutationObserver._instances = [];
+
+NonLeakingMutationObserver.prototype = {
+
+observe: function(element, config)
+{
+if (this._observer)
+this._observer.observe(element, config);
+},
+
+disconnect: function()
+{
+if (this._observer)
+this._observer.disconnect();
+NonLeakingMutationObserver._instances.remove(this);
+delete this._observer;
+}
+}
+
 
 
 
@@ -1882,42 +1870,21 @@ if (cachedElement)
 return cachedElement;
 
 
-
-var item;
-var found = false;
-for (var i = 0; i < this.children.length; ++i) {
-item = this.children[i];
-if (item.representedObject === representedObject || isAncestor(item.representedObject, representedObject)) {
-found = true;
+var ancestors = [];
+for (var currentObject = getParent(representedObject); currentObject;  currentObject = getParent(currentObject)) {
+ancestors.push(currentObject);
+if (this.getCachedTreeElement(currentObject))  
 break;
 }
-}
 
-if (!found)
+if (!currentObject)
 return null;
 
 
-
-var ancestors = [];
-var currentObject = representedObject;
-while (currentObject) {
-ancestors.unshift(currentObject);
-if (currentObject === item.representedObject)
-break;
-currentObject = getParent(currentObject);
-}
-
-
-for (var i = 0; i < ancestors.length; ++i) {
-
-
-if (ancestors[i] === representedObject)
-continue;
-
-
-item = this.findTreeElement(ancestors[i], isAncestor, getParent);
-if (item)
-item.onpopulate();
+for (var i = ancestors.length - 1; i >= 0; --i) {
+var treeElement = this.getCachedTreeElement(ancestors[i]);
+if (treeElement)
+treeElement.onpopulate();  
 }
 
 return this.getCachedTreeElement(representedObject);
@@ -2706,7 +2673,7 @@ var elements = new WebInspector.ElementsPanelDescriptor();
 var resources = new WebInspector.PanelDescriptor("resources", WebInspector.UIString("Resources"), "ResourcesPanel", "ResourcesPanel.js");
 var network = new WebInspector.NetworkPanelDescriptor();
 var scripts = new WebInspector.ScriptsPanelDescriptor();
-var timeline = new WebInspector.PanelDescriptor("timeline", WebInspector.UIString("Timeline"), "TimelinePanel", "TimelinePanel.js");
+var timeline = new WebInspector.TimelinePanelDescriptor();
 var profiles = new WebInspector.PanelDescriptor("profiles", WebInspector.UIString("Profiles"), "ProfilesPanel", "ProfilesPanel.js");
 var audits = new WebInspector.PanelDescriptor("audits", WebInspector.UIString("Audits"), "AuditsPanel", "AuditsPanel.js");
 var console = new WebInspector.PanelDescriptor("console", WebInspector.UIString("Console"), "ConsolePanel");
@@ -2720,7 +2687,6 @@ panelDescriptors.push(profiles);
 panelDescriptors.push(console);
 return panelDescriptors;
 }
-var allDescriptors = [elements, resources, network, scripts, timeline, profiles, audits, console];
 var hiddenPanels = InspectorFrontendHost.hiddenPanels();
 for (var i = 0; i < allDescriptors.length; ++i) {
 if (hiddenPanels.indexOf(allDescriptors[i].name()) === -1)
@@ -2950,6 +2916,7 @@ WebInspector.panel("scripts");
 }
 
 WebInspector.Events = {
+InspectorLoaded: "InspectorLoaded",
 InspectorClosing: "InspectorClosing"
 }
 
@@ -3038,20 +3005,23 @@ PageAgent.canOverrideDeviceOrientation(WebInspector._initializeCapability.bind(W
 
 WebInspector._doLoadedDoneWithCapabilities = function()
 {
-var panelDescriptors = this._panelDescriptors();
-WebInspector.shortcutsScreen = new WebInspector.ShortcutsScreen(this._registerShortcuts.bind(this, panelDescriptors));
+WebInspector.shortcutsScreen = new WebInspector.ShortcutsScreen();
+this._registerShortcuts();
 
 
-WebInspector.shortcutsScreen.section(WebInspector.UIString("All Panels"));
 WebInspector.shortcutsScreen.section(WebInspector.UIString("Console"));
 WebInspector.shortcutsScreen.section(WebInspector.UIString("Elements Panel"));
+
+var panelDescriptors = this._panelDescriptors();
+for (var i = 0; i < panelDescriptors.length; ++i)
+panelDescriptors[i].registerShortcuts();
 
 this.console = new WebInspector.ConsoleModel();
 this.console.addEventListener(WebInspector.ConsoleModel.Events.ConsoleCleared, this._updateErrorAndWarningCounts, this);
 this.console.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, this._updateErrorAndWarningCounts, this);
 this.console.addEventListener(WebInspector.ConsoleModel.Events.RepeatCountUpdated, this._updateErrorAndWarningCounts, this);
 
-WebInspector.CSSCompletions.requestCSSNameCompletions();
+WebInspector.CSSMetadata.requestCSSShorthandData();
 
 this.drawer = new WebInspector.Drawer();
 
@@ -3150,6 +3120,8 @@ this.domAgent._emulateTouchEventsChanged();
 
 WebInspector.WorkerManager.loadCompleted();
 InspectorFrontendAPI.loadCompleted();
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.Events.InspectorLoaded);
 }
 
 var windowLoaded = function()
@@ -3272,45 +3244,43 @@ else
 InspectorFrontendHost.openInNewTab(resourceURL);
 }
 
-WebInspector._registerShortcuts = function(panelDescriptors)
+WebInspector._registerShortcuts = function()
 {
 var shortcut = WebInspector.KeyboardShortcut;
 var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("All Panels"));
 var keys = [
-shortcut.shortcutToString("]", shortcut.Modifiers.CtrlOrMeta),
-shortcut.shortcutToString("[", shortcut.Modifiers.CtrlOrMeta)
+shortcut.makeDescriptor("[", shortcut.Modifiers.CtrlOrMeta),
+shortcut.makeDescriptor("]", shortcut.Modifiers.CtrlOrMeta)
 ];
 section.addRelatedKeys(keys, WebInspector.UIString("Go to the panel to the left/right"));
 
 var keys = [
-shortcut.shortcutToString("[", shortcut.Modifiers.CtrlOrMeta | shortcut.Modifiers.Alt),
-shortcut.shortcutToString("]", shortcut.Modifiers.CtrlOrMeta | shortcut.Modifiers.Alt)
+shortcut.makeDescriptor("[", shortcut.Modifiers.CtrlOrMeta | shortcut.Modifiers.Alt),
+shortcut.makeDescriptor("]", shortcut.Modifiers.CtrlOrMeta | shortcut.Modifiers.Alt)
 ];
 section.addRelatedKeys(keys, WebInspector.UIString("Go back/forward in panel history"));
 
-section.addKey(shortcut.shortcutToString(shortcut.Keys.Esc), WebInspector.UIString("Toggle console"));
-section.addKey(shortcut.shortcutToString("f", shortcut.Modifiers.CtrlOrMeta), WebInspector.UIString("Search"));
+section.addKey(shortcut.makeDescriptor(shortcut.Keys.Esc), WebInspector.UIString("Toggle console"));
+section.addKey(shortcut.makeDescriptor("f", shortcut.Modifiers.CtrlOrMeta), WebInspector.UIString("Search"));
 
 var advancedSearchShortcut = WebInspector.AdvancedSearchController.createShortcut();
-section.addKey(advancedSearchShortcut.name, WebInspector.UIString("Search across all sources"));
+section.addKey(advancedSearchShortcut, WebInspector.UIString("Search across all sources"));
 
 var openResourceShortcut = WebInspector.KeyboardShortcut.makeDescriptor("o", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta);
-section.addKey(openResourceShortcut.name, WebInspector.UIString("Go to source"));
+section.addKey(openResourceShortcut, WebInspector.UIString("Go to source"));
 
 if (WebInspector.isMac()) {
 keys = [
-shortcut.shortcutToString("g", shortcut.Modifiers.Meta),
-shortcut.shortcutToString("g", shortcut.Modifiers.Meta | shortcut.Modifiers.Shift)
+shortcut.makeDescriptor("g", shortcut.Modifiers.Meta),
+shortcut.makeDescriptor("g", shortcut.Modifiers.Meta | shortcut.Modifiers.Shift)
 ];
 section.addRelatedKeys(keys, WebInspector.UIString("Find next/previous"));
 }
 
 var goToShortcut = WebInspector.GoToLineDialog.createShortcut();
-section.addKey(goToShortcut.name, WebInspector.UIString("Go to line"));
-
-for (var i = 0; i < panelDescriptors.length; ++i)
-panelDescriptors[i].panel();
+section.addKey(goToShortcut, WebInspector.UIString("Go to line"));
 }
+
 
 WebInspector.documentKeyDown = function(event)
 {
@@ -4236,50 +4206,50 @@ commit: editingCommitted.bind(element)
 
 Number.secondsToString = function(seconds, higherResolution)
 {
+if (!isFinite(seconds))
+return "-";
+
 if (seconds === 0)
 return "0";
 
 var ms = seconds * 1000;
 if (higherResolution && ms < 1000)
-return WebInspector.UIString("%.3fms", ms);
+return WebInspector.UIString("%.3f\u2009ms", ms);
 else if (ms < 1000)
-return WebInspector.UIString("%.0fms", ms);
+return WebInspector.UIString("%.0f\u2009ms", ms);
 
 if (seconds < 60)
-return WebInspector.UIString("%.2fs", seconds);
+return WebInspector.UIString("%.2f\u2009s", seconds);
 
 var minutes = seconds / 60;
 if (minutes < 60)
-return WebInspector.UIString("%.1fmin", minutes);
+return WebInspector.UIString("%.1f\u2009min", minutes);
 
 var hours = minutes / 60;
 if (hours < 24)
-return WebInspector.UIString("%.1fhrs", hours);
+return WebInspector.UIString("%.1f\u2009hrs", hours);
 
 var days = hours / 24;
-return WebInspector.UIString("%.1f days", days);
+return WebInspector.UIString("%.1f\u2009days", days);
 }
 
 
-Number.bytesToString = function(bytes, higherResolution)
+Number.bytesToString = function(bytes)
 {
-if (typeof higherResolution === "undefined")
-higherResolution = true;
-
 if (bytes < 1024)
-return WebInspector.UIString("%.0fB", bytes);
+return WebInspector.UIString("%.0f\u2009B", bytes);
 
 var kilobytes = bytes / 1024;
-if (higherResolution && kilobytes < 1024)
-return WebInspector.UIString("%.2fKB", kilobytes);
-else if (kilobytes < 1024)
-return WebInspector.UIString("%.0fKB", kilobytes);
+if (kilobytes < 100)
+return WebInspector.UIString("%.1f\u2009KB", kilobytes);
+if (kilobytes < 1024)
+return WebInspector.UIString("%.0f\u2009KB", kilobytes);
 
 var megabytes = kilobytes / 1024;
-if (higherResolution)
-return WebInspector.UIString("%.2fMB", megabytes);
+if (megabytes < 100)
+return WebInspector.UIString("%.1f\u2009MB", megabytes);
 else
-return WebInspector.UIString("%.0fMB", megabytes);
+return WebInspector.UIString("%.0f\u2009MB", megabytes);
 }
 
 Number.withThousandsSeparator = function(num)
@@ -4338,7 +4308,9 @@ WebInspector.PlatformFlavor = {
 WindowsVista: "windows-vista",
 MacTiger: "mac-tiger",
 MacLeopard: "mac-leopard",
-MacSnowLeopard: "mac-snowleopard"
+MacSnowLeopard: "mac-snowleopard",
+MacLion: "mac-lion",
+MacMountainLion: "mac-mountain-lion"
 }
 
 WebInspector.platformFlavor = function()
@@ -4362,8 +4334,13 @@ return WebInspector.PlatformFlavor.MacTiger;
 case 5:
 return WebInspector.PlatformFlavor.MacLeopard;
 case 6:
-default:
 return WebInspector.PlatformFlavor.MacSnowLeopard;
+case 7:
+return WebInspector.PlatformFlavor.MacLion;
+case 8:
+return WebInspector.PlatformFlavor.MacMountainLion;
+default:
+return "";
 }
 }
 }
@@ -4991,7 +4968,7 @@ InspectorBackend.registerCommand("Inspector.disable", [], []);
 
 InspectorBackend.registerMemoryDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Memory");
 InspectorBackend.registerCommand("Memory.getDOMNodeCount", [], ["domGroups", "strings"]);
-InspectorBackend.registerCommand("Memory.getProcessMemoryDistribution", [], ["distribution"]);
+InspectorBackend.registerCommand("Memory.getProcessMemoryDistribution", [{"name": "reportGraph", "type": "boolean", "optional": true}], ["distribution", "graph"]);
 
 
 InspectorBackend.registerPageDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Page");
@@ -5003,7 +4980,7 @@ InspectorBackend.registerCommand("Page.enable", [], []);
 InspectorBackend.registerCommand("Page.disable", [], []);
 InspectorBackend.registerCommand("Page.addScriptToEvaluateOnLoad", [{"name": "scriptSource", "type": "string", "optional": false}], ["identifier"]);
 InspectorBackend.registerCommand("Page.removeScriptToEvaluateOnLoad", [{"name": "identifier", "type": "string", "optional": false}], []);
-InspectorBackend.registerCommand("Page.reload", [{"name": "ignoreCache", "type": "boolean", "optional": true}, {"name": "scriptToEvaluateOnLoad", "type": "string", "optional": true}], []);
+InspectorBackend.registerCommand("Page.reload", [{"name": "ignoreCache", "type": "boolean", "optional": true}, {"name": "scriptToEvaluateOnLoad", "type": "string", "optional": true}, {"name": "scriptPreprocessor", "type": "string", "optional": true}], []);
 InspectorBackend.registerCommand("Page.navigate", [{"name": "url", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Page.getCookies", [], ["cookies", "cookiesString"]);
 InspectorBackend.registerCommand("Page.deleteCookie", [{"name": "cookieName", "type": "string", "optional": false}, {"name": "domain", "type": "string", "optional": false}], []);
@@ -5026,8 +5003,10 @@ InspectorBackend.registerCommand("Page.setDeviceOrientationOverride", [{"name": 
 InspectorBackend.registerCommand("Page.clearDeviceOrientationOverride", [], []);
 InspectorBackend.registerCommand("Page.canOverrideDeviceOrientation", [], ["result"]);
 InspectorBackend.registerCommand("Page.setTouchEmulationEnabled", [{"name": "enabled", "type": "boolean", "optional": false}], []);
+InspectorBackend.registerCommand("Page.setEmulatedMedia", [{"name": "media", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Page.getCompositingBordersVisible", [], ["result"]);
 InspectorBackend.registerCommand("Page.setCompositingBordersVisible", [{"name": "visible", "type": "boolean", "optional": false}], []);
+InspectorBackend.registerCommand("Page.captureScreenshot", [], ["data"]);
 
 
 InspectorBackend.registerRuntimeDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Runtime");
@@ -5158,7 +5137,7 @@ InspectorBackend.registerCommand("DOM.discardSearchResults", [{"name": "searchId
 InspectorBackend.registerCommand("DOM.requestNode", [{"name": "objectId", "type": "string", "optional": false}], ["nodeId"]);
 InspectorBackend.registerCommand("DOM.setInspectModeEnabled", [{"name": "enabled", "type": "boolean", "optional": false}, {"name": "highlightConfig", "type": "object", "optional": true}], []);
 InspectorBackend.registerCommand("DOM.highlightRect", [{"name": "x", "type": "number", "optional": false}, {"name": "y", "type": "number", "optional": false}, {"name": "width", "type": "number", "optional": false}, {"name": "height", "type": "number", "optional": false}, {"name": "color", "type": "object", "optional": true}, {"name": "outlineColor", "type": "object", "optional": true}], []);
-InspectorBackend.registerCommand("DOM.highlightNode", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "highlightConfig", "type": "object", "optional": false}], []);
+InspectorBackend.registerCommand("DOM.highlightNode", [{"name": "highlightConfig", "type": "object", "optional": false}, {"name": "nodeId", "type": "number", "optional": true}, {"name": "objectId", "type": "string", "optional": true}], []);
 InspectorBackend.registerCommand("DOM.hideHighlight", [], []);
 InspectorBackend.registerCommand("DOM.highlightFrame", [{"name": "frameId", "type": "string", "optional": false}, {"name": "contentColor", "type": "object", "optional": true}, {"name": "contentOutlineColor", "type": "object", "optional": true}], []);
 InspectorBackend.registerCommand("DOM.pushNodeByPathToFrontend", [{"name": "path", "type": "string", "optional": false}], ["nodeId"]);
@@ -5168,6 +5147,7 @@ InspectorBackend.registerCommand("DOM.moveTo", [{"name": "nodeId", "type": "numb
 InspectorBackend.registerCommand("DOM.undo", [], []);
 InspectorBackend.registerCommand("DOM.redo", [], []);
 InspectorBackend.registerCommand("DOM.markUndoableState", [], []);
+InspectorBackend.registerCommand("DOM.focus", [{"name": "nodeId", "type": "number", "optional": false}], []);
 
 
 InspectorBackend.registerCSSDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "CSS");
@@ -5291,8 +5271,23 @@ InspectorBackend.registerCommand("Canvas.enable", [], []);
 InspectorBackend.registerCommand("Canvas.disable", [], []);
 InspectorBackend.registerCommand("Canvas.dropTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Canvas.captureFrame", [], ["traceLogId"]);
-InspectorBackend.registerCommand("Canvas.getTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}], ["traceLog"]);
+InspectorBackend.registerCommand("Canvas.startCapturing", [], ["traceLogId"]);
+InspectorBackend.registerCommand("Canvas.stopCapturing", [{"name": "traceLogId", "type": "string", "optional": false}], []);
+InspectorBackend.registerCommand("Canvas.getTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "startOffset", "type": "number", "optional": true}], ["traceLog"]);
 InspectorBackend.registerCommand("Canvas.replayTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "stepNo", "type": "number", "optional": false}], ["screenshotDataUrl"]);
+
+
+InspectorBackend.registerInputDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Input");
+InspectorBackend.registerCommand("Input.dispatchKeyEvent", [{"name": "type", "type": "string", "optional": false}, {"name": "modifiers", "type": "number", "optional": true}, {"name": "timestamp", "type": "number", "optional": true}, {"name": "text", "type": "string", "optional": true}, {"name": "unmodifiedText", "type": "string", "optional": true}, {"name": "keyIdentifier", "type": "string", "optional": true}, {"name": "windowsVirtualKeyCode", "type": "number", "optional": true}, {"name": "nativeVirtualKeyCode", "type": "number", "optional": true}, {"name": "macCharCode", "type": "number", "optional": true}, {"name": "autoRepeat", "type": "boolean", "optional": true}, {"name": "isKeypad", "type": "boolean", "optional": true}, {"name": "isSystemKey", "type": "boolean", "optional": true}], []);
+InspectorBackend.registerCommand("Input.dispatchMouseEvent", [{"name": "type", "type": "string", "optional": false}, {"name": "x", "type": "number", "optional": false}, {"name": "y", "type": "number", "optional": false}, {"name": "modifiers", "type": "number", "optional": true}, {"name": "timestamp", "type": "number", "optional": true}, {"name": "button", "type": "string", "optional": true}, {"name": "clickCount", "type": "number", "optional": true}], []);
+
+
+InspectorBackend.registerLayerTreeDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "LayerTree");
+InspectorBackend.registerEvent("LayerTree.layerTreeDidChange", []);
+InspectorBackend.registerCommand("LayerTree.enable", [], []);
+InspectorBackend.registerCommand("LayerTree.disable", [], []);
+InspectorBackend.registerCommand("LayerTree.getLayerTree", [], ["layerTree"]);
+InspectorBackend.registerCommand("LayerTree.nodeIdForLayerId", [{"name": "layerId", "type": "string", "optional": false}], ["nodeId"]);
 
 
 
@@ -5674,7 +5669,8 @@ this.cssReloadEnabled = this.createSetting("cssReloadEnabled", false);
 this.cssReloadTimeout = this.createSetting("cssReloadTimeout", 1000);
 this.showCpuOnTimelineRuler = this.createSetting("showCpuOnTimelineRuler", false);
 this.showMetricsRulers = this.createSetting("showMetricsRulers", false);
-
+this.emulatedCSSMedia = this.createSetting("emulatedCSSMedia", "print");
+this.showToolbarIcons = this.createSetting("showToolbarIcons", false);
 
 
 
@@ -5757,9 +5753,10 @@ this.nativeMemorySnapshots = this._createExperiment("nativeMemorySnapshots", "Na
 this.liveNativeMemoryChart = this._createExperiment("liveNativeMemoryChart", "Live native memory chart");
 this.fileSystemInspection = this._createExperiment("fileSystemInspection", "FileSystem inspection");
 this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
-this.sass = this._createExperiment("sass", "Support for SASS");
+this.sass = this._createExperiment("sass", "Support for Sass");
 this.codemirror = this._createExperiment("codemirror", "Use CodeMirror editor");
 this.cssRegions = this._createExperiment("cssRegions", "CSS Regions Support");
+this.showOverridesInDrawer = this._createExperiment("showOverridesInDrawer", "Show Overrides in drawer");
 
 this._cleanUpSetting();
 }
@@ -6001,6 +5998,9 @@ WebInspector.View._assert(parentElement, "Attempt to attach view with no parent 
 
 
 if (this.element.parentElement !== parentElement) {
+if (this.element.parentElement)
+this.detach();
+
 var currentParent = parentElement;
 while (currentParent && !currentParent.__view)
 currentParent = currentParent.parentElement;
@@ -7324,6 +7324,10 @@ return WebInspector.isMac() ? this.Meta : this.Ctrl;
 }
 };
 
+
+WebInspector.KeyboardShortcut.Key;
+
+
 WebInspector.KeyboardShortcut.Keys = {
 Backspace: { code: 8, name: "\u21a4" },
 Tab: { code: 9, name: { mac: "\u21e5", other: "<Tab>" } },
@@ -7359,7 +7363,8 @@ Minus: { code: 189, name: "-" },
 Period: { code: 190, name: "." },
 Slash: { code: 191, name: "/" },
 Apostrophe: { code: 192, name: "`" },
-SingleQuote: { code: 222, name: "\'" }
+SingleQuote: { code: 222, name: "\'" },
+H: { code: 72, name: "H" }
 };
 
 
@@ -7370,6 +7375,7 @@ keyCode = keyCode.charCodeAt(0) - 32;
 modifiers = modifiers || WebInspector.KeyboardShortcut.Modifiers.None;
 return WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers(keyCode, modifiers);
 }
+
 
 WebInspector.KeyboardShortcut.makeKeyFromEvent = function(keyboardEvent)
 {
@@ -7385,10 +7391,20 @@ modifiers |= WebInspector.KeyboardShortcut.Modifiers.Meta;
 return WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers(keyboardEvent.keyCode, modifiers);
 }
 
+
 WebInspector.KeyboardShortcut.eventHasCtrlOrMeta = function(event)
 {
 return WebInspector.isMac() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 }
+
+
+WebInspector.KeyboardShortcut.hasNoModifiers = function(event)
+{
+return !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
+}
+
+
+WebInspector.KeyboardShortcut.Descriptor;
 
 
 WebInspector.KeyboardShortcut.makeDescriptor = function(key, modifiers)
@@ -7405,19 +7421,22 @@ WebInspector.KeyboardShortcut.shortcutToString = function(key, modifiers)
 return WebInspector.KeyboardShortcut._modifiersToString(modifiers) + WebInspector.KeyboardShortcut._keyName(key);
 }
 
+
 WebInspector.KeyboardShortcut._keyName = function(key)
 {
 if (typeof key === "string")
 return key.toUpperCase();
 if (typeof key.name === "string")
 return key.name;
-return key.name[WebInspector.platform()] || key.name.other;
+return key.name[WebInspector.platform()] || key.name.other || '';
 }
+
 
 WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers = function(keyCode, modifiers)
 {
 return (keyCode & 255) | (modifiers << 8);
 };
+
 
 WebInspector.KeyboardShortcut._modifiersToString = function(modifiers)
 {
@@ -7722,7 +7741,7 @@ if (!this._userEnteredRange || !this._userEnteredText)
 return;
 
 this._userEnteredRange.deleteContents();
-this._element.pruneEmptyTextNodes();
+this._element.normalize();
 
 var userTextNode = document.createTextNode(this._userEnteredText);
 this._userEnteredRange.insertNode(userTextNode);
@@ -7881,7 +7900,7 @@ var completionText = completions[nextIndex];
 if (auto) {
 if (this.isCaretAtEndOfPrompt()) {
 this._userEnteredRange.deleteContents();
-this._element.pruneEmptyTextNodes();
+this._element.normalize();
 var finalSelectionRange = document.createRange();
 var prefixText = completionText.substring(0, wordPrefixLength);
 var suffixText = completionText.substring(wordPrefixLength);
@@ -7928,7 +7947,7 @@ else
 wordPrefixLength = this._userEnteredText ? this._userEnteredText.length : 0;
 
 this._userEnteredRange.deleteContents();
-this._element.pruneEmptyTextNodes();
+this._element.normalize();
 var finalSelectionRange = document.createRange();
 var completionTextNode = document.createTextNode(completionText);
 this._userEnteredRange.insertNode(completionTextNode);
@@ -8635,8 +8654,8 @@ this._contentDiv.appendChild(this.contentElement);
 this._positionElement(anchor, preferredWidth, preferredHeight);
 
 if (this._popoverHelper) {
-contentElement.addEventListener("mousemove", this._popoverHelper._killHidePopoverTimer.bind(this._popoverHelper), true);
-this.element.addEventListener("mouseout", this._popoverHelper._mouseOut.bind(this._popoverHelper), true);
+this.element.addEventListener("mousemove", this._popoverHelper._killHidePopoverTimer.bind(this._popoverHelper), true);
+this.element.addEventListener("mouseout", this._popoverHelper._popoverMouseOut.bind(this._popoverHelper), true);
 }
 },
 
@@ -8784,13 +8803,19 @@ this._startHidePopoverTimer();
 this._handleMouseAction(event, false);
 },
 
+_popoverMouseOut: function(event)
+{
+if (!this.isPopoverVisible())
+return;
+if (event.relatedTarget && !event.relatedTarget.isSelfOrDescendant(this._popover._contentDiv))
+this._startHidePopoverTimer();
+},
+
 _mouseOut: function(event)
 {
-
-var isPopoverMouseOut = this.isPopoverVisible()
-&& event.relatedTarget
-&& !event.relatedTarget.isSelfOrDescendant(this._popover._contentDiv);
-if (event.target === this._hoverElement || isPopoverMouseOut)
+if (!this.isPopoverVisible())
+return;
+if (event.relatedTarget && !event.relatedTarget.isSelfOrDescendant(this._hoverElement))
 this._startHidePopoverTimer();
 },
 
@@ -9058,7 +9083,14 @@ this._updateTabElements();
 
 closeTab: function(id, userGesture)
 {
-this._innerCloseTab(id, userGesture);
+this.closeTabs([id], userGesture);
+},
+
+
+closeTabs: function(ids, userGesture)
+{
+for (var i = 0; i < ids.length; ++i)
+this._innerCloseTab(ids[i], userGesture);
 this._updateTabElements();
 if (this._tabsHistory.length)
 this.selectTab(this._tabsHistory[0].id, userGesture);
@@ -9461,6 +9493,8 @@ return this._title;
 
 set title(title)
 {
+if (title === this._title)
+return;
 this._title = title;
 if (this._titleElement)
 this._titleElement.textContent = title;
@@ -10340,22 +10374,37 @@ titleElement.createChild("span", "name").textContent = property.name;
 titleElement.createTextChild(": ");
 }
 
-var span = titleElement.createChild("span", "console-formatted-" + property.type);
-if (property.type === "object") {
-if (property.subtype === "node")
-span.addStyleClass("console-formatted-preview-node");
-else if (property.subtype === "regexp")
-span.addStyleClass("console-formatted-string");
-span.textContent = property.value;
-} else if (property.type === "function")
-span.textContent = "function";
-else
-span.textContent = property.value;
+this._appendPropertyPreview(titleElement, property);
 }
 if (preview.overflow)
 titleElement.createChild("span").textContent = "\u2026";
 titleElement.createTextChild(isArray ? "]" : "}");
 return preview.lossless;
+},
+
+
+_appendPropertyPreview: function(titleElement, property)
+{
+var span = titleElement.createChild("span", "console-formatted-" + property.type);
+
+if (property.type === "function") {
+span.textContent = "function";
+return;
+}
+
+if (property.type === "object" && property.subtype === "regexp") {
+span.addStyleClass("console-formatted-string");
+span.textContent = property.value;
+return;
+}
+
+if (property.type === "object" && property.subtype === "node" && property.value) {
+span.addStyleClass("console-formatted-preview-node");
+WebInspector.DOMPresentationUtils.createSpansForNodeTitle(span, property.value);
+return;
+}
+
+span.textContent = property.value;
 },
 
 _formatParameterAsNode: function(object, elem)
@@ -10383,7 +10432,7 @@ object.pushNodeToFrontend(printNode.bind(this));
 
 useArrayPreviewInFormatter: function(array)
 {
-return !!array.preview;
+return this.type !== WebInspector.ConsoleMessage.MessageType.DirXML && !!array.preview;
 },
 
 _formatParameterAsArray: function(array, elem)
@@ -10872,6 +10921,7 @@ createDividerElement.call(this);
 this.errorElement = createFilterElement.call(this, "errors", WebInspector.UIString("Errors"));
 this.warningElement = createFilterElement.call(this, "warnings", WebInspector.UIString("Warnings"));
 this.logElement = createFilterElement.call(this, "logs", WebInspector.UIString("Logs"));
+this.debugElement = createFilterElement.call(this, "debug", WebInspector.UIString("Debug"));
 
 this.filter(this.allElement, false);
 this._registerShortcuts();
@@ -11024,11 +11074,9 @@ this.allElement.removeStyleClass("selected");
 this.errorElement.removeStyleClass("selected");
 this.warningElement.removeStyleClass("selected");
 this.logElement.removeStyleClass("selected");
+this.debugElement.removeStyleClass("selected");
 
-this.messagesElement.removeStyleClass("filter-all");
-this.messagesElement.removeStyleClass("filter-errors");
-this.messagesElement.removeStyleClass("filter-warnings");
-this.messagesElement.removeStyleClass("filter-logs");
+this.messagesElement.classList.remove("filter-all", "filter-errors", "filter-warnings", "filter-logs", "filter-debug");
 }
 
 var targetFilterClass = "filter-" + target.category;
@@ -11232,37 +11280,36 @@ _registerShortcuts: function()
 this._shortcuts = {};
 
 var shortcut = WebInspector.KeyboardShortcut;
-
-if (WebInspector.isMac()) {
-var shortcutK = shortcut.makeDescriptor("k", WebInspector.KeyboardShortcut.Modifiers.Meta);
-this._shortcuts[shortcutK.key] = this._requestClearMessages.bind(this);
-}
+var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("Console"));
 
 var shortcutL = shortcut.makeDescriptor("l", WebInspector.KeyboardShortcut.Modifiers.Ctrl);
 this._shortcuts[shortcutL.key] = this._requestClearMessages.bind(this);
-
-var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("Console"));
-var keys = WebInspector.isMac() ? [ shortcutK.name, shortcutL.name ] : [ shortcutL.name ];
+var keys = [shortcutL];
+if (WebInspector.isMac()) {
+var shortcutK = shortcut.makeDescriptor("k", WebInspector.KeyboardShortcut.Modifiers.Meta);
+this._shortcuts[shortcutK.key] = this._requestClearMessages.bind(this);
+keys.unshift(shortcutK);
+}
 section.addAlternateKeys(keys, WebInspector.UIString("Clear console"));
 
+section.addKey(shortcut.makeDescriptor(shortcut.Keys.Tab), WebInspector.UIString("Autocomplete common prefix"));
+section.addKey(shortcut.makeDescriptor(shortcut.Keys.Right), WebInspector.UIString("Accept suggestion"));
+
 keys = [
-shortcut.shortcutToString(shortcut.Keys.Tab),
-shortcut.shortcutToString(shortcut.Keys.Tab, shortcut.Modifiers.Shift)
-];
-section.addRelatedKeys(keys, WebInspector.UIString("Next/previous suggestion"));
-section.addKey(shortcut.shortcutToString(shortcut.Keys.Right), WebInspector.UIString("Accept suggestion"));
-keys = [
-shortcut.shortcutToString(shortcut.Keys.Down),
-shortcut.shortcutToString(shortcut.Keys.Up)
+shortcut.makeDescriptor(shortcut.Keys.Down),
+shortcut.makeDescriptor(shortcut.Keys.Up)
 ];
 section.addRelatedKeys(keys, WebInspector.UIString("Next/previous line"));
+
+if (WebInspector.isMac()) {
 keys = [
-shortcut.shortcutToString("N", shortcut.Modifiers.Alt),
-shortcut.shortcutToString("P", shortcut.Modifiers.Alt)
+shortcut.makeDescriptor("N", shortcut.Modifiers.Alt),
+shortcut.makeDescriptor("P", shortcut.Modifiers.Alt)
 ];
-if (WebInspector.isMac())
 section.addRelatedKeys(keys, WebInspector.UIString("Next/previous command"));
-section.addKey(shortcut.shortcutToString(shortcut.Keys.Enter), WebInspector.UIString("Execute command"));
+}
+
+section.addKey(shortcut.makeDescriptor(shortcut.Keys.Enter), WebInspector.UIString("Execute command"));
 },
 
 _requestClearMessages: function()
@@ -11648,7 +11695,8 @@ get statusBarItems()
 {
 },
 
-sidebarResized: function(width)
+
+sidebarResized: function(event)
 {
 },
 
@@ -11672,6 +11720,7 @@ elementsToRestoreScrollPositionsFor: function()
 return [];
 },
 
+
 handleShortcut: function(event)
 {
 var shortcutKey = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
@@ -11682,14 +11731,11 @@ event.handled = true;
 }
 },
 
-registerShortcut: function(key, handler)
-{
-this._shortcuts[key] = handler;
-},
 
-unregisterShortcut: function(key)
+registerShortcuts: function(keys, handler)
 {
-delete this._shortcuts[key];
+for (var i = 0; i < keys.length; ++i)
+this._shortcuts[keys[i].key] = handler;
 },
 
 __proto__: WebInspector.View.prototype
@@ -11739,7 +11785,9 @@ if (this._scriptName)
 importScript(this._scriptName);
 this._panel = new WebInspector[this._className];
 return this._panel;
-}
+},
+
+registerShortcuts: function() {}
 }
 
 
@@ -11831,6 +11879,10 @@ WebInspector.userMetrics.panelShown(panelName);
 
 _keyPress: function(event)
 {
+
+
+if (event.charCode < 32 && WebInspector.isWin())
+return;
 clearTimeout(this._keyDownTimer);
 delete this._keyDownTimer;
 },
@@ -11983,6 +12035,7 @@ WebInspector.settings.advancedSearchConfig = WebInspector.settings.createSetting
 WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameNavigated, this._frameNavigated, this);
 }
 
+
 WebInspector.AdvancedSearchController.createShortcut = function()
 {
 if (WebInspector.isMac())
@@ -12023,6 +12076,8 @@ show: function()
 {
 if (!this._searchView)
 this._searchView = new WebInspector.SearchView(this);
+
+this._searchView.syncToSelection();
 
 if (this._searchView.isShowing())
 this._searchView.focus();
@@ -12159,6 +12214,13 @@ return [this._searchStatusBarElement, this._searchResultsMessageElement];
 get searchConfig()
 {
 return new WebInspector.SearchConfig(this._search.value, this._ignoreCaseCheckbox.checked, this._regexCheckbox.checked);
+},
+
+syncToSelection: function()
+{
+var selection = window.getSelection();
+if (selection.rangeCount)
+this._search.value = selection.toString().replace(/\r?\n.*/, "");
 },
 
 
@@ -13891,6 +13953,7 @@ if (this._url && WebInspector.fileManager.isURLSaved(this._url)) {
 WebInspector.fileManager.save(this._url, this._content, false);
 WebInspector.fileManager.close(this._url);
 }
+this._workspace.setFileContent(this, this._content, function() { });
 },
 
 
@@ -13944,6 +14007,11 @@ this.addRevision(content);
 }
 
 this.requestOriginalContent(callback.bind(this));
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.ApplyOriginalContent,
+url: this.url
+});
 },
 
 
@@ -13962,6 +14030,11 @@ callback(this);
 }
 
 this.requestOriginalContent(revert.bind(this));
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.RevertRevision,
+url: this.url
+});
 },
 
 
@@ -14001,6 +14074,11 @@ return;
 
 this._commitContent(this._workingCopy);
 callback(null);
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.FileSaved,
+url: this.url
+});
 },
 
 
@@ -14470,6 +14548,8 @@ NamedFlowRemoved: "NamedFlowRemoved",
 RegionLayoutUpdated: "RegionLayoutUpdated"
 }
 
+WebInspector.CSSStyleModel.MediaTypes = ["all", "braille", "embossed", "handheld", "print", "projection", "screen", "speech", "tty", "tv"];
+
 WebInspector.CSSStyleModel.prototype = {
 
 getMatchedStylesAsync: function(nodeId, needPseudo, needInherited, userCallback)
@@ -14815,6 +14895,25 @@ var sourceMapping = this._sourceMappings[rawLocation.url];
 return sourceMapping ? sourceMapping.rawLocationToUILocation(rawLocation) : null;
 },
 
+
+toggleInlineVisibility: function(nodeId)
+{
+
+function callback(inlineStyles)
+{
+var visibility = inlineStyles.getLiveProperty("visibility");
+if (visibility) {
+if (visibility.value === "hidden")
+visibility.setText("", false, true);
+else
+visibility.setValue("hidden", false, true);
+} else
+inlineStyles.appendProperty("visibility", "hidden");
+}
+
+this.getInlineStylesAsync(nodeId, callback.bind(this));
+},
+
 __proto__: WebInspector.Object.prototype
 }
 
@@ -14942,7 +15041,7 @@ return property ? property.implicit : "";
 
 longhandProperties: function(name)
 {
-var longhands = WebInspector.CSSCompletions.cssPropertiesMetainfo.longhands(name);
+var longhands = WebInspector.CSSMetadata.cssPropertiesMetainfo.longhands(name);
 var result = [];
 for (var i = 0; longhands && i < longhands.length; ++i) {
 var property = this._livePropertyMap[longhands[i]];
@@ -14986,7 +15085,7 @@ return new WebInspector.CSSProperty(this, index, "", "", "", "active", true, fal
 insertPropertyAt: function(index, name, value, userCallback)
 {
 
-function callback(userCallback, error, payload)
+function callback(error, payload)
 {
 WebInspector.cssModel._pendingCommandsMajorState.pop();
 if (!userCallback)
@@ -15004,7 +15103,7 @@ if (!this.id)
 throw "No style id";
 
 WebInspector.cssModel._pendingCommandsMajorState.push(true);
-CSSAgent.setPropertyText(this.id, index, name + ": " + value + ";", false, callback.bind(this, userCallback));
+CSSAgent.setPropertyText(this.id, index, name + ": " + value + ";", false, callback.bind(this));
 },
 
 
@@ -15021,7 +15120,7 @@ this.id = payload.ruleId;
 if (matchingSelectors)
 this.matchingSelectors = matchingSelectors;
 this.selectors = payload.selectorList.selectors;
-this.selectorText = payload.selectorList.text;
+this.selectorText = this.selectors.join(", ");
 this.selectorRange = payload.selectorList.range;
 this.sourceLine = payload.sourceLine;
 this.sourceURL = payload.sourceURL;
@@ -16783,7 +16882,7 @@ return parsedURL ? url.trimURL(parsedURL.host) : url;
 WebInspector.linkifyStringAsFragmentWithCustomLinkifier = function(string, linkifier)
 {
 var container = document.createDocumentFragment();
-var linkStringRegEx = /(?:[a-zA-Z][a-zA-Z0-9+.-]{2,}:\/\/|data:|www\.)[\w$\-_+*'=\|\/\\(){}[\]%@&#~,:;.!?]{2,}[\w$\-_+*=\|\/\\({%@&#~]/;
+var linkStringRegEx = /(?:[a-zA-Z][a-zA-Z0-9+.-]{2,}:\/\/|data:|www\.)[\w$\-_+*'=\|\/\\(){}[\]^%@&#~,:;.!?]{2,}[\w$\-_+*=\|\/\\({^%@&#~]/;
     var lineColumnRegEx = /:(\d+)(:(\d+))?$/;
 
     while (string) {
@@ -16879,7 +16978,7 @@ WebInspector.linkifyURLAsNode = function(url, linkText, classes, isExternal, too
         a.title = url;
     else if (typeof tooltipText !== "string" || tooltipText.length)
         a.title = tooltipText;
-    a.textContent = linkText.trimMiddle(150);
+    a.textContent = linkText.trimMiddle(WebInspector.Linkifier.MaxLengthForDisplayedURLs);
     if (isExternal)
         a.setAttribute("target", "_blank");
 
@@ -19724,18 +19823,17 @@ __proto__: WebInspector.DataGridNode.prototype
 
 
 
-WebInspector.CookiesTable = function(cookieDomain, expandable, deleteCallback, refreshCallback)
+WebInspector.CookiesTable = function(expandable, deleteCallback, refreshCallback)
 {
 WebInspector.View.call(this);
 this.element.className = "fill";
-
-this._cookieDomain = cookieDomain;
 
 var columns = { 0: {}, 1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {} };
 columns[0].title = WebInspector.UIString("Name");
 columns[0].sortable = true;
 columns[0].disclosure = expandable;
 columns[0].width = "24%";
+columns[0].sort = "ascending";
 columns[1].title = WebInspector.UIString("Value");
 columns[1].sortable = true;
 columns[1].width = "34%";
@@ -19838,18 +19936,19 @@ totalSize += cookies[i].size();
 return totalSize;
 },
 
+
 _sortCookies: function(cookies)
 {
 var sortDirection = this._dataGrid.sortOrder === "ascending" ? 1 : -1;
 
-function localeCompare(field, cookie1, cookie2)
+function localeCompare(getter, cookie1, cookie2)
 {
-return sortDirection * (cookie1[field] + "").localeCompare(cookie2[field] + "")
+return sortDirection * (getter.apply(cookie1) + "").localeCompare(getter.apply(cookie2) + "")
 }
 
-function numberCompare(field, cookie1, cookie2)
+function numberCompare(getter, cookie1, cookie2)
 {
-return sortDirection * (cookie1[field] - cookie2[field]);
+return sortDirection * (getter.apply(cookie1) - getter.apply(cookie2));
 }
 
 function expiresCompare(cookie1, cookie2)
@@ -19869,15 +19968,15 @@ return sortDirection * (cookie1.expires() ? 1 : -1);
 
 var comparator;
 switch (parseInt(this._dataGrid.sortColumnIdentifier, 10)) {
-case 0: comparator = localeCompare.bind(this, "name"); break;
-case 1: comparator = localeCompare.bind(this, "value"); break;
-case 2: comparator = localeCompare.bind(this, "domain"); break;
-case 3: comparator = localeCompare.bind(this, "path"); break;
+case 0: comparator = localeCompare.bind(null, WebInspector.Cookie.prototype.name); break;
+case 1: comparator = localeCompare.bind(null, WebInspector.Cookie.prototype.value); break;
+case 2: comparator = localeCompare.bind(null, WebInspector.Cookie.prototype.domain); break;
+case 3: comparator = localeCompare.bind(null, WebInspector.Cookie.prototype.path); break;
 case 4: comparator = expiresCompare; break;
-case 5: comparator = numberCompare.bind(this, "size"); break;
-case 6: comparator = localeCompare.bind(this, "httpOnly"); break;
-case 7: comparator = localeCompare.bind(this, "secure"); break;
-default: localeCompare.bind(this, "name");
+case 5: comparator = numberCompare.bind(null, WebInspector.Cookie.prototype.size); break;
+case 6: comparator = localeCompare.bind(null, WebInspector.Cookie.prototype.httpOnly); break;
+case 7: comparator = localeCompare.bind(null, WebInspector.Cookie.prototype.secure); break;
+default: localeCompare.bind(null, WebInspector.Cookie.prototype.name);
 }
 
 cookies.sort(comparator);
@@ -19887,14 +19986,14 @@ cookies.sort(comparator);
 _createGridNode: function(cookie)
 {
 var data = {};
-data[0] = cookie.name;
-data[1] = cookie.value;
+data[0] = cookie.name();
+data[1] = cookie.value();
 data[2] = cookie.domain() || "";
 data[3] = cookie.path() || "";
-if (cookie.type === WebInspector.Cookie.Type.Request)
+if (cookie.type() === WebInspector.Cookie.Type.Request)
 data[4] = "";
 else if (cookie.maxAge())
-data[4] = Number.secondsToString(cookie.maxAge());
+data[4] = Number.secondsToString(parseInt(cookie.maxAge(), 10));
 else if (cookie.expires())
 data[4] = new Date(cookie.expires()).toGMTString();
 else
@@ -19981,7 +20080,7 @@ return;
 }
 
 if (!this._cookiesTable)
-this._cookiesTable = isAdvanced ? new WebInspector.CookiesTable(this._cookieDomain, false, this._deleteCookie.bind(this), this._update.bind(this)) : new WebInspector.SimpleCookiesTable();
+this._cookiesTable = isAdvanced ? new WebInspector.CookiesTable(false, this._deleteCookie.bind(this), this._update.bind(this)) : new WebInspector.SimpleCookiesTable();
 
 this._cookiesTable.setCookies(this._cookies);
 this._emptyView.detach();
@@ -20028,7 +20127,7 @@ return cookies;
 
 _deleteCookie: function(cookie)
 {
-PageAgent.deleteCookie(cookie.name, this._cookieDomain);
+PageAgent.deleteCookie(cookie.name(), this._cookieDomain);
 this._update();
 },
 
@@ -20078,12 +20177,12 @@ setCookies: function(cookies)
 this._dataGrid.rootNode().removeChildren();
 var addedCookies = {};
 for (var i = 0; i < cookies.length; ++i) {
-if (addedCookies[cookies[i].name])
+if (addedCookies[cookies[i].name()])
 continue;
-addedCookies[cookies[i].name] = true;
+addedCookies[cookies[i].name()] = true;
 var data = {};
-data[0] = cookies[i].name;
-data[1] = cookies[i].value;
+data[0] = cookies[i].name();
+data[1] = cookies[i].value();
 
 var node = new WebInspector.DataGridNode(data, false);
 node.selectable = true;
@@ -21314,6 +21413,7 @@ this.element.addEventListener("dragover", this._ondragover.bind(this), false);
 this.element.addEventListener("dragleave", this._ondragleave.bind(this), false);
 this.element.addEventListener("drop", this._ondrop.bind(this), false);
 this.element.addEventListener("dragend", this._ondragend.bind(this), false);
+this.element.addEventListener("keydown", this._onkeydown.bind(this), false);
 
 TreeOutline.call(this, this.element);
 
@@ -21323,7 +21423,6 @@ this._showInElementsPanelEnabled = showInElementsPanelEnabled;
 this._rootDOMNode = null;
 this._selectDOMNode = null;
 this._eventSupport = new WebInspector.Object();
-this._editing = false;
 
 this._visible = false;
 
@@ -21430,11 +21529,6 @@ this._revealAndSelectNode(node, !focus);
 
 if (this._selectedDOMNode === node)
 this._selectedNodeChanged();
-},
-
-get editing()
-{
-return this._editing;
 },
 
 update: function()
@@ -21736,6 +21830,22 @@ delete this._dragOverTreeElement;
 }
 },
 
+
+_onkeydown: function(event)
+{
+var keyboardEvent =   (event);
+var node = this.selectedDOMNode();
+var treeElement = this.getCachedTreeElement(node);
+if (!treeElement)
+return;
+
+if (!treeElement._editing && WebInspector.KeyboardShortcut.hasNoModifiers(keyboardEvent) && keyboardEvent.keyCode === WebInspector.KeyboardShortcut.Keys.H.code) {
+WebInspector.cssModel.toggleInlineVisibility(node.id);
+event.consume(true);
+return;
+}
+},
+
 _contextMenuEventFired: function(event)
 {
 if (!this._showInElementsPanelEnabled)
@@ -21805,20 +21915,22 @@ return;
 
 if (event.keyIdentifier === "F2") {
 this._toggleEditAsHTML(node);
+event.handled = true;
 return;
 }
 
 if (WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event) && node.parentNode) {
 if (event.keyIdentifier === "Up" && node.previousSibling) {
 node.moveTo(node.parentNode, node.previousSibling, this._selectNodeAfterEdit.bind(this, null, treeElement.expanded));
+event.handled = true;
 return;
 }
 if (event.keyIdentifier === "Down" && node.nextSibling) {
 node.moveTo(node.parentNode, node.nextSibling.nextSibling, this._selectNodeAfterEdit.bind(this, null, treeElement.expanded));
+event.handled = true;
 return;
 }
 }
-
 },
 
 _toggleEditAsHTML: function(node)
@@ -22325,7 +22437,7 @@ onenter: function()
 {
 
 
-if (this.treeOutline.editing)
+if (this._editing)
 return false;
 
 this._startEditing();
@@ -22411,7 +22523,8 @@ var attribute = event.target.enclosingNodeOrSelfWithClass("webkit-html-attribute
 var newAttribute = event.target.enclosingNodeOrSelfWithClass("add-attribute");
 
 
-contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Add attribute" : "Add Attribute"), this._addNewAttribute.bind(this));
+var treeElement = this._elementCloseTag ? this.treeOutline.findTreeElement(this.representedObject) : this;
+contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Add attribute" : "Add Attribute"), this._addNewAttribute.bind(treeElement));
 if (attribute && !newAttribute)
 contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Edit attribute" : "Edit Attribute"), this._startEditingAttribute.bind(this, attribute, event.target));
 contextMenu.appendSeparator();
@@ -22489,6 +22602,7 @@ attr.style.marginRight = "2px";
 
 var tag = this.listItemElement.getElementsByClassName("webkit-html-tag")[0];
 this._insertInLastAttributePosition(tag, attr);
+attr.scrollIntoViewIfNeeded(true);
 return this._startEditingAttribute(attr, attr);
 },
 
@@ -22672,7 +22786,7 @@ dispose.call(this);
 
 function dispose()
 {
-this._editing = false;
+delete this._editing;
 
 
 this.listItemElement.removeChild(this._htmlEditElement);
@@ -22698,7 +22812,7 @@ this._editing = WebInspector.startEditing(this._htmlEditElement, config);
 
 _attributeEditingCommitted: function(element, newText, oldText, attributeName, moveDirection)
 {
-this._editing = false;
+delete this._editing;
 
 var treeOutline = this.treeOutline;
 
@@ -22759,7 +22873,7 @@ moveToNextAttributeIfNeeded.call(this);
 
 _tagNameEditingCommitted: function(element, newText, oldText, tagName, moveDirection)
 {
-this._editing = false;
+delete this._editing;
 var self = this;
 
 function cancel()
@@ -22811,7 +22925,7 @@ this.representedObject.setNodeName(newText, changeTagNameCallback);
 
 _textNodeEditingCommitted: function(textNode, element, newText)
 {
-this._editing = false;
+delete this._editing;
 
 function callback()
 {
@@ -22823,7 +22937,7 @@ textNode.setNodeValue(newText, callback.bind(this));
 
 _editingCancelled: function(element, context)
 {
-this._editing = false;
+delete this._editing;
 
 
 this.updateTitle();
@@ -23445,6 +23559,17 @@ foundClasses[className] = true;
 parentElement.title = title;
 }
 
+
+WebInspector.DOMPresentationUtils.createSpansForNodeTitle = function(container, nodeTitle)
+{
+var match = nodeTitle.match(/([^#.]+)(#[^.]+)?(\..*)?/);
+container.createChild("span", "webkit-html-tag-name").textContent = match[1];
+if (match[2])
+container.createChild("span", "webkit-html-attribute-value").textContent = match[2];
+if (match[3])
+container.createChild("span", "webkit-html-attribute-name").textContent = match[3];
+}
+
 WebInspector.DOMPresentationUtils.linkifyNodeReference = function(node)
 {
 var link = document.createElement("span");
@@ -23452,7 +23577,7 @@ link.className = "node-link";
 WebInspector.DOMPresentationUtils.decorateNodeLabel(node, link);
 
 link.addEventListener("click", WebInspector.domAgent.inspectElement.bind(WebInspector.domAgent, node.id), false);
-link.addEventListener("mouseover", WebInspector.domAgent.highlightDOMNode.bind(WebInspector.domAgent, node.id, ""), false);
+link.addEventListener("mouseover", WebInspector.domAgent.highlightDOMNode.bind(WebInspector.domAgent, node.id, "", undefined), false);
 link.addEventListener("mouseout", WebInspector.domAgent.hideDOMNodeHighlight.bind(WebInspector.domAgent), false);
 
 return link;
@@ -24135,6 +24260,16 @@ else
 callback(0);
 },
 
+highlightAsDOMNode: function()
+{
+WebInspector.domAgent.highlightDOMNode(undefined, undefined, this._objectId);
+},
+
+hideDOMNodeHighlight: function()
+{
+WebInspector.domAgent.hideDOMNodeHighlight();
+},
+
 
 callFunction: function(functionDeclaration, args, callback)
 {
@@ -24388,6 +24523,7 @@ WebInspector.ArrayGroupingTreeElement._populateArray(this.propertiesTreeOutline,
 return;
 }
 
+
 function callback(properties, internalProperties)
 {
 if (!properties)
@@ -24538,7 +24674,7 @@ this.valueElement._originalTextContent = "\"" + description + "\"";
 } else if (this.property.value.type === "function" && typeof description === "string") {
 this.valueElement.textContent = /.*/.exec(description)[0].replace(/ +$/g, "");
 this.valueElement._originalTextContent = description;
-} else
+} else if (this.property.value.type !== "object" || this.property.value.subtype !== "node") 
 this.valueElement.textContent = description;
 
 if (this.property.wasThrown)
@@ -24549,6 +24685,11 @@ else if (this.property.value.type)
 this.valueElement.addStyleClass("console-formatted-" + this.property.value.type);
 
 this.valueElement.addEventListener("contextmenu", this._contextMenuFired.bind(this, this.property.value), false);
+if (this.property.value.type === "object" && this.property.value.subtype === "node" && this.property.value.description) {
+WebInspector.DOMPresentationUtils.createSpansForNodeTitle(this.valueElement, this.property.value.description);
+this.valueElement.addEventListener("mousemove", this._mouseMove.bind(this, this.property.value), false);
+this.valueElement.addEventListener("mouseout", this._mouseOut.bind(this, this.property.value), false);
+} else
 this.valueElement.title = description || "";
 
 this.listItemElement.removeChildren();
@@ -24570,6 +24711,16 @@ contextMenu.show();
 
 populateContextMenu: function(contextMenu)
 {
+},
+
+_mouseMove: function(event)
+{
+this.property.value.highlightAsDOMNode();
+},
+
+_mouseOut: function(event)
+{
+this.property.value.hideDOMNodeHighlight();
 },
 
 updateSiblings: function()
@@ -26287,7 +26438,7 @@ HSLA: "hsla"
 
 
 
-WebInspector.CSSCompletions = function(properties)
+WebInspector.CSSMetadata = function(properties)
 {
 this._values = [];
 this._longhands = {};
@@ -26320,28 +26471,653 @@ this._values.sort();
 }
 
 
+WebInspector.CSSMetadata.cssPropertiesMetainfo = null;
 
-WebInspector.CSSCompletions.cssPropertiesMetainfo = null;
+WebInspector.CSSMetadata.isColorAwareProperty = function(propertyName)
+{
+return WebInspector.CSSMetadata._colorAwareProperties[propertyName] === true;
+}
 
-WebInspector.CSSCompletions.requestCSSNameCompletions = function()
+WebInspector.CSSMetadata.colors = function()
+{
+if (!WebInspector.CSSMetadata._colorsKeySet)
+WebInspector.CSSMetadata._colorsKeySet = WebInspector.CSSMetadata._colors.keySet();
+return WebInspector.CSSMetadata._colorsKeySet;
+}
+
+
+WebInspector.CSSMetadata.InheritedProperties = [
+"azimuth", "border-collapse", "border-spacing", "caption-side", "color", "cursor", "direction", "elevation",
+"empty-cells", "font-family", "font-size", "font-style", "font-variant", "font-weight", "font", "letter-spacing",
+"line-height", "list-style-image", "list-style-position", "list-style-type", "list-style", "orphans", "pitch-range",
+"pitch", "quotes", "resize", "richness", "speak-header", "speak-numeral", "speak-punctuation", "speak", "speech-rate", "stress",
+"text-align", "text-indent", "text-transform", "text-shadow", "visibility", "voice-family", "volume", "white-space", "widows",
+"word-spacing", "zoom"
+].keySet();
+
+WebInspector.CSSMetadata._colors = [
+"aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "orange", "purple", "red",
+"silver", "teal", "white", "yellow", "transparent", "currentcolor", "grey", "aliceblue", "antiquewhite",
+"aquamarine", "azure", "beige", "bisque", "blanchedalmond", "blueviolet", "brown", "burlywood", "cadetblue",
+"chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan",
+"darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange",
+"darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey",
+"darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick",
+"floralwhite", "forestgreen", "gainsboro", "ghostwhite", "gold", "goldenrod", "greenyellow", "honeydew", "hotpink",
+"indianred", "indigo", "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue",
+"lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink",
+"lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow",
+"limegreen", "linen", "magenta", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen",
+"mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream",
+"mistyrose", "moccasin", "navajowhite", "oldlace", "olivedrab", "orangered", "orchid", "palegoldenrod", "palegreen",
+"paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "rosybrown",
+"royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue",
+"slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet",
+"wheat", "whitesmoke", "yellowgreen"
+];
+
+WebInspector.CSSMetadata._colorAwareProperties = [
+"background", "background-color", "background-image", "border", "border-color", "border-top", "border-right", "border-bottom",
+"border-left", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "box-shadow", "color",
+"fill", "outline", "outline-color", "stroke", "text-line-through", "text-line-through-color", "text-overline", "text-overline-color",
+"text-shadow", "text-underline", "text-underline-color", "-webkit-box-shadow", "-webkit-column-rule-color",
+"-webkit-text-decoration-color", "-webkit-text-emphasis", "-webkit-text-emphasis-color"
+].keySet();
+
+WebInspector.CSSMetadata._propertyDataMap = {
+"table-layout": { values: [
+"auto", "fixed"
+] },
+"visibility": { values: [
+"hidden", "visible", "collapse"
+] },
+"background-repeat": { values: [
+"repeat", "repeat-x", "repeat-y", "no-repeat", "space", "round"
+] },
+"text-underline": { values: [
+"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
+] },
+"content": { values: [
+"list-item", "close-quote", "no-close-quote", "no-open-quote", "open-quote"
+] },
+"list-style-image": { values: [
+"none"
+] },
+"clear": { values: [
+"none", "left", "right", "both"
+] },
+"text-underline-mode": { values: [
+"continuous", "skip-white-space"
+] },
+"overflow-x": { values: [
+"hidden", "auto", "visible", "overlay", "scroll"
+] },
+"stroke-linejoin": { values: [
+"round", "miter", "bevel"
+] },
+"baseline-shift": { values: [
+"baseline", "sub", "super"
+] },
+"border-bottom-width": { values: [
+"medium", "thick", "thin"
+] },
+"marquee-speed": { values: [
+"normal", "slow", "fast"
+] },
+"margin-top-collapse": { values: [
+"collapse", "separate", "discard"
+] },
+"max-height": { values: [
+"none"
+] },
+"box-orient": { values: [
+"horizontal", "vertical", "inline-axis", "block-axis"
+], },
+"font-stretch": { values: [
+"normal", "wider", "narrower", "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
+"semi-expanded", "expanded", "extra-expanded", "ultra-expanded"
+] },
+"-webkit-color-correction": { values: [
+"default", "srgb"
+] },
+"text-underline-style": { values: [
+"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
+] },
+"text-overline-mode": { values: [
+"continuous", "skip-white-space"
+] },
+"-webkit-background-composite": { values: [
+"highlight", "clear", "copy", "source-over", "source-in", "source-out", "source-atop", "destination-over",
+"destination-in", "destination-out", "destination-atop", "xor", "plus-darker", "plus-lighter"
+] },
+"border-left-width": { values: [
+"medium", "thick", "thin"
+] },
+"-webkit-writing-mode": { values: [
+"lr", "rl", "tb", "lr-tb", "rl-tb", "tb-rl", "horizontal-tb", "vertical-rl", "vertical-lr", "horizontal-bt"
+] },
+"text-line-through-mode": { values: [
+"continuous", "skip-white-space"
+] },
+"border-collapse": { values: [
+"collapse", "separate"
+] },
+"page-break-inside": { values: [
+"auto", "avoid"
+] },
+"border-top-width": { values: [
+"medium", "thick", "thin"
+] },
+"outline-color": { values: [
+"invert"
+] },
+"text-line-through-style": { values: [
+"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
+] },
+"outline-style": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"cursor": { values: [
+"none", "copy", "auto", "crosshair", "default", "pointer", "move", "vertical-text", "cell", "context-menu",
+"alias", "progress", "no-drop", "not-allowed", "-webkit-zoom-in", "-webkit-zoom-out", "e-resize", "ne-resize",
+"nw-resize", "n-resize", "se-resize", "sw-resize", "s-resize", "w-resize", "ew-resize", "ns-resize",
+"nesw-resize", "nwse-resize", "col-resize", "row-resize", "text", "wait", "help", "all-scroll", "-webkit-grab",
+"-webkit-grabbing"
+] },
+"border-width": { values: [
+"medium", "thick", "thin"
+] },
+"size": { values: [
+"a3", "a4", "a5", "b4", "b5", "landscape", "ledger", "legal", "letter", "portrait"
+] },
+"background-size": { values: [
+"contain", "cover"
+] },
+"direction": { values: [
+"ltr", "rtl"
+] },
+"marquee-direction": { values: [
+"left", "right", "auto", "reverse", "forwards", "backwards", "ahead", "up", "down"
+] },
+"enable-background": { values: [
+"accumulate", "new"
+] },
+"float": { values: [
+"none", "left", "right"
+] },
+"overflow-y": { values: [
+"hidden", "auto", "visible", "overlay", "scroll"
+] },
+"margin-bottom-collapse": { values: [
+"collapse",  "separate", "discard"
+] },
+"box-reflect": { values: [
+"left", "right", "above", "below"
+] },
+"overflow": { values: [
+"hidden", "auto", "visible", "overlay", "scroll"
+] },
+"text-rendering": { values: [
+"auto", "optimizeSpeed", "optimizeLegibility", "geometricPrecision"
+] },
+"text-align": { values: [
+"-webkit-auto", "start", "end", "left", "right", "center", "justify", "-webkit-left", "-webkit-right", "-webkit-center"
+] },
+"list-style-position": { values: [
+"outside", "inside", "hanging"
+] },
+"margin-bottom": { values: [
+"auto"
+] },
+"color-interpolation": { values: [
+"linearrgb"
+] },
+"background-origin": { values: [
+"border-box", "content-box", "padding-box"
+] },
+"word-wrap": { values: [
+"normal", "break-word"
+] },
+"font-weight": { values: [
+"normal", "bold", "bolder", "lighter", "100", "200", "300", "400", "500", "600", "700", "800", "900"
+] },
+"margin-before-collapse": { values: [
+"collapse", "separate", "discard"
+] },
+"text-overline-width": { values: [
+"normal", "medium", "auto", "thick", "thin"
+] },
+"text-transform": { values: [
+"none", "capitalize", "uppercase", "lowercase"
+] },
+"border-right-style": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"border-left-style": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"-webkit-text-emphasis": { values: [
+"circle", "filled", "open", "dot", "double-circle", "triangle", "sesame"
+] },
+"font-style": { values: [
+"italic", "oblique", "normal"
+] },
+"speak": { values: [
+"none", "normal", "spell-out", "digits", "literal-punctuation", "no-punctuation"
+] },
+"text-line-through": { values: [
+"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave", "continuous",
+"skip-white-space"
+] },
+"color-rendering": { values: [
+"auto", "optimizeSpeed", "optimizeQuality"
+] },
+"list-style-type": { values: [
+"none", "inline", "disc", "circle", "square", "decimal", "decimal-leading-zero", "arabic-indic", "binary", "bengali",
+"cambodian", "khmer", "devanagari", "gujarati", "gurmukhi", "kannada", "lower-hexadecimal", "lao", "malayalam",
+"mongolian", "myanmar", "octal", "oriya", "persian", "urdu", "telugu", "tibetan", "thai", "upper-hexadecimal",
+"lower-roman", "upper-roman", "lower-greek", "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "afar",
+"ethiopic-halehame-aa-et", "ethiopic-halehame-aa-er", "amharic", "ethiopic-halehame-am-et", "amharic-abegede",
+"ethiopic-abegede-am-et", "cjk-earthly-branch", "cjk-heavenly-stem", "ethiopic", "ethiopic-halehame-gez",
+"ethiopic-abegede", "ethiopic-abegede-gez", "hangul-consonant", "hangul", "lower-norwegian", "oromo",
+"ethiopic-halehame-om-et", "sidama", "ethiopic-halehame-sid-et", "somali", "ethiopic-halehame-so-et", "tigre",
+"ethiopic-halehame-tig", "tigrinya-er", "ethiopic-halehame-ti-er", "tigrinya-er-abegede",
+"ethiopic-abegede-ti-er", "tigrinya-et", "ethiopic-halehame-ti-et", "tigrinya-et-abegede",
+"ethiopic-abegede-ti-et", "upper-greek", "upper-norwegian", "asterisks", "footnotes", "hebrew", "armenian",
+"lower-armenian", "upper-armenian", "georgian", "cjk-ideographic", "hiragana", "katakana", "hiragana-iroha",
+"katakana-iroha"
+] },
+"-webkit-text-combine": { values: [
+"none", "horizontal"
+] },
+"outline": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"font": { values: [
+"caption", "icon", "menu", "message-box", "small-caption", "-webkit-mini-control", "-webkit-small-control",
+"-webkit-control", "status-bar", "italic", "oblique", "small-caps", "normal", "bold", "bolder", "lighter",
+"100", "200", "300", "400", "500", "600", "700", "800", "900", "xx-small", "x-small", "small", "medium",
+"large", "x-large", "xx-large", "-webkit-xxx-large", "smaller", "larger", "serif", "sans-serif", "cursive",
+"fantasy", "monospace", "-webkit-body", "-webkit-pictograph"
+] },
+"dominant-baseline": { values: [
+"middle", "auto", "central", "text-before-edge", "text-after-edge", "ideographic", "alphabetic", "hanging",
+"mathematical", "use-script", "no-change", "reset-size"
+] },
+"display": { values: [
+"none", "inline", "block", "list-item", "run-in", "compact", "inline-block", "table", "inline-table",
+"table-row-group", "table-header-group", "table-footer-group", "table-row", "table-column-group",
+"table-column", "table-cell", "table-caption", "-webkit-box", "-webkit-inline-box", "-wap-marquee"
+] },
+"-webkit-text-emphasis-position": { values: [
+"over", "under"
+] },
+"image-rendering": { values: [
+"auto", "optimizeSpeed", "optimizeQuality"
+] },
+"alignment-baseline": { values: [
+"baseline", "middle", "auto", "before-edge", "after-edge", "central", "text-before-edge", "text-after-edge",
+"ideographic", "alphabetic", "hanging", "mathematical"
+] },
+"outline-width": { values: [
+"medium", "thick", "thin"
+] },
+"text-line-through-width": { values: [
+"normal", "medium", "auto", "thick", "thin"
+] },
+"box-align": { values: [
+"baseline", "center", "stretch", "start", "end"
+] },
+"border-right-width": { values: [
+"medium", "thick", "thin"
+] },
+"border-top-style": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"line-height": { values: [
+"normal"
+] },
+"text-overflow": { values: [
+"clip", "ellipsis"
+] },
+"overflow-wrap": { values: [
+"normal", "break-word"
+] },
+"box-direction": { values: [
+"normal", "reverse"
+] },
+"margin-after-collapse": { values: [
+"collapse", "separate", "discard"
+] },
+"page-break-before": { values: [
+"left", "right", "auto", "always", "avoid"
+] },
+"-webkit-hyphens": { values: [
+"none", "auto", "manual"
+] },
+"border-image": { values: [
+"repeat", "stretch"
+] },
+"text-decoration": { values: [
+"blink", "line-through", "overline", "underline"
+] },
+"position": { values: [
+"absolute", "fixed", "relative", "static"
+] },
+"font-family": { values: [
+"serif", "sans-serif", "cursive", "fantasy", "monospace", "-webkit-body", "-webkit-pictograph"
+] },
+"text-overflow-mode": { values: [
+"clip", "ellipsis"
+] },
+"border-bottom-style": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"unicode-bidi": { values: [
+"normal", "bidi-override", "embed"
+] },
+"clip-rule": { values: [
+"nonzero", "evenodd"
+] },
+"margin-left": { values: [
+"auto"
+] },
+"margin-top": { values: [
+"auto"
+] },
+"zoom": { values: [
+"normal", "document", "reset"
+] },
+"text-overline-style": { values: [
+"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
+] },
+"max-width": { values: [
+"none"
+] },
+"caption-side": { values: [
+"top", "bottom"
+] },
+"empty-cells": { values: [
+"hide", "show"
+] },
+"pointer-events": { values: [
+"none", "all", "auto", "visible", "visiblepainted", "visiblefill", "visiblestroke", "painted", "fill", "stroke"
+] },
+"letter-spacing": { values: [
+"normal"
+] },
+"background-clip": { values: [
+"border-box", "content-box", "padding-box"
+] },
+"-webkit-font-smoothing": { values: [
+"none", "auto", "antialiased", "subpixel-antialiased"
+] },
+"border": { values: [
+"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
+] },
+"font-size": { values: [
+"xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large", "-webkit-xxx-large", "smaller",
+"larger"
+] },
+"font-variant": { values: [
+"small-caps", "normal"
+] },
+"vertical-align": { values: [
+"baseline", "middle", "sub", "super", "text-top", "text-bottom", "top", "bottom", "-webkit-baseline-middle"
+] },
+"marquee-style": { values: [
+"none", "scroll", "slide", "alternate"
+] },
+"white-space": { values: [
+"normal", "nowrap", "pre", "pre-line", "pre-wrap"
+] },
+"text-underline-width": { values: [
+"normal", "medium", "auto", "thick", "thin"
+] },
+"box-lines": { values: [
+"single", "multiple"
+] },
+"page-break-after": { values: [
+"left", "right", "auto", "always", "avoid"
+] },
+"clip-path": { values: [
+"none"
+] },
+"margin": { values: [
+"auto"
+] },
+"marquee-repetition": { values: [
+"infinite"
+] },
+"margin-right": { values: [
+"auto"
+] },
+"word-break": { values: [
+"normal", "break-all", "break-word"
+] },
+"word-spacing": { values: [
+"normal"
+] },
+"-webkit-text-emphasis-style": { values: [
+"circle", "filled", "open", "dot", "double-circle", "triangle", "sesame"
+] },
+"-webkit-transform": { values: [
+"scale", "scaleX", "scaleY", "scale3d", "rotate", "rotateX", "rotateY", "rotateZ", "rotate3d", "skew", "skewX", "skewY",
+"translate", "translateX", "translateY", "translateZ", "translate3d", "matrix", "matrix3d", "perspective"
+] },
+"image-resolution": { values: [
+"from-image", "snap"
+] },
+"box-sizing": { values: [
+"content-box", "padding-box", "border-box"
+] },
+"clip": { values: [
+"auto"
+] },
+"resize": { values: [
+"none", "both", "horizontal", "vertical"
+] },
+"-webkit-align-content": { values: [
+"flex-start", "flex-end", "center", "space-between", "space-around", "stretch"
+] },
+"-webkit-align-items": {  values: [
+"flex-start", "flex-end", "center", "baseline", "stretch"
+] },
+"-webkit-align-self": {  values: [
+"auto", "flex-start", "flex-end", "center", "baseline", "stretch"
+] },
+"-webkit-flex-direction": { values: [
+"row", "row-reverse", "column", "column-reverse"
+] },
+"-webkit-justify-content": { values: [
+"flex-start", "flex-end", "center", "space-between", "space-around"
+] },
+"-webkit-flex-wrap": { values: [
+"nowrap", "wrap", "wrap-reverse"
+] },
+"-webkit-animation-timing-function": { values: [
+"ease", "linear", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end", "steps", "cubic-bezier"
+] },
+"-webkit-animation-direction": { values: [
+"normal", "reverse", "alternate", "alternate-reverse"
+] },
+"-webkit-animation-play-state": { values: [
+"running", "paused"
+] },
+"-webkit-animation-fill-mode": { values: [
+"none", "forwards", "backwards", "both"
+] },
+"-webkit-backface-visibility": { values: [
+"visible", "hidden"
+] },
+"-webkit-box-decoration-break": { values: [
+"slice", "clone"
+] },
+"-webkit-column-break-after": { values: [
+"auto", "always", "avoid", "left", "right", "page", "column", "avoid-page", "avoid-column"
+] },
+"-webkit-column-break-before": { values: [
+"auto", "always", "avoid", "left", "right", "page", "column", "avoid-page", "avoid-column"
+] },
+"-webkit-column-break-inside": { values: [
+"auto", "avoid", "avoid-page", "avoid-column"
+] },
+"-webkit-column-span": { values: [
+"none", "all"
+] },
+"-webkit-column-count": { values: [
+"auto"
+] },
+"-webkit-column-gap": { values: [
+"normal"
+] },
+"-webkit-line-break": { values: [
+"auto", "loose", "normal", "strict"
+] },
+"-webkit-perspective": { values: [
+"none"
+] },
+"-webkit-perspective-origin": { values: [
+"left", "center", "right", "top", "bottom"
+] },
+"-webkit-text-align-last": { values: [
+"auto", "start", "end", "left", "right", "center", "justify"
+] },
+"-webkit-text-decoration-line": { values: [
+"none", "underline", "overline", "line-through", "blink"
+] },
+"-webkit-text-decoration-style": { values: [
+"solid", "double", "dotted", "dashed", "wavy"
+] },
+"-webkit-text-decoration-skip": { values: [
+"none", "objects", "spaces", "ink", "edges", "box-decoration"
+] },
+"-webkit-transform-origin": { values: [
+"left", "center", "right", "top", "bottom"
+] },
+"-webkit-transform-style": { values: [
+"flat", "preserve-3d"
+] },
+"-webkit-transition-timing-function": { values: [
+"ease", "linear", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end", "steps", "cubic-bezier"
+] },
+
+"-webkit-flex": { m: "flexbox" },
+"-webkit-flex-basis": { m: "flexbox" },
+"-webkit-flex-flow": { m: "flexbox" },
+"-webkit-flex-grow": { m: "flexbox" },
+"-webkit-flex-shrink": { m: "flexbox" },
+"-webkit-animation": { m: "animations" },
+"-webkit-animation-delay": { m: "animations" },
+"-webkit-animation-duration": { m: "animations" },
+"-webkit-animation-iteration-count": { m: "animations" },
+"-webkit-animation-name": { m: "animations" },
+"-webkit-column-rule": { m: "multicol" },
+"-webkit-column-rule-color": { m: "multicol", a: "crc" },
+"-webkit-column-rule-style": { m: "multicol", a: "crs" },
+"-webkit-column-rule-width": { m: "multicol", a: "crw" },
+"-webkit-column-width": { m: "multicol", a: "cw" },
+"-webkit-columns": { m: "multicol" },
+"-webkit-grid-columns": { m: "grid" },
+"-webkit-grid-rows": { m: "grid" },
+"-webkit-order": { m: "flexbox" },
+"-webkit-text-decoration-color": { m: "text-decor" },
+"-webkit-text-emphasis-color": { m: "text-decor" },
+"-webkit-transition": { m: "transitions" },
+"-webkit-transition-delay": { m: "transitions" },
+"-webkit-transition-duration": { m: "transitions" },
+"-webkit-transition-property": { m: "transitions" },
+"background": { m: "background" },
+"background-attachment": { m: "background" },
+"background-color": { m: "background" },
+"background-image": { m: "background" },
+"background-position": { m: "background" },
+"background-position-x": { m: "background" },
+"background-position-y": { m: "background" },
+"background-repeat-x": { m: "background" },
+"background-repeat-y": { m: "background" },
+"border-top": { m: "background" },
+"border-right": { m: "background" },
+"border-bottom": { m: "background" },
+"border-left": { m: "background" },
+"border-radius": { m: "background" },
+"bottom": { m: "visuren" },
+"box-shadow": { m: "background" },
+"color": { m: "color", a: "foreground" },
+"counter-increment": { m: "generate" },
+"counter-reset": { m: "generate" },
+"height": { m: "box" },
+"image-orientation": { m: "images" },
+"left": { m: "visuren" },
+"list-style": { m: "lists" },
+"min-height": { m: "box" },
+"min-width": { m: "box" },
+"opacity": { m: "color", a: "transparency" },
+"orphans": { m: "page" },
+"outline-offset": { m: "ui" },
+"padding": { m: "box", a: "padding1" },
+"padding-bottom": { m: "box" },
+"padding-left": { m: "box" },
+"padding-right": { m: "box" },
+"padding-top": { m: "box" },
+"page": { m: "page" },
+"quotes": { m: "generate" },
+"right": { m: "visuren" },
+"tab-size": { m: "text" },
+"text-indent": { m: "text" },
+"text-shadow": { m: "text-decor" },
+"top": { m: "visuren" },
+"unicode-range": { m: "fonts", a: "descdef-unicode-range" },
+"widows": { m: "page" },
+"width": { m: "box" },
+"z-index": { m: "visuren" }
+}
+
+
+WebInspector.CSSMetadata.keywordsForProperty = function(propertyName)
+{
+var acceptedKeywords = ["initial"];
+var descriptor = WebInspector.CSSMetadata.descriptor(propertyName);
+if (descriptor && descriptor.values)
+acceptedKeywords.push.apply(acceptedKeywords, descriptor.values);
+if (propertyName in WebInspector.CSSMetadata._colorAwareProperties)
+acceptedKeywords.push.apply(acceptedKeywords, WebInspector.CSSMetadata._colors);
+if (propertyName in WebInspector.CSSMetadata.InheritedProperties)
+acceptedKeywords.push("inherit");
+return new WebInspector.CSSMetadata(acceptedKeywords);
+}
+
+
+WebInspector.CSSMetadata.descriptor = function(propertyName)
+{
+if (!propertyName)
+return null;
+var unprefixedName = propertyName.replace(/^-webkit-/, "");
+var entry = WebInspector.CSSMetadata._propertyDataMap[propertyName];
+if (!entry && unprefixedName !== propertyName)
+entry = WebInspector.CSSMetadata._propertyDataMap[unprefixedName];
+return entry || null;
+}
+
+WebInspector.CSSMetadata.requestCSSShorthandData = function()
 {
 function propertyNamesCallback(error, properties)
 {
 if (!error)
-WebInspector.CSSCompletions.cssPropertiesMetainfo = new WebInspector.CSSCompletions(properties);
+WebInspector.CSSMetadata.cssPropertiesMetainfo = new WebInspector.CSSMetadata(properties);
 }
 CSSAgent.getSupportedCSSProperties(propertyNamesCallback);
 }
 
-WebInspector.CSSCompletions.cssPropertiesMetainfoKeySet = function()
+WebInspector.CSSMetadata.cssPropertiesMetainfoKeySet = function()
 {
-if (!WebInspector.CSSCompletions._cssPropertiesMetainfoKeySet)
-WebInspector.CSSCompletions._cssPropertiesMetainfoKeySet = WebInspector.CSSCompletions.cssPropertiesMetainfo.keySet();
-return WebInspector.CSSCompletions._cssPropertiesMetainfoKeySet;
+if (!WebInspector.CSSMetadata._cssPropertiesMetainfoKeySet)
+WebInspector.CSSMetadata._cssPropertiesMetainfoKeySet = WebInspector.CSSMetadata.cssPropertiesMetainfo.keySet();
+return WebInspector.CSSMetadata._cssPropertiesMetainfoKeySet;
 }
 
 
-WebInspector.CSSCompletions.Weight = {
+WebInspector.CSSMetadata.Weight = {
 "-webkit-animation": 1,
 "-webkit-animation-duration": 1,
 "-webkit-animation-iteration-count": 1,
@@ -26460,7 +27236,7 @@ WebInspector.CSSCompletions.Weight = {
 };
 
 
-WebInspector.CSSCompletions.prototype = {
+WebInspector.CSSMetadata.prototype = {
 startsWith: function(prefix)
 {
 var firstIndex = this._firstIndexOfPrefix(prefix);
@@ -26479,7 +27255,7 @@ mostUsedOf: function(properties)
 var maxWeight = 0;
 var index = 0;
 for (var i = 0; i < properties.length; i++) {
-var weight = WebInspector.CSSCompletions.Weight[properties[i]];
+var weight = WebInspector.CSSMetadata.Weight[properties[i]];
 if (weight > maxWeight) {
 maxWeight = weight;
 index = i;
@@ -26568,444 +27344,6 @@ shorthands: function(longhand)
 {
 return this._shorthands[longhand];
 }
-}
-
-
-
-
-
-WebInspector.CSSKeywordCompletions = {}
-
-WebInspector.CSSKeywordCompletions.forProperty = function(propertyName)
-{
-var acceptedKeywords = ["initial"];
-if (propertyName in WebInspector.CSSKeywordCompletions._propertyKeywordMap)
-acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._propertyKeywordMap[propertyName]);
-if (propertyName in WebInspector.CSSKeywordCompletions._colorAwareProperties)
-acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._colors);
-if (propertyName in WebInspector.CSSKeywordCompletions.InheritedProperties)
-acceptedKeywords.push("inherit");
-return new WebInspector.CSSCompletions(acceptedKeywords);
-}
-
-WebInspector.CSSKeywordCompletions.isColorAwareProperty = function(propertyName)
-{
-return WebInspector.CSSKeywordCompletions._colorAwareProperties[propertyName] === true;
-}
-
-WebInspector.CSSKeywordCompletions.colors = function()
-{
-if (!WebInspector.CSSKeywordCompletions._colorsKeySet)
-WebInspector.CSSKeywordCompletions._colorsKeySet = WebInspector.CSSKeywordCompletions._colors.keySet();
-return WebInspector.CSSKeywordCompletions._colorsKeySet;
-}
-
-
-WebInspector.CSSKeywordCompletions.InheritedProperties = [
-"azimuth", "border-collapse", "border-spacing", "caption-side", "color", "cursor", "direction", "elevation",
-"empty-cells", "font-family", "font-size", "font-style", "font-variant", "font-weight", "font", "letter-spacing",
-"line-height", "list-style-image", "list-style-position", "list-style-type", "list-style", "orphans", "pitch-range",
-"pitch", "quotes", "richness", "speak-header", "speak-numeral", "speak-punctuation", "speak", "speech-rate", "stress",
-"text-align", "text-indent", "text-transform", "text-shadow", "visibility", "voice-family", "volume", "white-space", "widows", "word-spacing"
-].keySet();
-
-WebInspector.CSSKeywordCompletions._colors = [
-"aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "orange", "purple", "red",
-"silver", "teal", "white", "yellow", "transparent", "currentcolor", "grey", "aliceblue", "antiquewhite",
-"aquamarine", "azure", "beige", "bisque", "blanchedalmond", "blueviolet", "brown", "burlywood", "cadetblue",
-"chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan",
-"darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange",
-"darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey",
-"darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick",
-"floralwhite", "forestgreen", "gainsboro", "ghostwhite", "gold", "goldenrod", "greenyellow", "honeydew", "hotpink",
-"indianred", "indigo", "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue",
-"lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink",
-"lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow",
-"limegreen", "linen", "magenta", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen",
-"mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream",
-"mistyrose", "moccasin", "navajowhite", "oldlace", "olivedrab", "orangered", "orchid", "palegoldenrod", "palegreen",
-"paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "rosybrown",
-"royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue",
-"slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet",
-"wheat", "whitesmoke", "yellowgreen"
-];
-
-WebInspector.CSSKeywordCompletions._colorAwareProperties = [
-"background", "background-color", "background-image", "border", "border-color", "border-top", "border-right", "border-bottom",
-"border-left", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "box-shadow", "color",
-"fill", "outline", "outline-color", "stroke", "text-line-through", "text-line-through-color", "text-overline", "text-overline-color",
-"text-shadow", "text-underline", "text-underline-color", "-webkit-box-shadow", "-webkit-text-emphasis", "-webkit-text-emphasis-color"
-].keySet();
-
-WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
-"table-layout": [
-"auto", "fixed"
-],
-"visibility": [
-"hidden", "visible", "collapse"
-],
-"background-repeat": [
-"repeat", "repeat-x", "repeat-y", "no-repeat", "space", "round"
-],
-"text-underline": [
-"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
-],
-"content": [
-"list-item", "close-quote", "no-close-quote", "no-open-quote", "open-quote"
-],
-"list-style-image": [
-"none"
-],
-"clear": [
-"none", "left", "right", "both"
-],
-"text-underline-mode": [
-"continuous", "skip-white-space"
-],
-"overflow-x": [
-"hidden", "auto", "visible", "overlay", "scroll"
-],
-"stroke-linejoin": [
-"round", "miter", "bevel"
-],
-"baseline-shift": [
-"baseline", "sub", "super"
-],
-"border-bottom-width": [
-"medium", "thick", "thin"
-],
-"marquee-speed": [
-"normal", "slow", "fast"
-],
-"margin-top-collapse": [
-"collapse", "separate", "discard"
-],
-"max-height": [
-"none"
-],
-"box-orient": [
-"horizontal", "vertical", "inline-axis", "block-axis"
-],
-"font-stretch": [
-"normal", "wider", "narrower", "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
-"semi-expanded", "expanded", "extra-expanded", "ultra-expanded"
-],
-"-webkit-color-correction": [
-"default", "srgb"
-],
-"text-underline-style": [
-"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
-],
-"text-overline-mode": [
-"continuous", "skip-white-space"
-],
-"-webkit-background-composite": [
-"highlight", "clear", "copy", "source-over", "source-in", "source-out", "source-atop", "destination-over",
-"destination-in", "destination-out", "destination-atop", "xor", "plus-darker", "plus-lighter"
-],
-"border-left-width": [
-"medium", "thick", "thin"
-],
-"-webkit-writing-mode": [
-"lr", "rl", "tb", "lr-tb", "rl-tb", "tb-rl", "horizontal-tb", "vertical-rl", "vertical-lr", "horizontal-bt"
-],
-"text-line-through-mode": [
-"continuous", "skip-white-space"
-],
-"border-collapse": [
-"collapse", "separate"
-],
-"page-break-inside": [
-"auto", "avoid"
-],
-"border-top-width": [
-"medium", "thick", "thin"
-],
-"outline-color": [
-"invert"
-],
-"text-line-through-style": [
-"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
-],
-"outline-style": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"cursor": [
-"none", "copy", "auto", "crosshair", "default", "pointer", "move", "vertical-text", "cell", "context-menu",
-"alias", "progress", "no-drop", "not-allowed", "-webkit-zoom-in", "-webkit-zoom-out", "e-resize", "ne-resize",
-"nw-resize", "n-resize", "se-resize", "sw-resize", "s-resize", "w-resize", "ew-resize", "ns-resize",
-"nesw-resize", "nwse-resize", "col-resize", "row-resize", "text", "wait", "help", "all-scroll", "-webkit-grab",
-"-webkit-grabbing"
-],
-"border-width": [
-"medium", "thick", "thin"
-],
-"size": [
-"a3", "a4", "a5", "b4", "b5", "landscape", "ledger", "legal", "letter", "portrait"
-],
-"background-size": [
-"contain", "cover"
-],
-"direction": [
-"ltr", "rtl"
-],
-"marquee-direction": [
-"left", "right", "auto", "reverse", "forwards", "backwards", "ahead", "up", "down"
-],
-"enable-background": [
-"accumulate", "new"
-],
-"float": [
-"none", "left", "right"
-],
-"overflow-y": [
-"hidden", "auto", "visible", "overlay", "scroll"
-],
-"margin-bottom-collapse": [
-"collapse",  "separate", "discard"
-],
-"box-reflect": [
-"left", "right", "above", "below"
-],
-"overflow": [
-"hidden", "auto", "visible", "overlay", "scroll"
-],
-"text-rendering": [
-"auto", "optimizeSpeed", "optimizeLegibility", "geometricPrecision"
-],
-"text-align": [
-"-webkit-auto", "left", "right", "center", "justify", "-webkit-left", "-webkit-right", "-webkit-center"
-],
-"list-style-position": [
-"outside", "inside"
-],
-"margin-bottom": [
-"auto"
-],
-"color-interpolation": [
-"linearrgb"
-],
-"background-origin": [
-"border-box", "content-box", "padding-box"
-],
-"word-wrap": [
-"normal", "break-word"
-],
-"font-weight": [
-"normal", "bold", "bolder", "lighter", "100", "200", "300", "400", "500", "600", "700", "800", "900"
-],
-"margin-before-collapse": [
-"collapse", "separate", "discard"
-],
-"text-overline-width": [
-"normal", "medium", "auto", "thick", "thin"
-],
-"text-transform": [
-"none", "capitalize", "uppercase", "lowercase"
-],
-"border-right-style": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"border-left-style": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"-webkit-text-emphasis": [
-"circle", "filled", "open", "dot", "double-circle", "triangle", "sesame"
-],
-"font-style": [
-"italic", "oblique", "normal"
-],
-"speak": [
-"none", "normal", "spell-out", "digits", "literal-punctuation", "no-punctuation"
-],
-"text-line-through": [
-"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave", "continuous",
-"skip-white-space"
-],
-"color-rendering": [
-"auto", "optimizeSpeed", "optimizeQuality"
-],
-"list-style-type": [
-"none", "disc", "circle", "square", "decimal", "decimal-leading-zero", "arabic-indic", "binary", "bengali",
-"cambodian", "khmer", "devanagari", "gujarati", "gurmukhi", "kannada", "lower-hexadecimal", "lao", "malayalam",
-"mongolian", "myanmar", "octal", "oriya", "persian", "urdu", "telugu", "tibetan", "thai", "upper-hexadecimal",
-"lower-roman", "upper-roman", "lower-greek", "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "afar",
-"ethiopic-halehame-aa-et", "ethiopic-halehame-aa-er", "amharic", "ethiopic-halehame-am-et", "amharic-abegede",
-"ethiopic-abegede-am-et", "cjk-earthly-branch", "cjk-heavenly-stem", "ethiopic", "ethiopic-halehame-gez",
-"ethiopic-abegede", "ethiopic-abegede-gez", "hangul-consonant", "hangul", "lower-norwegian", "oromo",
-"ethiopic-halehame-om-et", "sidama", "ethiopic-halehame-sid-et", "somali", "ethiopic-halehame-so-et", "tigre",
-"ethiopic-halehame-tig", "tigrinya-er", "ethiopic-halehame-ti-er", "tigrinya-er-abegede",
-"ethiopic-abegede-ti-er", "tigrinya-et", "ethiopic-halehame-ti-et", "tigrinya-et-abegede",
-"ethiopic-abegede-ti-et", "upper-greek", "upper-norwegian", "asterisks", "footnotes", "hebrew", "armenian",
-"lower-armenian", "upper-armenian", "georgian", "cjk-ideographic", "hiragana", "katakana", "hiragana-iroha",
-"katakana-iroha"
-],
-"-webkit-text-combine": [
-"none", "horizontal"
-],
-"outline": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"font": [
-"caption", "icon", "menu", "message-box", "small-caption", "-webkit-mini-control", "-webkit-small-control",
-"-webkit-control", "status-bar", "italic", "oblique", "small-caps", "normal", "bold", "bolder", "lighter",
-"100", "200", "300", "400", "500", "600", "700", "800", "900", "xx-small", "x-small", "small", "medium",
-"large", "x-large", "xx-large", "-webkit-xxx-large", "smaller", "larger", "serif", "sans-serif", "cursive",
-"fantasy", "monospace", "-webkit-body", "-webkit-pictograph"
-],
-"dominant-baseline": [
-"middle", "auto", "central", "text-before-edge", "text-after-edge", "ideographic", "alphabetic", "hanging",
-"mathematical", "use-script", "no-change", "reset-size"
-],
-"display": [
-"none", "inline", "block", "list-item", "run-in", "compact", "inline-block", "table", "inline-table",
-"table-row-group", "table-header-group", "table-footer-group", "table-row", "table-column-group",
-"table-column", "table-cell", "table-caption", "-webkit-box", "-webkit-inline-box", "-wap-marquee"
-],
-"-webkit-text-emphasis-position": [
-"over", "under"
-],
-"image-rendering": [
-"auto", "optimizeSpeed", "optimizeQuality"
-],
-"alignment-baseline": [
-"baseline", "middle", "auto", "before-edge", "after-edge", "central", "text-before-edge", "text-after-edge",
-"ideographic", "alphabetic", "hanging", "mathematical"
-],
-"outline-width": [
-"medium", "thick", "thin"
-],
-"text-line-through-width": [
-"normal", "medium", "auto", "thick", "thin"
-],
-"box-align": [
-"baseline", "center", "stretch", "start", "end"
-],
-"border-right-width": [
-"medium", "thick", "thin"
-],
-"border-top-style": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"line-height": [
-"normal"
-],
-"text-overflow": [
-"clip", "ellipsis"
-],
-"box-direction": [
-"normal", "reverse"
-],
-"margin-after-collapse": [
-"collapse", "separate", "discard"
-],
-"page-break-before": [
-"left", "right", "auto", "always", "avoid"
-],
-"-webkit-hyphens": [
-"none", "auto", "manual"
-],
-"border-image": [
-"repeat", "stretch"
-],
-"text-decoration": [
-"blink", "line-through", "overline", "underline"
-],
-"position": [
-"absolute", "fixed", "relative", "static"
-],
-"font-family": [
-"serif", "sans-serif", "cursive", "fantasy", "monospace", "-webkit-body", "-webkit-pictograph"
-],
-"text-overflow-mode": [
-"clip", "ellipsis"
-],
-"border-bottom-style": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"unicode-bidi": [
-"normal", "bidi-override", "embed"
-],
-"clip-rule": [
-"nonzero", "evenodd"
-],
-"margin-left": [
-"auto"
-],
-"margin-top": [
-"auto"
-],
-"zoom": [
-"document", "reset"
-],
-"text-overline-style": [
-"none", "dotted", "dashed", "solid", "double", "dot-dash", "dot-dot-dash", "wave"
-],
-"max-width": [
-"none"
-],
-"empty-cells": [
-"hide", "show"
-],
-"pointer-events": [
-"none", "all", "auto", "visible", "visiblepainted", "visiblefill", "visiblestroke", "painted", "fill", "stroke"
-],
-"letter-spacing": [
-"normal"
-],
-"background-clip": [
-"border-box", "content-box", "padding-box"
-],
-"-webkit-font-smoothing": [
-"none", "auto", "antialiased", "subpixel-antialiased"
-],
-"border": [
-"none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
-],
-"font-size": [
-"xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large", "-webkit-xxx-large", "smaller",
-"larger"
-],
-"font-variant": [
-"small-caps", "normal"
-],
-"vertical-align": [
-"baseline", "middle", "sub", "super", "text-top", "text-bottom", "top", "bottom", "-webkit-baseline-middle"
-],
-"marquee-style": [
-"none", "scroll", "slide", "alternate"
-],
-"white-space": [
-"normal", "nowrap", "pre", "pre-line", "pre-wrap"
-],
-"text-underline-width": [
-"normal", "medium", "auto", "thick", "thin"
-],
-"box-lines": [
-"single", "multiple"
-],
-"page-break-after": [
-"left", "right", "auto", "always", "avoid"
-],
-"clip-path": [
-"none"
-],
-"margin": [
-"auto"
-],
-"marquee-repetition": [
-"infinite"
-],
-"margin-right": [
-"auto"
-],
-"-webkit-text-emphasis-style": [
-"circle", "filled", "open", "dot", "double-circle", "triangle", "sesame"
-],
-"-webkit-transform": [
-"scale", "scaleX", "scaleY", "scale3d", "rotate", "rotateX", "rotateY", "rotateZ", "rotate3d", "skew", "skewX", "skewY", 
-"translate", "translateX", "translateY", "translateZ", "translate3d", "matrix", "matrix3d", "perspective"
-]
 }
 
 
@@ -27143,8 +27481,6 @@ this.title = title;
 this.className = className;
 this._visible = true;
 }
-
-WebInspector.StatusBarButton.width = 31;
 
 WebInspector.StatusBarButton.prototype = {
 _clicked: function()
@@ -27570,6 +27906,7 @@ this._mainPanel.element.dispatchEvent(clone);
 this._gutterPanel.element.addEventListener("mousewheel", forwardWheelEvent.bind(this), false);
 
 this.element.addEventListener("keydown", this._handleKeyDown.bind(this), false);
+this.element.addEventListener("cut", this._handleCut.bind(this), false);
 this.element.addEventListener("textInput", this._handleTextInput.bind(this), false);
 this.element.addEventListener("contextmenu", this._contextMenu.bind(this), true);
 
@@ -27849,6 +28186,11 @@ this._mainPanel._textInputData = e.data;
 
 _handleKeyDown: function(e)
 {
+
+
+if (e.target.enclosingNodeOrSelfWithClass("webkit-line-decorations"))
+return;
+
 var shortcutKey = WebInspector.KeyboardShortcut.makeKeyFromEvent(e);
 
 var handler = this._shortcuts[shortcutKey];
@@ -27857,6 +28199,11 @@ e.consume(true);
 return;
 }
 this._mainPanel._keyDownCode = e.keyCode;
+},
+
+_handleCut: function(e)
+{
+this._mainPanel._keyDownCode = WebInspector.KeyboardShortcut.Keys.Delete.code;
 },
 
 _contextMenu: function(event)
@@ -27877,7 +28224,7 @@ contextMenu.show();
 
 _handleScrollChanged: function(event)
 {
-var visibleFrom = this._mainPanel.element.scrollTop;
+var visibleFrom = this._mainPanel._scrollTop();
 var firstVisibleLineNumber = this._mainPanel._findFirstVisibleLineNumber(visibleFrom);
 this._delegate.scrollChanged(firstVisibleLineNumber);
 },
@@ -27983,6 +28330,63 @@ WebInspector.markBeingEdited(this.element, false);
 this._freeCachedElements();
 },
 
+
+highlightRangesWithStyleClass: function(element, resultRanges, styleClass, changes)
+{
+this._mainPanel.beginDomUpdates();
+WebInspector.highlightRangesWithStyleClass(element, resultRanges, styleClass, changes);
+this._mainPanel.endDomUpdates();
+},
+
+
+highlightExpression: function(element, skipClasses, skipTokens)
+{
+
+var tokens = [ element ];
+var token = element.previousSibling;
+while (token && (skipClasses[token.className] || skipTokens[token.textContent.trim()])) {
+tokens.push(token);
+token = token.previousSibling;
+}
+tokens.reverse();
+
+
+this._mainPanel.beginDomUpdates();
+var parentElement = element.parentElement;
+var nextElement = element.nextSibling;
+var container = document.createElement("span");
+for (var i = 0; i < tokens.length; ++i)
+container.appendChild(tokens[i]);
+parentElement.insertBefore(container, nextElement);
+this._mainPanel.endDomUpdates();
+return container;
+},
+
+
+hideHighlightedExpression: function(highlightElement)
+{
+this._mainPanel.beginDomUpdates();
+var parentElement = highlightElement.parentElement;
+if (parentElement) {
+var child = highlightElement.firstChild;
+while (child) {
+var nextSibling = child.nextSibling;
+parentElement.insertBefore(child, highlightElement);
+child = nextSibling;
+}
+parentElement.removeChild(highlightElement);
+}
+this._mainPanel.endDomUpdates();
+},
+
+
+overrideViewportForTest: function(scrollTop, clientHeight, chunkSize)
+{
+this._mainPanel._scrollTopOverrideForTest = scrollTop;
+this._mainPanel._clientHeightOverrideForTest = clientHeight;
+this._mainPanel._defaultChunkSize = chunkSize;
+},
+
 __proto__: WebInspector.View.prototype
 }
 
@@ -28078,8 +28482,8 @@ _splitChunkOnALine: function(lineNumber, chunkNumber, createSuffixChunk)
 this.beginDomUpdates();
 
 var oldChunk = this._textChunks[chunkNumber];
-var wasExpanded = oldChunk.expanded;
-oldChunk.expanded = false;
+var wasExpanded = oldChunk.expanded();
+oldChunk.collapse();
 
 var insertIndex = chunkNumber + 1;
 
@@ -28109,10 +28513,11 @@ this._container.removeChild(oldChunk.element);
 
 if (wasExpanded) {
 if (prefixChunk)
-prefixChunk.expanded = true;
-lineChunk.expanded = true;
+prefixChunk.expand();
+lineChunk.expand();
 if (suffixChunk)
-suffixChunk.expanded = true;
+suffixChunk.expand();
+this._repaintAll();
 }
 
 this.endDomUpdates();
@@ -28199,7 +28604,7 @@ return { start: from, end: to };
 _findFirstVisibleLineNumber: function(visibleFrom)
 {
 var chunk = this._textChunks[this._findFirstVisibleChunkNumber(visibleFrom)];
-if (!chunk.expanded)
+if (!chunk.expanded())
 return chunk.startLine;
 
 var lineNumbers = [];
@@ -28209,7 +28614,7 @@ lineNumbers.push(chunk.startLine + i);
 
 function compareLineRowOffsetTops(value, lineNumber)
 {
-var lineRow = chunk.getExpandedLineRow(lineNumber);
+var lineRow = chunk.expandedLineRow(lineNumber);
 return value < lineRow.offsetTop ? -1 : 1;
 }
 var insertBefore = insertionIndexForObjectInListSortedByFunction(visibleFrom, lineNumbers, compareLineRowOffsetTops);
@@ -28221,15 +28626,26 @@ _repaintAll: function()
 delete this._repaintAllTimer;
 
 if (this._paintCoalescingLevel)
-return;
+return false;
 
-var visibleFrom = this.element.scrollTop;
-var visibleTo = this.element.scrollTop + this.element.clientHeight;
+var visibleFrom = this._scrollTop();
+var visibleTo = visibleFrom + this._clientHeight();
 
 if (visibleTo) {
 var result = this._findVisibleChunks(visibleFrom, visibleTo);
 this._expandChunks(result.start, result.end);
 }
+return true;
+},
+
+_scrollTop: function()
+{
+return typeof this._scrollTopOverrideForTest === "number" ? this._scrollTopOverrideForTest : this.element.scrollTop; 
+},
+
+_clientHeight: function()
+{
+return typeof this._clientHeightOverrideForTest === "number" ? this._clientHeightOverrideForTest : this.element.clientHeight; 
 },
 
 
@@ -28237,11 +28653,11 @@ _expandChunks: function(fromIndex, toIndex)
 {
 
 for (var i = 0; i < fromIndex; ++i)
-this._textChunks[i].expanded = false;
+this._textChunks[i].collapse();
 for (var i = toIndex; i < this._textChunks.length; ++i)
-this._textChunks[i].expanded = false;
+this._textChunks[i].collapse();
 for (var i = fromIndex; i < toIndex; ++i)
-this._textChunks[i].expanded = true;
+this._textChunks[i].expand();
 },
 
 
@@ -28315,7 +28731,7 @@ for (var chunkNumber = this._textChunks.length - 1; chunkNumber >= 0 ; --chunkNu
 var chunk = this._textChunks[chunkNumber];
 if (chunk.startLine + chunk.linesCount <= this._textModel.linesCount)
 break;
-chunk.expanded = false;
+chunk.collapse();
 this._container.removeChild(chunk.element);
 }
 this._textChunks.length = chunkNumber + 1;
@@ -28462,27 +28878,26 @@ this._textEditor.endDomUpdates();
 },
 
 
-get expanded()
+expanded: function()
 {
 return this._expanded;
 },
 
-set expanded(expanded)
+expand: function()
 {
 if (this.linesCount === 1)
 this._textEditor._syncDecorationsForLineListener(this.startLine);
 
-if (this._expanded === expanded)
+if (this._expanded)
 return;
 
-this._expanded = expanded;
+this._expanded = true;
 
 if (this.linesCount === 1)
 return;
 
 this._textEditor.beginDomUpdates();
 
-if (expanded) {
 this._expandedLineRows = [];
 var parentElement = this.element.parentElement;
 for (var i = this.startLine; i < this.startLine + this.linesCount; ++i) {
@@ -28492,7 +28907,25 @@ this._expandedLineRows.push(lineRow);
 }
 parentElement.removeChild(this.element);
 this._textEditor._syncLineHeightListener(this._expandedLineRows[0]);
-} else {
+
+this._textEditor.endDomUpdates();
+},
+
+collapse: function()
+{
+if (this.linesCount === 1)
+this._textEditor._syncDecorationsForLineListener(this.startLine);
+
+if (!this._expanded)
+return;
+
+this._expanded = false;
+
+if (this.linesCount === 1)
+return;
+
+this._textEditor.beginDomUpdates();
+
 var elementInserted = false;
 for (var i = 0; i < this._expandedLineRows.length; ++i) {
 var lineRow = this._expandedLineRows[i];
@@ -28507,7 +28940,6 @@ parentElement.removeChild(lineRow);
 this._textEditor._cachedRows.push(lineRow);
 }
 delete this._expandedLineRows;
-}
 
 this._textEditor.endDomUpdates();
 },
@@ -28577,6 +29009,25 @@ _willHide: function()
 {
 this._detachMutationObserver();
 this._isShowing = false;
+},
+
+_repaintAll: function()
+{
+
+if (!WebInspector.TextEditorChunkedPanel.prototype._repaintAll.call(this))
+return false;
+
+var visibleFrom = this._scrollTop();
+var visibleTo = visibleFrom + this._clientHeight();
+
+if (visibleTo) {
+var result = this._findVisibleChunks(visibleFrom, visibleTo);
+for(var i = result.start; i < result.end; i++) {
+var chunk = this._textChunks[i];
+this._paintLines(chunk.startLine, chunk.startLine + chunk.linesCount, true);
+}
+}
+return true;
 },
 
 _attachMutationObserver: function()
@@ -28675,10 +29126,11 @@ delete this._rangeToMark;
 
 this.beginDomUpdates();
 var chunk = this.chunkForLine(markedLine);
-var wasExpanded = chunk.expanded;
-chunk.expanded = false;
+var wasExpanded = chunk.expanded();
+chunk.collapse();
 chunk.updateCollapsedLineRow();
-chunk.expanded = wasExpanded;
+if (wasExpanded)
+chunk.expand();
 this.endDomUpdates();
 }
 
@@ -28797,7 +29249,7 @@ var indent = WebInspector.TextEditorModel.endsWithBracketRegex.test(linePrefix) 
 if (!indent)
 return false;
 
-this.beginUpdates();
+this.beginDomUpdates();
 
 var lineBreak = this._textModel.lineBreak;
 var newRange;
@@ -28813,7 +29265,7 @@ newRange.endColumn += textEditorIndent.length;
 } else
 newRange = this._textModel.editRange(range, lineBreak + indent);
 
-this.endUpdates();
+this.endDomUpdates();
 this._restoreSelection(newRange.collapseToEnd(), true);
 
 return true;
@@ -28966,7 +29418,7 @@ _paintLineChunks: function(lineChunks, restoreSelection)
 {
 
 
-var visibleFrom = this.element.scrollTop;
+var visibleFrom = this._scrollTop();
 var firstVisibleLineNumber = this._findFirstVisibleLineNumber(visibleFrom);
 
 var chunk;
@@ -28981,7 +29433,7 @@ continue;
 for (var lineNumber = lineChunk.startLine; lineNumber < lineChunk.endLine; ++lineNumber) {
 if (!chunk || lineNumber < chunk.startLine || lineNumber >= chunk.startLine + chunk.linesCount)
 chunk = this.chunkForLine(lineNumber);
-var lineRow = chunk.getExpandedLineRow(lineNumber);
+var lineRow = chunk.expandedLineRow(lineNumber);
 if (!lineRow)
 continue;
 if (lineNumber < firstVisibleLineNumber) {
@@ -29096,7 +29548,7 @@ this._cachedRows.push(lineRow);
 },
 
 
-_getSelection: function()
+_getSelection: function(lastUndamagedLineRow)
 {
 var selection = window.getSelection();
 if (!selection.rangeCount)
@@ -29104,8 +29556,8 @@ return null;
 
 if (!this._container.isAncestor(selection.anchorNode) || !this._container.isAncestor(selection.focusNode))
 return null;
-var start = this._selectionToPosition(selection.anchorNode, selection.anchorOffset);
-var end = selection.isCollapsed ? start : this._selectionToPosition(selection.focusNode, selection.focusOffset);
+var start = this._selectionToPosition(selection.anchorNode, selection.anchorOffset, lastUndamagedLineRow);
+var end = selection.isCollapsed ? start : this._selectionToPosition(selection.focusNode, selection.focusOffset, lastUndamagedLineRow);
 return new WebInspector.TextRange(start.line, start.column, end.line, end.column);
 },
 
@@ -29114,6 +29566,7 @@ _restoreSelection: function(range, scrollIntoView)
 {
 if (!range)
 return;
+
 var start = this._positionToSelection(range.startLine, range.startColumn);
 var end = range.isEmpty() ? start : this._positionToSelection(range.endLine, range.endColumn);
 window.getSelection().setBaseAndExtent(start.container, start.offset, end.container, end.offset);
@@ -29130,22 +29583,49 @@ this._lastSelection = range;
 },
 
 
-_selectionToPosition: function(container, offset)
+_selectionToPosition: function(container, offset, lastUndamagedLineRow)
 {
 if (container === this._container && offset === 0)
 return { line: 0, column: 0 };
 if (container === this._container && offset === 1)
 return { line: this._textModel.linesCount - 1, column: this._textModel.lineLength(this._textModel.linesCount - 1) };
 
+
+
+var lineNumber;
+var column = 0;
+var node;
+var scopeNode;
+if (lastUndamagedLineRow === null) {
+
+node = this._container.firstChild;
+scopeNode = this._container;
+lineNumber = 0;
+} else {
 var lineRow = this._enclosingLineRowOrSelf(container);
-var lineNumber = lineRow.lineNumber;
-if (container === lineRow && offset === 0)
+if (!lastUndamagedLineRow || (typeof lineRow.lineNumber === "number" && lineRow.lineNumber <= lastUndamagedLineRow.lineNumber)) {
+
+node = lineRow;
+scopeNode = node;
+lineNumber = node.lineNumber;
+} else {
+
+node = lastUndamagedLineRow.nextSibling;
+scopeNode = this._container;
+lineNumber = lastUndamagedLineRow.lineNumber + 1;
+}
+}
+
+
+if (container === node && offset === 0)
 return { line: lineNumber, column: 0 };
 
 
-var column = 0;
-var node = lineRow.nodeType === Node.TEXT_NODE ? lineRow : lineRow.traverseNextTextNode(lineRow);
-while (node && node !== container) {
+for (; node && node !== container; node = node.traverseNextNode(scopeNode)) {
+if (node.nodeName.toLowerCase() === "br") {
+lineNumber++;
+column = 0;
+} else if (node.nodeType === Node.TEXT_NODE) {
 var text = node.textContent;
 for (var i = 0; i < text.length; ++i) {
 if (text.charAt(i) === "\n") {
@@ -29154,12 +29634,15 @@ column = 0;
 } else
 column++;
 }
-node = node.traverseNextTextNode(lineRow);
 }
+}
+
 
 if (node === container && offset) {
 var text = node.textContent;
-for (var i = 0; i < offset; ++i) {
+
+var textOffset = (node._chunk && offset === 1) ? text.length : offset;
+for (var i = 0; i < textOffset; ++i) {
 if (text.charAt(i) === "\n") {
 lineNumber++;
 column = 0;
@@ -29175,7 +29658,7 @@ _positionToSelection: function(line, column)
 {
 var chunk = this.chunkForLine(line);
 
-var lineRow = chunk.linesCount === 1 ? chunk.element : chunk.getExpandedLineRow(line);
+var lineRow = chunk.linesCount === 1 ? chunk.element : chunk.expandedLineRow(line);
 if (lineRow)
 var rangeBoundary = lineRow.rangeBoundaryForOffset(column);
 else {
@@ -29215,7 +29698,7 @@ return;
 
 var span = this._cachedSpans.pop() || document.createElement("span");
 span.className = "webkit-" + className;
-if (WebInspector.debugDefaultTextEditor) 
+if (WebInspector.FALSE) 
 span.addStyleClass("debug-fadeout");
 span.textContent = content;
 element.insertBefore(span, oldChild);
@@ -29260,11 +29743,10 @@ return span;
 
 _handleMutations: function(mutations)
 {
-if (this._domUpdateCoalescingLevel)
+if (this._readOnly) {
+delete this._keyDownCode;
 return;
-
-if (this._readOnly)
-return;
+}
 
 
 var filteredMutations = mutations.slice();
@@ -29306,14 +29788,14 @@ dirtyLines.start = Math.min(dirtyLines.start, lines.start);
 dirtyLines.end = Math.max(dirtyLines.end, lines.end);
 }
 }
-
 if (dirtyLines) {
 delete this._rangeToMark;
 this._applyDomUpdates(dirtyLines);
 }
 
-if (WebInspector.debugDefaultTextEditor)
-console.assert(this.element.innerText === this._textModel.text() + "\n", "DOM does not match model.");
+this._assertDOMMatchesTextModel();
+
+delete this._keyDownCode;
 },
 
 
@@ -29329,67 +29811,43 @@ this._syncDecorationsForLineListener(lineRow.lineNumber);
 return null;
 }
 
-if (this._readOnly)
+if (typeof lineRow.lineNumber !== "number")
 return null;
 
-if (target === lineRow && mutation.type === "childList" && mutation.addedNodes.length) {
-
-delete lineRow.lineNumber;
-}
-
-var startLine = 0;
-for (var row = lineRow; row; row = row.previousSibling) {
-if (typeof row.lineNumber === "number") {
-startLine = row.lineNumber;
-break;
-}
-}
-
-var endLine = startLine + 1;
-for (var row = lineRow.nextSibling; row; row = row.nextSibling) {
-if (typeof row.lineNumber === "number" && row.lineNumber > startLine) {
-endLine = row.lineNumber;
-break;
-}
-}
+var startLine = lineRow.lineNumber;
+var endLine = lineRow._chunk ? lineRow._chunk.endLine - 1 : lineRow.lineNumber;
 return { start: startLine, end: endLine };
 },
 
 
 _applyDomUpdates: function(dirtyLines)
 {
-var firstChunkNumber = this._chunkNumberForLine(dirtyLines.start);
-var startLine = this._textChunks[firstChunkNumber].startLine;
-var endLine = this._textModel.linesCount;
+var lastUndamagedLineNumber = dirtyLines.start - 1; 
+var firstUndamagedLineNumber = dirtyLines.end + 1; 
 
+var lastUndamagedLineChunk = lastUndamagedLineNumber >= 0 ? this._textChunks[this._chunkNumberForLine(lastUndamagedLineNumber)] : null;
+var firstUndamagedLineChunk = firstUndamagedLineNumber  < this._textModel.linesCount ? this._textChunks[this._chunkNumberForLine(firstUndamagedLineNumber)] : null;
 
-var firstLineRow;
-if (firstChunkNumber) {
-var chunk = this._textChunks[firstChunkNumber - 1];
-firstLineRow = chunk.expanded ? chunk.getExpandedLineRow(chunk.startLine + chunk.linesCount - 1) : chunk.element;
-firstLineRow = firstLineRow.nextSibling;
+var collectLinesFromNode = lastUndamagedLineChunk ? lastUndamagedLineChunk.lineRowContainingLine(lastUndamagedLineNumber) : null;
+var collectLinesToNode = firstUndamagedLineChunk ? firstUndamagedLineChunk.lineRowContainingLine(firstUndamagedLineNumber) : null;
+var lines = this._collectLinesFromDOM(collectLinesFromNode, collectLinesToNode);
+
+var startLine = dirtyLines.start;
+var endLine = dirtyLines.end;
+
+var editInfo = this._guessEditRangeBasedOnSelection(startLine, endLine, lines);
+if (!editInfo) {
+if (WebInspector.debugDefaultTextEditor)
+console.warn("Falling back to expensive edit");
+var range = new WebInspector.TextRange(startLine, 0, endLine, this._textModel.lineLength(endLine));
+if (!lines.length) {
+
+editInfo = new WebInspector.DefaultTextEditor.EditInfo(this._textModel.growRangeRight(range), "");
 } else
-firstLineRow = this._container.firstChild;
-
-var lines = [];
-for (var lineRow = firstLineRow; lineRow; lineRow = lineRow.nextSibling) {
-if (typeof lineRow.lineNumber === "number" && lineRow.lineNumber >= dirtyLines.end) {
-endLine = lineRow.lineNumber;
-break;
+editInfo = new WebInspector.DefaultTextEditor.EditInfo(range, lines.join("\n"));
 }
 
-lineRow.lineNumber = startLine + lines.length;
-this._collectLinesFromDiv(lines, lineRow);
-}
-
-var editInfo = this._guessEditRangeBasedOnSelection(dirtyLines, startLine, endLine, lines);
-if (!editInfo)
-editInfo = this._guessEditRangeBasedOnDiff(dirtyLines, startLine, endLine, lines);
-
-if (this._textModel.copyRange(editInfo.range) === editInfo.text)
-return; 
-
-var selection = this._getSelection();
+var selection = this._getSelection(collectLinesFromNode);
 
 
 if (editInfo.text === "}" && editInfo.range.isEmpty() && selection.isEmpty() && !this._textModel.line(editInfo.range.endLine).trim()) {
@@ -29407,23 +29865,21 @@ this._restoreSelection(selection);
 },
 
 
-_guessEditRangeBasedOnSelection: function(dirtyLines, startLine, endLine, lines)
+_guessEditRangeBasedOnSelection: function(startLine, endLine, lines)
 {
-
 
 var textInputData = this._textInputData;
 delete this._textInputData;
 var isBackspace = this._keyDownCode === WebInspector.KeyboardShortcut.Keys.Backspace.code;
 var isDelete = this._keyDownCode === WebInspector.KeyboardShortcut.Keys.Delete.code;
-delete this._keyDownCode;
 
 if (!textInputData && (isDelete || isBackspace))
 textInputData = "";
 
+
 if (typeof textInputData === "undefined" || !this._lastSelection)
 return null;
-if (dirtyLines.start > this._lastSelection.startLine || dirtyLines.end < this._lastSelection.endLine)
-return null;
+
 
 textInputData = textInputData || "";
 var range = this._lastSelection.normalize();
@@ -29433,71 +29889,50 @@ else if (isDelete && range.isEmpty())
 range = this._textModel.growRangeRight(range);
 
 
-var domModel = this._textModel.slice(startLine, endLine);
-domModel.editRange(range.shift(-startLine), textInputData);
+if (startLine > range.endLine || endLine < range.startLine)
+return null;
+
+var replacementLineCount = textInputData.split("\n").length - 1;
+var lineCountDelta = replacementLineCount - range.linesCount;
+if (startLine + lines.length - endLine - 1 !== lineCountDelta)
+return null;
 
 
-for (var i = 0;  i < domModel.linesCount; ++i) {
-if (domModel.line(i) !== lines[i])
+var cloneFromLine = Math.min(range.startLine, startLine);
+var postLastLine = startLine + lines.length + lineCountDelta;
+var cloneToLine = Math.min(Math.max(postLastLine, range.endLine) + 1, this._textModel.linesCount);
+var domModel = this._textModel.slice(cloneFromLine, cloneToLine);
+domModel.editRange(range.shift(-cloneFromLine), textInputData);
+
+
+for (var i = 0;  i < lines.length; ++i) {
+if (domModel.line(i + startLine - cloneFromLine) !== lines[i])
 return null;
 }
 return new WebInspector.DefaultTextEditor.EditInfo(range, textInputData);
 },
 
-
-_guessEditRangeBasedOnDiff: function(dirtyLines, startLine, endLine, lines)
+_assertDOMMatchesTextModel: function()
 {
+if (!WebInspector.debugDefaultTextEditor)
+return;
 
-var startOffset = 0;
-while (startLine < dirtyLines.start && startOffset < lines.length) {
-if (this._textModel.line(startLine) !== lines[startOffset])
-break;
-++startOffset;
-++startLine;
+console.assert(this.element.innerText === this._textModel.text() + "\n", "DOM does not match model.");
+for (var lineRow = this._container.firstChild; lineRow; lineRow = lineRow.nextSibling) {
+var lineNumber = lineRow.lineNumber;
+if (typeof lineNumber !== "number") {
+console.warn("No line number on line row");
+continue;
 }
-
-var endOffset = lines.length;
-while (endLine > dirtyLines.end && endOffset > startOffset) {
-if (this._textModel.line(endLine - 1) !== lines[endOffset - 1])
-break;
---endOffset;
---endLine;
+if (lineRow._chunk) {
+var chunk = lineRow._chunk;
+console.assert(lineNumber === chunk.startLine);
+var chunkText = this._textModel.copyRange(new WebInspector.TextRange(chunk.startLine, 0, chunk.endLine - 1, this._textModel.lineLength(chunk.endLine - 1)));
+if (chunkText !== lineRow.textContent)
+console.warn("Chunk is not matching: %d %O", lineNumber, lineRow);
+} else if (this._textModel.line(lineNumber) !== lineRow.textContent)
+console.warn("Line is not matching: %d %O", lineNumber, lineRow);
 }
-
-lines = lines.slice(startOffset, endOffset);
-
-
-var startColumn = 0;
-var endColumn = this._textModel.lineLength(endLine - 1);
-if (lines.length > 0) {
-var line1 = this._textModel.line(startLine);
-var line2 = lines[0];
-while (line1[startColumn] && line1[startColumn] === line2[startColumn])
-++startColumn;
-lines[0] = line2.substring(startColumn);
-
-line1 = this._textModel.line(endLine - 1);
-line2 = lines[lines.length - 1];
-for (var i = 0; i < endColumn && i < line2.length; ++i) {
-if (startLine === endLine - 1 && endColumn - i <= startColumn)
-break;
-if (line1[endColumn - i - 1] !== line2[line2.length - i - 1])
-break;
-}
-if (i) {
-endColumn -= i;
-lines[lines.length - 1] = line2.substring(0, line2.length - i);
-}
-}
-
-var range;
-if (lines.length === 0 && endLine < this._textModel.linesCount)
-range = new WebInspector.TextRange(startLine, 0, endLine, 0);
-else if (lines.length === 0 && startLine > 0)
-range = new WebInspector.TextRange(startLine - 1, this._textModel.lineLength(startLine - 1), endLine - 1, this._textModel.lineLength(endLine - 1));
-else
-range = new WebInspector.TextRange(startLine, startColumn, endLine - 1, endColumn);
-return new WebInspector.DefaultTextEditor.EditInfo(range, lines.join("\n"));
 },
 
 
@@ -29548,105 +29983,75 @@ chunk.removeAllDecorations();
 
 _updateChunksForRanges: function(oldRange, newRange)
 {
-
-var firstChunkNumber = this._chunkNumberForLine(oldRange.startLine);
-var lastChunkNumber = firstChunkNumber;
-while (lastChunkNumber + 1 < this._textChunks.length) {
-if (this._textChunks[lastChunkNumber + 1].startLine > oldRange.endLine)
+var firstDamagedChunkNumber = this._chunkNumberForLine(oldRange.startLine);
+var lastDamagedChunkNumber = firstDamagedChunkNumber;
+while (lastDamagedChunkNumber + 1 < this._textChunks.length) {
+if (this._textChunks[lastDamagedChunkNumber + 1].startLine > oldRange.endLine)
 break;
-++lastChunkNumber;
+++lastDamagedChunkNumber;
 }
 
-var startLine = this._textChunks[firstChunkNumber].startLine;
-var linesCount = this._textChunks[lastChunkNumber].startLine + this._textChunks[lastChunkNumber].linesCount - startLine;
+var firstDamagedChunk = this._textChunks[firstDamagedChunkNumber];
+var lastDamagedChunk = this._textChunks[lastDamagedChunkNumber];
+
 var linesDiff = newRange.linesCount - oldRange.linesCount;
-linesCount += linesDiff;
+
 
 if (linesDiff) {
-
-for (var chunkNumber = lastChunkNumber + 1; chunkNumber < this._textChunks.length; ++chunkNumber)
+for (var chunkNumber = lastDamagedChunkNumber + 1; chunkNumber < this._textChunks.length; ++chunkNumber)
 this._textChunks[chunkNumber].startLine += linesDiff;
 }
 
-var firstLineRow;
-if (firstChunkNumber) {
-var chunk = this._textChunks[firstChunkNumber - 1];
-firstLineRow = chunk.expanded ? chunk.getExpandedLineRow(chunk.startLine + chunk.linesCount - 1) : chunk.element;
-firstLineRow = firstLineRow.nextSibling;
-} else
-firstLineRow = this._container.firstChild;
+
+var lastUndamagedChunk = firstDamagedChunkNumber > 0 ? this._textChunks[firstDamagedChunkNumber - 1] : null;
+var firstUndamagedChunk = lastDamagedChunkNumber + 1 < this._textChunks.length ? this._textChunks[lastDamagedChunkNumber + 1] : null;
+
+var removeDOMFromNode = lastUndamagedChunk ? lastUndamagedChunk.lastElement().nextSibling : this._container.firstChild;
+var removeDOMToNode = firstUndamagedChunk ? firstUndamagedChunk.firstElement() : null;
 
 
-for (var chunkNumber = firstChunkNumber; chunkNumber <= lastChunkNumber; ++chunkNumber) {
-var chunk = this._textChunks[chunkNumber];
-if (chunk.startLine + chunk.linesCount > this._textModel.linesCount)
-break;
-var lineNumber = chunk.startLine;
-for (var lineRow = firstLineRow; lineRow && lineNumber < chunk.startLine + chunk.linesCount; lineRow = lineRow.nextSibling) {
-if (lineRow.lineNumber !== lineNumber || lineRow !== chunk.getExpandedLineRow(lineNumber) || lineRow.textContent !== this._textModel.line(lineNumber) || !lineRow.firstChild)
-break;
-++lineNumber;
+if (!linesDiff && firstDamagedChunk === lastDamagedChunk && firstDamagedChunk._expandedLineRows) {
+var lastUndamagedLineRow = lastDamagedChunk.expandedLineRow(oldRange.startLine - 1);
+var firstUndamagedLineRow = firstDamagedChunk.expandedLineRow(oldRange.endLine + 1);
+var localRemoveDOMFromNode = lastUndamagedLineRow ? lastUndamagedLineRow.nextSibling : removeDOMFromNode;
+var localRemoveDOMToNode = firstUndamagedLineRow || removeDOMToNode;
+removeSubsequentNodes(localRemoveDOMFromNode, localRemoveDOMToNode);
+for (var i = newRange.startLine; i < newRange.endLine + 1; ++i) {
+var row = firstDamagedChunk._createRow(i);
+firstDamagedChunk._expandedLineRows[i - firstDamagedChunk.startLine] = row;
+this._container.insertBefore(row, localRemoveDOMToNode);
 }
-if (lineNumber < chunk.startLine + chunk.linesCount)
-break;
-chunk.updateCollapsedLineRow();
-++firstChunkNumber;
-firstLineRow = lineRow;
-startLine += chunk.linesCount;
-linesCount -= chunk.linesCount;
-}
-
-if (firstChunkNumber > lastChunkNumber && linesCount === 0)
+firstDamagedChunk.updateCollapsedLineRow();
+this._assertDOMMatchesTextModel();
 return;
-
-
-var chunk = this._textChunks[lastChunkNumber + 1];
-var linesInLastChunk = linesCount % this._defaultChunkSize;
-if (chunk && !chunk.isDecorated() && linesInLastChunk > 0 && linesInLastChunk + chunk.linesCount <= this._defaultChunkSize) {
-++lastChunkNumber;
-linesCount += chunk.linesCount;
 }
 
-var scrollTop = this.element.scrollTop;
-var scrollLeft = this.element.scrollLeft;
+removeSubsequentNodes(removeDOMFromNode, removeDOMToNode);
+this._textChunks.splice(firstDamagedChunkNumber, lastDamagedChunkNumber - firstDamagedChunkNumber + 1);
 
 
-var firstUnmodifiedLineRow = null;
-chunk = this._textChunks[lastChunkNumber + 1];
-if (chunk)
-firstUnmodifiedLineRow = chunk.expanded ? chunk.getExpandedLineRow(chunk.startLine) : chunk.element;
+var startLine = firstDamagedChunk.startLine;
+var endLine = lastDamagedChunk.endLine + linesDiff;
+var lineSpan = endLine - startLine;
 
-while (firstLineRow && firstLineRow !== firstUnmodifiedLineRow) {
-var lineRow = firstLineRow;
-firstLineRow = firstLineRow.nextSibling;
-this._container.removeChild(lineRow);
+
+var insertionIndex = firstDamagedChunkNumber;
+var chunkSize = Math.ceil(lineSpan / Math.ceil(lineSpan / this._defaultChunkSize));
+
+for (var i = startLine; i < endLine; i += chunkSize) {
+var chunk = this._createNewChunk(i, Math.min(endLine, i + chunkSize));
+this._textChunks.splice(insertionIndex++, 0, chunk);
+this._container.insertBefore(chunk.element, removeDOMToNode);
 }
 
-
-for (var chunkNumber = firstChunkNumber; linesCount > 0; ++chunkNumber) {
-var chunkLinesCount = Math.min(this._defaultChunkSize, linesCount);
-var newChunk = this._createNewChunk(startLine, startLine + chunkLinesCount);
-this._container.insertBefore(newChunk.element, firstUnmodifiedLineRow);
-
-if (chunkNumber <= lastChunkNumber)
-this._textChunks[chunkNumber] = newChunk;
-else
-this._textChunks.splice(chunkNumber, 0, newChunk);
-startLine += chunkLinesCount;
-linesCount -= chunkLinesCount;
-}
-if (chunkNumber <= lastChunkNumber)
-this._textChunks.splice(chunkNumber, lastChunkNumber - chunkNumber + 1);
-
-this.element.scrollTop = scrollTop;
-this.element.scrollLeft = scrollLeft;
+this._assertDOMMatchesTextModel();
 },
 
 
 _updateHighlightsForRange: function(range)
 {
-var visibleFrom = this.element.scrollTop;
-var visibleTo = this.element.scrollTop + this.element.clientHeight;
+var visibleFrom = this._scrollTop();
+var visibleTo = visibleFrom + this._clientHeight();
 
 var result = this._findVisibleChunks(visibleFrom, visibleTo);
 var chunk = this._textChunks[result.end - 1];
@@ -29659,36 +30064,38 @@ var updated = this._highlighter.updateHighlight(range.startLine, lastVisibleLine
 if (!updated) {
 
 for (var i = this._chunkNumberForLine(range.startLine); i < this._textChunks.length; ++i)
-this._textChunks[i].expanded = false;
+this._textChunks[i].collapse();
 }
 
 this._repaintAll();
 },
 
 
-_collectLinesFromDiv: function(lines, element)
+_collectLinesFromDOM: function(from, to)
 {
 var textContents = [];
-var node = element.nodeType === Node.TEXT_NODE ? element : element.traverseNextNode(element);
-while (node) {
-if (element.decorationsElement === node) {
+var hasContent = false;
+for (var node = from ? from.nextSibling : this._container; node && node !== to; node = node.traverseNextNode(this._container)) {
+if (node._isDecorationsElement) {
+
 node = node.nextSibling;
-continue;
+if (!node || node === to)
+break;
 }
+hasContent = true;
 if (node.nodeName.toLowerCase() === "br")
 textContents.push("\n");
 else if (node.nodeType === Node.TEXT_NODE)
 textContents.push(node.textContent);
-node = node.traverseNextNode(element);
 }
+if (!hasContent)
+return [];
 
 var textContent = textContents.join("");
 
 textContent = textContent.replace(/\n$/, "");
 
-textContents = textContent.split("\n");
-for (var i = 0; i < textContents.length; ++i)
-lines.push(textContents[i]);
+return textContent.split("\n");
 },
 
 _handleSelectionChange: function(event)
@@ -29711,6 +30118,7 @@ this._textModel = chunkedPanel._textModel;
 this.element = document.createElement("div");
 this.element.lineNumber = startLine;
 this.element.className = "webkit-line-content";
+this.element._chunk = this;
 
 this._startLine = startLine;
 endLine = Math.min(this._textModel.linesCount, endLine);
@@ -29731,6 +30139,7 @@ else {
 if (!this.element.decorationsElement) {
 this.element.decorationsElement = document.createElement("div");
 this.element.decorationsElement.className = "webkit-line-decorations";
+this.element.decorationsElement._isDecorationsElement = true;
 this.element.appendChild(this.element.decorationsElement);
 }
 this.element.decorationsElement.appendChild(decoration);
@@ -29772,6 +30181,12 @@ get startLine()
 return this._startLine;
 },
 
+
+get endLine()
+{
+return this._startLine + this.linesCount;
+},
+
 set startLine(startLine)
 {
 this._startLine = startLine;
@@ -29783,27 +30198,23 @@ this._expandedLineRows[i].lineNumber = startLine + i;
 },
 
 
-get expanded()
+expanded: function()
 {
 return this._expanded;
 },
 
-set expanded(expanded)
+expand: function()
 {
-if (this._expanded === expanded)
+if (this._expanded)
 return;
 
-this._expanded = expanded;
+this._expanded = true;
 
-if (this.linesCount === 1) {
-if (expanded)
-this._chunkedPanel._paintLine(this.element);
+if (this.linesCount === 1)
 return;
-}
 
 this._chunkedPanel.beginDomUpdates();
 
-if (expanded) {
 this._expandedLineRows = [];
 var parentElement = this.element.parentElement;
 for (var i = this.startLine; i < this.startLine + this.linesCount; ++i) {
@@ -29812,8 +30223,21 @@ parentElement.insertBefore(lineRow, this.element);
 this._expandedLineRows.push(lineRow);
 }
 parentElement.removeChild(this.element);
-this._chunkedPanel._paintLines(this.startLine, this.startLine + this.linesCount);
-} else {
+
+this._chunkedPanel.endDomUpdates();
+},
+
+collapse: function()
+{
+if (!this._expanded)
+return;
+
+this._expanded = false;
+if (this.linesCount === 1)
+return;
+
+this._chunkedPanel.beginDomUpdates();
+
 var elementInserted = false;
 for (var i = 0; i < this._expandedLineRows.length; ++i) {
 var lineRow = this._expandedLineRows[i];
@@ -29828,7 +30252,6 @@ parentElement.removeChild(lineRow);
 this._chunkedPanel._releaseLinesHighlight(lineRow);
 }
 delete this._expandedLineRows;
-}
 
 this._chunkedPanel.endDomUpdates();
 },
@@ -29860,7 +30283,15 @@ return lineRow;
 },
 
 
-getExpandedLineRow: function(lineNumber)
+lineRowContainingLine: function(lineNumber)
+{
+if (!this._expanded)
+return this.element;
+return this.expandedLineRow(lineNumber);
+},
+
+
+expandedLineRow: function(lineNumber)
 {
 if (!this._expanded || lineNumber < this.startLine || lineNumber >= this.startLine + this.linesCount)
 return null;
@@ -29878,14 +30309,28 @@ var lines = [];
 for (var i = this.startLine; i < this.startLine + this.linesCount; ++i)
 lines.push(this._textModel.line(i));
 
+if (WebInspector.FALSE)
+console.log("Rebuilding chunk with " + lines.length + " lines");
+
 this.element.removeChildren();
 this.element.textContent = lines.join("\n");
 
-
 if (!lines[lines.length - 1])
 this.element.appendChild(document.createElement("br"));
+},
+
+firstElement: function()
+{
+return this._expandedLineRows ? this._expandedLineRows[0] : this.element;
+},
+
+lastElement: function()
+{
+return this._expandedLineRows ? this._expandedLineRows[this._expandedLineRows.length - 1] : this.element;
 }
 }
+
+WebInspector.debugDefaultTextEditor = false;
 
 
 
@@ -33713,6 +34158,11 @@ return 0;
 shift: function(lineOffset)
 {
 return new WebInspector.TextRange(this.startLine + lineOffset, this.startColumn, this.endLine + lineOffset, this.endColumn);
+},
+
+toString: function()
+{
+return JSON.stringify(this);
 }
 }
 
@@ -33809,12 +34259,13 @@ return this._innerEditRange(range, text);
 _innerEditRange: function(range, text)
 {
 var originalText = this.copyRange(range);
-if (text === originalText)
-return range; 
-
-var newRange = this._innerSetText(range, text);
-this._lastEditedRange = newRange;
+this._lastEditedRange = range;
+var newRange = range;
+if (text !== originalText) {
+newRange = this._innerSetText(range, text);
 this._pushUndoableCommand(newRange, originalText);
+}
+
 this.dispatchEventToListeners(WebInspector.TextEditorModel.Events.TextChanged, { oldRange: range, newRange: newRange, editRange: true });
 return newRange;
 },
@@ -34449,8 +34900,8 @@ WebInspector.SourceCSSTokenizer = function()
 {
 WebInspector.SourceTokenizer.call(this);
 
-this._propertyKeywords = WebInspector.CSSCompletions.cssPropertiesMetainfoKeySet();
-this._colorKeywords = WebInspector.CSSKeywordCompletions.colors();
+this._propertyKeywords = WebInspector.CSSMetadata.cssPropertiesMetainfoKeySet();
+this._colorKeywords = WebInspector.CSSMetadata.colors();
 
 this._valueKeywords = [
 "above", "absolute", "activeborder", "activecaption", "afar", "after-white-space", "ahead", "alias", "all", "all-scroll",
@@ -40535,6 +40986,15 @@ uiLocationToRawLocation: function(uiSourceCode, lineNumber, columnNumber) { }
 }
 
 
+WebInspector.ScriptSourceMapping = function()
+{
+}
+
+WebInspector.ScriptSourceMapping.prototype = {
+
+addScript: function(script) { }
+}
+
 
 
 
@@ -40716,7 +41176,7 @@ formatLiveAnchor: function(anchor, uiLocation) { }
 
 WebInspector.Linkifier = function(formatter)
 {
-this._formatter = formatter || new WebInspector.Linkifier.DefaultFormatter();
+this._formatter = formatter || new WebInspector.Linkifier.DefaultFormatter(WebInspector.Linkifier.MaxLengthForDisplayedURLs);
 this._liveLocations = [];
 }
 
@@ -40814,19 +41274,18 @@ __proto__: WebInspector.Linkifier.DefaultFormatter.prototype
 }
 
 
+WebInspector.Linkifier.MaxLengthForDisplayedURLs = 150;
+
+
+
 
 
 
 WebInspector.DebuggerScriptMapping = function(workspace, networkWorkspaceProvider)
 {
-this._mappings = [];
-
 this._resourceMapping = new WebInspector.ResourceScriptMapping(workspace);
-this._mappings.push(this._resourceMapping);
 this._compilerMapping = new WebInspector.CompilerScriptMapping(workspace, networkWorkspaceProvider);
-this._mappings.push(this._compilerMapping);
 this._snippetMapping = WebInspector.scriptSnippetModel.scriptMapping;
-this._mappings.push(this._snippetMapping);
 
 WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.ParsedScriptSource, this._parsedScriptSource, this);
 WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.FailedToParseScriptSource, this._parsedScriptSource, this);
@@ -40992,38 +41451,38 @@ this._contentProviders = {};
 
 WebInspector.NetworkWorkspaceProvider.prototype = {
 
-requestFileContent: function(path, callback)
+requestFileContent: function(uri, callback)
 {
-var contentProvider = this._contentProviders[path];
+var contentProvider = this._contentProviders[uri];
 contentProvider.requestContent(callback);
 },
 
 
-setFileContent: function(path, newContent, callback)
+setFileContent: function(uri, newContent, callback)
 {
 callback(null);
 },
 
 
-searchInFileContent: function(path, query, caseSensitive, isRegex, callback)
+searchInFileContent: function(uri, query, caseSensitive, isRegex, callback)
 {
-var contentProvider = this._contentProviders[path];
+var contentProvider = this._contentProviders[uri];
 contentProvider.searchInContent(query, caseSensitive, isRegex, callback);
 },
 
 
-addFile: function(path, contentProvider, isEditable, isContentScript, isSnippet)
+addFile: function(uri, contentProvider, isEditable, isContentScript, isSnippet)
 {
-var fileDescriptor = new WebInspector.FileDescriptor(path, contentProvider.contentType(), isEditable, isContentScript, isSnippet);
-this._contentProviders[path] = contentProvider;
+var fileDescriptor = new WebInspector.FileDescriptor(uri, contentProvider.contentType(), isEditable, isContentScript, isSnippet);
+this._contentProviders[uri] = contentProvider;
 this.dispatchEventToListeners(WebInspector.WorkspaceProvider.Events.FileAdded, fileDescriptor);
 },
 
 
-removeFile: function(path)
+removeFile: function(uri)
 {
-delete this._contentProviders[path];
-this.dispatchEventToListeners(WebInspector.WorkspaceProvider.Events.FileRemoved, path);
+delete this._contentProviders[uri];
+this.dispatchEventToListeners(WebInspector.WorkspaceProvider.Events.FileRemoved, uri);
 },
 
 reset: function()
@@ -41068,9 +41527,9 @@ WebInspector.Revision.filterOutStaleRevisions();
 }
 
 
-WebInspector.FileDescriptor = function(path, contentType, isEditable, isContentScript, isSnippet)
+WebInspector.FileDescriptor = function(uri, contentType, isEditable, isContentScript, isSnippet)
 {
-this.path = path;
+this.uri = uri;
 this.contentType = contentType;
 this.isEditable = isEditable;
 this.isContentScript = isContentScript || false;
@@ -41087,10 +41546,13 @@ FileRemoved: "FileRemoved"
 
 WebInspector.WorkspaceProvider.prototype = {
 
-requestFileContent: function(path, callback) { },
+requestFileContent: function(uri, callback) { },
 
 
-searchInFileContent: function(path, query, caseSensitive, isRegex, callback) { },
+setFileContent: function(uri, newContent, callback) { },
+
+
+searchInFileContent: function(uri, query, caseSensitive, isRegex, callback) { },
 
 
 addEventListener: function(eventType, listener, thisObject) { },
@@ -41122,12 +41584,12 @@ this._uiSourceCodes = [];
 _fileAdded: function(event)
 {
 var fileDescriptor =   (event.data);
-var uiSourceCode = this.uiSourceCodeForURL(fileDescriptor.path);
+var uiSourceCode = this.uiSourceCodeForURL(fileDescriptor.uri);
 if (uiSourceCode) {
 
 return;
 }
-uiSourceCode = new WebInspector.UISourceCode(this._workspace, fileDescriptor.path, fileDescriptor.contentType, fileDescriptor.isEditable);
+uiSourceCode = new WebInspector.UISourceCode(this._workspace, fileDescriptor.uri, fileDescriptor.contentType, fileDescriptor.isEditable);
 uiSourceCode.isContentScript = fileDescriptor.isContentScript;
 uiSourceCode.isSnippet = fileDescriptor.isSnippet;
 this._uiSourceCodes.push(uiSourceCode);
@@ -41136,8 +41598,8 @@ this._workspace.dispatchEventToListeners(WebInspector.UISourceCodeProvider.Event
 
 _fileRemoved: function(event)
 {
-var path =   (event.data);
-var uiSourceCode = this.uiSourceCodeForURL(path);
+var uri =   (event.data);
+var uiSourceCode = this.uiSourceCodeForURL(uri);
 if (!uiSourceCode)
 return;
 this._uiSourceCodes.splice(this._uiSourceCodes.indexOf(uiSourceCode), 1);
@@ -41161,15 +41623,21 @@ return this._uiSourceCodes;
 },
 
 
-requestFileContent: function(path, callback)
+requestFileContent: function(uri, callback)
 {
-this._workspaceProvider.requestFileContent(path, callback);
+this._workspaceProvider.requestFileContent(uri, callback);
 },
 
 
-searchInFileContent: function(path, query, caseSensitive, isRegex, callback)
+setFileContent: function(uri, newContent, callback)
 {
-this._workspaceProvider.searchInFileContent(path, query, caseSensitive, isRegex, callback);
+this._workspaceProvider.setFileContent(uri, newContent, callback);
+},
+
+
+searchInFileContent: function(uri, query, caseSensitive, isRegex, callback)
+{
+this._workspaceProvider.searchInFileContent(uri, query, caseSensitive, isRegex, callback);
 }
 }
 
@@ -41213,9 +41681,9 @@ return this._project.uiSourceCodes();
 },
 
 
-addTemporaryUISourceCode: function(path, contentProvider, isEditable, isContentScript, isSnippet)
+addTemporaryUISourceCode: function(uri, contentProvider, isEditable, isContentScript, isSnippet)
 {
-var uiSourceCode = new WebInspector.UISourceCode(this, path, contentProvider.contentType(), isEditable);
+var uiSourceCode = new WebInspector.UISourceCode(this, uri, contentProvider.contentType(), isEditable);
 this._temporaryContentProviders.put(uiSourceCode, contentProvider);
 uiSourceCode.isContentScript = isContentScript;
 uiSourceCode.isSnippet = isSnippet;
@@ -41239,6 +41707,14 @@ this._temporaryContentProviders.get(uiSourceCode).requestContent(callback);
 return;
 }
 this._project.requestFileContent(uiSourceCode.url, callback);
+},
+
+
+setFileContent: function(uiSourceCode, newContent, callback)
+{
+if (this._temporaryContentProviders.get(uiSourceCode))
+return;
+this._project.setFileContent(uiSourceCode.url, newContent, callback);
 },
 
 
@@ -43808,16 +44284,15 @@ DOMAgent.querySelectorAll(nodeId, selectors, this._wrapClientCallback(callbackCa
 },
 
 
-highlightDOMNode: function(nodeId, mode)
+highlightDOMNode: function(nodeId, mode, objectId)
 {
 if (this._hideDOMNodeHighlightTimeout) {
 clearTimeout(this._hideDOMNodeHighlightTimeout);
 delete this._hideDOMNodeHighlightTimeout;
 }
 
-this._highlightedDOMNodeId = nodeId;
-if (nodeId)
-DOMAgent.highlightNode(nodeId, this._buildHighlightConfig(mode));
+if (objectId || nodeId)
+DOMAgent.highlightNode(this._buildHighlightConfig(mode), objectId ? undefined : nodeId, objectId);
 else
 DOMAgent.hideHighlight();
 },
@@ -44038,7 +44513,7 @@ RuntimeAgent.evaluate("didEvaluateForTestInFrontend(" + callId + ", " + message 
 
 WebInspector.evaluateForTestInFrontend = function(callId, script)
 {
-WebInspector.isUnderTest = true;
+window.isUnderTest = true;
 function invokeMethod()
 {
 try {
@@ -44231,7 +44706,7 @@ WebInspector.GoToLineDialog._show(view);
 }
 
 var goToLineShortcut = WebInspector.GoToLineDialog.createShortcut();
-panel.registerShortcut(goToLineShortcut.key, showGoToLineDialog);
+panel.registerShortcuts([goToLineShortcut], showGoToLineDialog);
 }
 
 WebInspector.GoToLineDialog._show = function(sourceView)
@@ -44240,6 +44715,7 @@ if (!sourceView || !sourceView.canHighlightLine())
 return;
 WebInspector.Dialog.show(sourceView.element, new WebInspector.GoToLineDialog(sourceView));
 }
+
 
 WebInspector.GoToLineDialog.createShortcut = function()
 {
@@ -44431,6 +44907,8 @@ settingsLabelElement.createTextChild(WebInspector.UIString("Settings"));
 this._tabbedPane.element.insertBefore(settingsLabelElement, this._tabbedPane.element.firstChild);
 this._tabbedPane.element.appendChild(this._createCloseButton());
 this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.General, WebInspector.UIString("General"), new WebInspector.GenericSettingsTab());
+if (!WebInspector.experimentsSettings.showOverridesInDrawer.isEnabled())
+this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Overrides, WebInspector.UIString("Overrides"), new WebInspector.OverridesSettingsTab());
 if (WebInspector.experimentsSettings.experimentsEnabled)
 this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Experiments, WebInspector.UIString("Experiments"), new WebInspector.ExperimentsSettingsTab());
 this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Shortcuts, WebInspector.UIString("Shortcuts"), WebInspector.shortcutsScreen.createShortcutsTabView());
@@ -44444,6 +44922,7 @@ this._tabbedPane.addEventListener(WebInspector.TabbedPane.EventTypes.TabSelected
 
 WebInspector.SettingsScreen.Tabs = {
 General: "general",
+Overrides: "overrides",
 Experiments: "experiments",
 Shortcuts: "shortcuts"
 }
@@ -44626,6 +45105,9 @@ WebInspector.settings.javaScriptDisabled.addChangeListener(this._javaScriptDisab
 this._disableJSCheckbox = disableJSElement.getElementsByTagName("input")[0];
 this._updateScriptDisabledCheckbox();
 
+p = this._appendSection(WebInspector.UIString("Appearance"));
+p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show toolbar icons"), WebInspector.settings.showToolbarIcons));
+
 p = this._appendSection(WebInspector.UIString("Elements"));
 p.appendChild(this._createRadioSetting(WebInspector.UIString("Color format"), [
 [ WebInspector.Color.Format.Original, WebInspector.UIString("As authored") ],
@@ -44666,8 +45148,10 @@ p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show objects' h
 if (WebInspector.experimentsSettings.nativeMemorySnapshots.isEnabled())
 p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show uninstrumented native memory"), WebInspector.settings.showNativeSnapshotUninstrumentedSize));
 
+if (Capabilities.timelineCanMonitorMainThread) {
 p = this._appendSection(WebInspector.UIString("Timeline"));
 p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show CPU activity on the ruler"), WebInspector.settings.showCpuOnTimelineRuler));
+}
 
 p = this._appendSection(WebInspector.UIString("Console"));
 p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Log XMLHttpRequests"), WebInspector.settings.monitoringXHREnabled));
@@ -44729,7 +45213,7 @@ var checkboxElement = labelElement.createChild("input");
 checkboxElement.type = "checkbox";
 checkboxElement.checked = WebInspector.settings.cssReloadEnabled.get();
 checkboxElement.addEventListener("click", checkboxClicked, false);
-labelElement.appendChild(document.createTextNode(WebInspector.UIString("Auto-reload CSS upon SASS save")));
+labelElement.appendChild(document.createTextNode(WebInspector.UIString("Auto-reload CSS upon Sass save")));
 
 var fieldsetElement = fragment.createChild("fieldset");
 fieldsetElement.disabled = !checkboxElement.checked;
@@ -44762,6 +45246,20 @@ WebInspector.settings.cssReloadTimeout.set(Number(value));
 }
 },
 
+__proto__: WebInspector.SettingsTab.prototype
+}
+
+
+WebInspector.OverridesSettingsTab = function()
+{
+WebInspector.SettingsTab.call(this, WebInspector.UIString("Overrides"), "overrides-tab-content");
+this._view = new WebInspector.OverridesView();
+this.containerElement.parentElement.appendChild(this._view.containerElement);
+this.containerElement.remove();
+this.containerElement = this._view.containerElement;
+}
+
+WebInspector.OverridesSettingsTab.prototype = {
 __proto__: WebInspector.SettingsTab.prototype
 }
 
@@ -44819,22 +45317,26 @@ __proto__: WebInspector.SettingsTab.prototype
 WebInspector.SettingsController = function()
 {
 this._statusBarButton = new WebInspector.StatusBarButton(WebInspector.UIString("Settings"), "settings-status-bar-item");
-this._statusBarButton.element.addEventListener("mousedown", this._buttonPressed.bind(this), false);
+if (WebInspector.experimentsSettings.showOverridesInDrawer.isEnabled())
+this._statusBarButton.element.addEventListener("mousedown", this._mouseDown.bind(this), false);
+else
+this._statusBarButton.element.addEventListener("mouseup", this._mouseUp.bind(this), false);
 
 
 this._settingsScreen;
-
-WebInspector.ContextMenu.registerProvider(this);
 }
 
 WebInspector.SettingsController.prototype =
 {
-
-appendApplicableItems: function(event, contextMenu, target)
+get statusBarItem()
 {
-if (target !== this._statusBarButton.element)
-return;
+return this._statusBarButton.element;
+},
 
+
+_mouseDown: function(event)
+{
+var contextMenu = new WebInspector.ContextMenu(event);
 contextMenu.appendItem(WebInspector.UIString("Overrides"), showOverrides.bind(this));
 contextMenu.appendItem(WebInspector.UIString("Settings"), showSettings.bind(this));
 
@@ -44850,19 +45352,14 @@ function showSettings()
 if (!this._settingsScreenVisible)
 this.showSettingsScreen();
 }
-},
 
-get statusBarItem()
-{
-return this._statusBarButton.element;
+contextMenu.showSoftMenu();
 },
 
 
-_buttonPressed: function(event)
+_mouseUp: function(event)
 {
-var menu = new WebInspector.ContextMenu(event);
-menu.appendApplicableItems(event.currentTarget);
-menu.showSoftMenu();
+this.showSettingsScreen();
 },
 
 _onHideSettingsScreen: function()
@@ -44901,13 +45398,13 @@ this._settingsScreen.doResize();
 
 
 
-WebInspector.ShortcutsScreen = function(finishShortcutsRegistrationCallback)
+WebInspector.ShortcutsScreen = function()
 {
-this._sections = {};
-this._finishShortcutsRegistrationCallback = finishShortcutsRegistrationCallback;
+this._sections =   ({});
 }
 
 WebInspector.ShortcutsScreen.prototype = {
+
 section: function(name)
 {
 var section = this._sections[name];
@@ -44916,12 +45413,9 @@ this._sections[name] = section = new WebInspector.ShortcutsSection(name);
 return section;
 },
 
+
 createShortcutsTabView: function()
 {
-if (this._finishShortcutsRegistrationCallback)
-this._finishShortcutsRegistrationCallback();
-delete this._finishShortcutsRegistrationCallback;
-
 var orderedSections = [];
 for (var section in this._sections)
 orderedSections.push(this._sections[section]);
@@ -44951,27 +45445,31 @@ WebInspector.shortcutsScreen = null;
 WebInspector.ShortcutsSection = function(name)
 {
 this.name = name;
-this._lines = [];
+this._lines =   ([]);
 this.order = ++WebInspector.ShortcutsSection._sequenceNumber;
 };
 
 WebInspector.ShortcutsSection._sequenceNumber = 0;
 
 WebInspector.ShortcutsSection.prototype = {
+
 addKey: function(key, description)
 {
 this._addLine(this._renderKey(key), description);
 },
+
 
 addRelatedKeys: function(keys, description)
 {
 this._addLine(this._renderSequence(keys, "/"), description);
 },
 
+
 addAlternateKeys: function(keys, description)
 {
 this._addLine(this._renderSequence(keys, WebInspector.UIString("or")), description);
 },
+
 
 _addLine: function(keyElement, description)
 {
@@ -44996,17 +45494,21 @@ line.createChild("div", "help-cell").textContent = this._lines[i].text;
 }
 },
 
+
 _renderSequence: function(sequence, delimiter)
 {
 var delimiterSpan = this._createSpan("help-key-delimiter", delimiter);
 return this._joinNodes(sequence.map(this._renderKey.bind(this)), delimiterSpan);
 },
 
+
 _renderKey: function(key)
 {
+var keyName = key.name;
 var plus = this._createSpan("help-combine-keys", "+");
-return this._joinNodes(key.split(" + ").map(this._createSpan.bind(this, "help-key monospace")), plus);
+return this._joinNodes(keyName.split(" + ").map(this._createSpan.bind(this, "help-key monospace")), plus);
 },
+
 
 _createSpan: function(className, textContent)
 {
@@ -45015,6 +45517,7 @@ node.className = className;
 node.textContent = textContent;
 return node;
 },
+
 
 _joinNodes: function(nodes, delimiter)
 {
@@ -45053,6 +45556,7 @@ var headerTitle = paneContent.createChild("header").createChild("h3");
 headerTitle.appendChild(document.createTextNode(WebInspector.UIString("Overrides")));
 
 var container = paneContent.createChild("div", "help-container-wrapper").createChild("div", "settings-tab help-content help-container");
+this.containerElement = container;
 appendBlockTo(container, this._createUserAgentControl());
 if (Capabilities.canOverrideDeviceMetrics)
 appendBlockTo(container, this._createDeviceMetricsControl());
@@ -45061,6 +45565,7 @@ appendBlockTo(container, this._createGeolocationOverrideControl());
 if (Capabilities.canOverrideDeviceOrientation)
 appendBlockTo(container, this._createDeviceOrientationOverrideControl());
 appendBlockTo(container, this._createCheckboxSetting(WebInspector.UIString("Emulate touch events"), WebInspector.settings.emulateTouchEvents));
+appendBlockTo(container, this._createMediaEmulationElement());
 
 this._statusElement = document.createElement("span");
 this._statusElement.textContent = WebInspector.UIString("Overrides");
@@ -45564,6 +46069,50 @@ this._gammaElement = this._createInput(cellElement, "device-orientation-override
 return fieldsetElement;
 },
 
+_createMediaEmulationElement: function()
+{
+const p = document.createElement("p");
+const labelElement = p.createChild("label");
+const checkboxElement = labelElement.createChild("input");
+checkboxElement.type = "checkbox";
+checkboxElement.checked = false;
+labelElement.appendChild(document.createTextNode(WebInspector.UIString("Emulate CSS media")));
+
+var mediaSelectElement = p.createChild("select");
+var mediaTypes = WebInspector.CSSStyleModel.MediaTypes;
+var defaultMedia = WebInspector.settings.emulatedCSSMedia.get();
+for (var i = 0; i < mediaTypes.length; ++i) {
+var mediaType = mediaTypes[i];
+if (mediaType === "all") {
+
+continue;
+}
+var option = document.createElement("option");
+option.text = mediaType;
+option.value = mediaType;
+mediaSelectElement.add(option);
+if (mediaType === defaultMedia)
+mediaSelectElement.selectedIndex = mediaSelectElement.options.length - 1;
+}
+mediaSelectElement.disabled = true;
+var boundListener = this._emulateMediaChanged.bind(this, checkboxElement, mediaSelectElement);
+checkboxElement.addEventListener("click", boundListener, false);
+mediaSelectElement.addEventListener("change", boundListener, false);
+return p;
+},
+
+_emulateMediaChanged: function(checkbox, select)
+{
+select.disabled = !checkbox.checked;
+if (checkbox.checked) {
+var media = select.options[select.selectedIndex].value;
+WebInspector.settings.emulatedCSSMedia.set(media);
+PageAgent.setEmulatedMedia(media);
+} else
+PageAgent.setEmulatedMedia("");
+WebInspector.cssModel.mediaQueryResultChanged();
+},
+
 __proto__: WebInspector.View.prototype
 }
 
@@ -45718,8 +46267,8 @@ return cookies.map(this._buildCookie.bind(this));
 _buildCookie: function(cookie)
 {
 return {
-name: cookie.name,
-value: cookie.value,
+name: cookie.name(),
+value: cookie.value(),
 path: cookie.path(),
 domain: cookie.domain(),
 expires: cookie.expiresDate(new Date(this._request.startTime * 1000)),
@@ -46056,13 +46605,31 @@ return (new WebInspector.CookieParser()).parseSetCookie(header);
 
 WebInspector.Cookie = function(name, value, type)
 {
-this.name = name;
-this.value = value;
-this.type = type;
+this._name = name;
+this._value = value;
+this._type = type;
 this._attributes = {};
 }
 
 WebInspector.Cookie.prototype = {
+
+name: function()
+{
+return this._name;
+},
+
+
+value: function()
+{
+return this._value;
+},
+
+
+type: function()
+{
+return this._type;
+},
+
 
 httpOnly: function()
 {
@@ -46153,6 +46720,7 @@ this._attributes[key.toLowerCase()] = value;
 }
 }
 
+
 WebInspector.Cookie.Type = {
 Request: 0,
 Response: 1
@@ -46189,7 +46757,7 @@ var delimIndex = rawCookie.indexOf("=");
 var name = rawCookie.substring(0, delimIndex);
 var value = rawCookie.substring(delimIndex + 1);
 var size = name.length + value.length;
-var cookie = new WebInspector.Cookie(name, value);
+var cookie = new WebInspector.Cookie(name, value, null);
 cookie.setSize(size);
 cookies.push(cookie);
 }
@@ -46201,7 +46769,7 @@ return cookies;
 
 WebInspector.Cookies.buildCookieProtocolObject = function(protocolCookie)
 {
-var cookie = new WebInspector.Cookie(protocolCookie.name, protocolCookie.value);
+var cookie = new WebInspector.Cookie(protocolCookie.name, protocolCookie.value, null);
 cookie.addAttribute("domain", protocolCookie["domain"]);
 cookie.addAttribute("path", protocolCookie["path"]);
 cookie.addAttribute("port", protocolCookie["port"]);
@@ -46231,7 +46799,7 @@ WebInspector.Cookies.cookieDomainMatchesResourceDomain = function(cookieDomain, 
 {
 if (cookieDomain.charAt(0) !== '.')
 return resourceDomain === cookieDomain;
-return !!resourceDomain.match(new RegExp("^([^\\.]+\\.)?" + cookieDomain.substring(1).escapeForRegExp() + "$", "i"));
+return !!resourceDomain.match(new RegExp("^([^\\.]+\\.)*" + cookieDomain.substring(1).escapeForRegExp() + "$", "i"));
 }
 
 
@@ -46299,15 +46867,15 @@ return toolbarItem;
 },
 
 
-setCompactMode: function(isCompactMode)
+setDockedToBottom: function(dockedToBottom)
 {
-this._isCompactMode = isCompactMode;
+this._isDockedToBottom = dockedToBottom;
 },
 
 
 _toolbarDragStart: function(event)
 {
-if ((!this._isCompactMode && WebInspector.platformFlavor() !== WebInspector.PlatformFlavor.MacLeopard && WebInspector.platformFlavor() !== WebInspector.PlatformFlavor.MacSnowLeopard) || WebInspector.port() == "qt")
+if ((!this._isDockedToBottom && WebInspector.platformFlavor() !== WebInspector.PlatformFlavor.MacLeopard && WebInspector.platformFlavor() !== WebInspector.PlatformFlavor.MacSnowLeopard) || WebInspector.port() == "qt")
 return false;
 
 var target = event.target;
@@ -46330,7 +46898,7 @@ delete this.element.lastScreenY;
 
 _toolbarDrag: function(event)
 {
-if (this._isCompactMode) {
+if (this._isDockedToBottom) {
 var height = window.innerHeight - (event.screenY - this.element.lastScreenY);
 
 InspectorFrontendHost.setAttachedWindowHeight(height);
@@ -46381,7 +46949,7 @@ _innerUpdateDropdownButtonAndHideDropdown: function()
 {
 this._setDropdownVisible(false);
 
-if (this.element.scrollHeight > this.element.clientHeight)
+if (this.element.scrollHeight > this.element.offsetHeight)
 this._dropdownButton.removeStyleClass("hidden");
 else
 this._dropdownButton.addStyleClass("hidden");
@@ -46435,7 +47003,7 @@ _populate: function()
 var toolbarItems = this._toolbar.element.querySelectorAll(".toolbar-item.toggleable");
 
 for (var i = 0; i < toolbarItems.length; ++i) {
-if (toolbarItems[i].offsetTop > 0)
+if (toolbarItems[i].offsetTop > 1)
 this._contentElement.appendChild(this._toolbar._createPanelToolbarItem(toolbarItems[i].panelDescriptor));
 }
 },
@@ -46668,6 +47236,9 @@ showSearchField: function()
 WebInspector.inspectorView.setFooterElement(this._element);
 this._updateReplaceVisibility();
 this._updateFilterVisibility();
+var selection = window.getSelection();
+if (selection.rangeCount)
+this._searchInputElement.value = selection.toString().replace(/\r?\n.*/, "");
 this._searchInputElement.focus();
 this._searchInputElement.select();
 this._searchIsVisible = true;
@@ -47181,6 +47752,22 @@ profiles: 6,
 audits: 7,
 console: 8
 }
+
+WebInspector.UserMetrics.UserAction = "UserAction";
+
+WebInspector.UserMetrics.UserActionNames = {
+ForcedElementState: "forcedElementState",
+FileSaved: "fileSaved",
+RevertRevision: "revertRevision",
+ApplyOriginalContent: "applyOriginalContent",
+TogglePrettyPrint: "togglePrettyPrint",
+SetBreakpoint: "setBreakpoint",
+OpenSourceLink: "openSourceLink",
+NetworkSort: "networkSort",
+NetworkRequestSelected: "networkRequestSelected",
+NetworkRequestTabSelected: "networkRequestTabSelected",
+HeapSnapshotFilterChanged: "heapSnapshotFilterChanged"
+};
 
 WebInspector.UserMetrics.prototype = {
 panelShown: function(panelName)
@@ -48784,7 +49371,8 @@ var isDynamicAnonymousScript;
 
 
 if (!script.hasSourceURL && !script.isContentScript) {
-if (WebInspector.resourceForURL(script.sourceURL) || WebInspector.networkLog.requestForURL(script.sourceURL))
+var requestURL = script.sourceURL.replace(/#.*/, "");
+if (WebInspector.resourceForURL(requestURL) || WebInspector.networkLog.requestForURL(requestURL))
 return;
 }
 
@@ -48851,8 +49439,112 @@ return;
 this.panel().appendApplicableItems(event, contextMenu, target);
 },
 
+registerShortcuts: function()
+{
+var elementsSection = WebInspector.shortcutsScreen.section(WebInspector.UIString("Elements Panel"));
+
+var navigate = WebInspector.ElementsPanelDescriptor.ShortcutKeys.NavigateUp.concat(WebInspector.ElementsPanelDescriptor.ShortcutKeys.NavigateDown);
+elementsSection.addRelatedKeys(navigate, WebInspector.UIString("Navigate elements"));
+
+var expandCollapse = WebInspector.ElementsPanelDescriptor.ShortcutKeys.Expand.concat(WebInspector.ElementsPanelDescriptor.ShortcutKeys.Collapse);
+elementsSection.addRelatedKeys(expandCollapse, WebInspector.UIString("Expand/collapse"));
+
+elementsSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.EditAttribute, WebInspector.UIString("Edit attribute"));
+elementsSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.HideElement, WebInspector.UIString("Hide element"));
+elementsSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.ToggleEditAsHTML, WebInspector.UIString("Toggle edit as HTML"));
+
+var stylesPaneSection = WebInspector.shortcutsScreen.section(WebInspector.UIString("Styles Pane"));
+
+var nextPreviousProperty = WebInspector.ElementsPanelDescriptor.ShortcutKeys.NextProperty.concat(WebInspector.ElementsPanelDescriptor.ShortcutKeys.PreviousProperty);
+stylesPaneSection.addRelatedKeys(nextPreviousProperty, WebInspector.UIString("Next/previous property"));
+
+stylesPaneSection.addRelatedKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.IncrementValue, WebInspector.UIString("Increment value"));
+stylesPaneSection.addRelatedKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.DecrementValue, WebInspector.UIString("Decrement value"));
+
+stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.IncrementBy10, WebInspector.UIString("Increment by %f", 10));
+stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.DecrementBy10, WebInspector.UIString("Decrement by %f", 10));
+
+stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.IncrementBy100, WebInspector.UIString("Increment by %f", 100));
+stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.DecrementBy100, WebInspector.UIString("Decrement by %f", 100));
+
+stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.IncrementBy01, WebInspector.UIString("Increment by %f", 0.1));
+stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.DecrementBy01, WebInspector.UIString("Decrement by %f", 0.1));
+},
+
 __proto__: WebInspector.PanelDescriptor.prototype
 }
+
+WebInspector.ElementsPanelDescriptor.ShortcutKeys = {
+NavigateUp: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Up)
+],
+
+NavigateDown: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Down)
+],
+
+Expand: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Right)
+],
+
+Collapse: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Left)
+],
+
+EditAttribute: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Enter)
+],
+
+HideElement: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.H)
+],
+
+ToggleEditAsHTML: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F2)
+],
+
+NextProperty: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Tab)
+],
+
+PreviousProperty: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Tab, WebInspector.KeyboardShortcut.Modifiers.Shift)
+],
+
+IncrementValue: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Up)
+],
+
+DecrementValue: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Down)
+],
+
+IncrementBy10: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.PageUp),
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Up, WebInspector.KeyboardShortcut.Modifiers.Shift)
+],
+
+DecrementBy10: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.PageDown),
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Down, WebInspector.KeyboardShortcut.Modifiers.Shift)
+],
+
+IncrementBy100: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.PageUp, WebInspector.KeyboardShortcut.Modifiers.Shift)
+],
+
+DecrementBy100: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.PageDown, WebInspector.KeyboardShortcut.Modifiers.Shift)
+],
+
+IncrementBy01: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.PageUp, WebInspector.KeyboardShortcut.Modifiers.Alt)
+],
+
+DecrementBy01: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.PageDown, WebInspector.KeyboardShortcut.Modifiers.Alt)
+]
+};
 
 
 
@@ -48904,7 +49596,103 @@ return;
 this.panel().appendApplicableItems(event, contextMenu, target);
 },
 
+registerShortcuts: function()
+{
+var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("Sources Panel"));
+
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.PauseContinue, WebInspector.UIString("Pause/Continue"));
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.StepOver, WebInspector.UIString("Step over"));
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.StepInto, WebInspector.UIString("Step into"));
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.StepOut, WebInspector.UIString("Step out"));
+
+var nextAndPrevFrameKeys = WebInspector.ScriptsPanelDescriptor.ShortcutKeys.NextCallFrame.concat(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.PrevCallFrame);
+section.addRelatedKeys(nextAndPrevFrameKeys, WebInspector.UIString("Next/previous call frame"));
+
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.EvaluateSelectionInConsole, WebInspector.UIString("Evaluate selection in console"));
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.GoToMember, WebInspector.UIString("Go to member"));
+section.addAlternateKeys(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.ToggleBreakpoint, WebInspector.UIString("Toggle breakpoint"));
+},
+
 __proto__: WebInspector.PanelDescriptor.prototype
+}
+
+WebInspector.ScriptsPanelDescriptor.ShortcutKeys = {
+PauseContinue: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F8),
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Slash, WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+StepOver: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F10),
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.SingleQuote, WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+StepInto: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F11),
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Semicolon, WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+StepOut: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F11, WebInspector.KeyboardShortcut.Modifiers.Shift),
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Semicolon, WebInspector.KeyboardShortcut.Modifiers.Shift | WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+EvaluateSelectionInConsole: [
+WebInspector.KeyboardShortcut.makeDescriptor("e", WebInspector.KeyboardShortcut.Modifiers.Shift | WebInspector.KeyboardShortcut.Modifiers.Ctrl)
+],
+
+GoToMember: [
+WebInspector.KeyboardShortcut.makeDescriptor("o", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta | WebInspector.KeyboardShortcut.Modifiers.Shift)
+],
+
+ToggleBreakpoint: [
+WebInspector.KeyboardShortcut.makeDescriptor("b", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+NextCallFrame: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Period, WebInspector.KeyboardShortcut.Modifiers.Ctrl)
+],
+
+PrevCallFrame: [
+WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Comma, WebInspector.KeyboardShortcut.Modifiers.Ctrl)
+]
+};
+
+
+
+
+
+
+WebInspector.TimelinePanelDescriptor = function()
+{
+WebInspector.PanelDescriptor.call(this, "timeline", WebInspector.UIString("Timeline"), "TimelinePanel", "TimelinePanel.js");
+}
+
+WebInspector.TimelinePanelDescriptor.prototype = {
+registerShortcuts: function()
+{
+var section = WebInspector.shortcutsScreen.section(WebInspector.UIString("Timeline Panel"));
+section.addAlternateKeys(WebInspector.TimelinePanelDescriptor.ShortcutKeys.StartStopRecording, WebInspector.UIString("Start/stop recording"));
+if (InspectorFrontendHost.canSave())
+section.addAlternateKeys(WebInspector.TimelinePanelDescriptor.ShortcutKeys.SaveToFile, WebInspector.UIString("Save timeline data"));
+section.addAlternateKeys(WebInspector.TimelinePanelDescriptor.ShortcutKeys.LoadFromFile, WebInspector.UIString("Load timeline data"));
+},
+
+__proto__: WebInspector.PanelDescriptor.prototype
+}
+
+WebInspector.TimelinePanelDescriptor.ShortcutKeys = {
+StartStopRecording: [
+WebInspector.KeyboardShortcut.makeDescriptor("e", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+SaveToFile: [
+WebInspector.KeyboardShortcut.makeDescriptor("s", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+],
+
+LoadFromFile: [
+WebInspector.KeyboardShortcut.makeDescriptor("o", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)
+]
 }
 
 
@@ -48922,6 +49710,7 @@ if (Preferences.showDockToRight)
 this._dockToggleButton.makeLongClickEnabled(this._createDockOptions.bind(this));
 
 this.setDockSide(WebInspector.queryParamsObject["dockSide"] || "bottom");
+WebInspector.settings.showToolbarIcons.addChangeListener(this._updateUI.bind(this));
 }
 
 WebInspector.DockController.State = {
@@ -48968,19 +49757,26 @@ switch (this._dockSide) {
 case WebInspector.DockController.State.DockedToBottom:
 body.removeStyleClass("undocked");
 body.removeStyleClass("dock-to-right");
-this.setCompactMode(true);
+body.addStyleClass("dock-to-bottom");
 break;
 case WebInspector.DockController.State.DockedToRight: 
 body.removeStyleClass("undocked");
 body.addStyleClass("dock-to-right");
-this.setCompactMode(false);
+body.removeStyleClass("dock-to-bottom");
 break;
 case WebInspector.DockController.State.Undocked: 
 body.addStyleClass("undocked");
 body.removeStyleClass("dock-to-right");
-this.setCompactMode(false);
+body.removeStyleClass("dock-to-bottom");
 break;
 }
+
+if (WebInspector.toolbar)
+WebInspector.toolbar.setDockedToBottom(this._dockSide === WebInspector.DockController.State.DockedToBottom);
+if (WebInspector.settings.showToolbarIcons.get())
+document.body.addStyleClass("show-toolbar-icons");
+else
+document.body.removeStyleClass("show-toolbar-icons");
 
 if (this._isDockingUnavailable) {
 this._dockToggleButton.state = "undock";
@@ -49038,25 +49834,6 @@ case "right": action = "right"; break;
 case "undock": action = "undocked"; break;
 }
 InspectorFrontendHost.requestSetDockSide(action);
-},
-
-
-isCompactMode: function()
-{
-return this._isCompactMode;
-},
-
-
-setCompactMode: function(isCompactMode)
-{
-var body = document.body;
-this._isCompactMode = isCompactMode;
-if (WebInspector.toolbar)
-WebInspector.toolbar.setCompactMode(isCompactMode);
-if (isCompactMode)
-body.addStyleClass("compact");
-else
-body.removeStyleClass("compact");
 }
 }
 
