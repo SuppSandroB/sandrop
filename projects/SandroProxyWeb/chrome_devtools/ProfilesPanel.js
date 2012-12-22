@@ -78,6 +78,7 @@ this._fromFile = false;
 }
 
 WebInspector.ProfileHeader.prototype = {
+
 profileType: function()
 {
 return this._profileType;
@@ -89,10 +90,12 @@ createSidebarTreeElement: function()
 throw new Error("Needs implemented.");
 },
 
+
 existingView: function()
 {
 return this._view;
 },
+
 
 view: function()
 {
@@ -156,7 +159,7 @@ this._statusBarButtons = [];
 this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
 if (Capabilities.profilerCausesRecompilation) {
 this._statusBarButtons.push(this.enableToggleButton);
-this.enableToggleButton.addEventListener("click", this._toggleProfiling, this);
+this.enableToggleButton.addEventListener("click", this._onToggleProfiling, this);
 }
 this.recordButton = new WebInspector.StatusBarButton("", "record-profile-status-bar-item");
 this.recordButton.addEventListener("click", this.toggleRecordButton, this);
@@ -208,6 +211,7 @@ this.element.removeChild(this._fileSelectorElement);
 this._fileSelectorElement = WebInspector.createFileSelectorElement(this._loadFromFile.bind(this));
 this.element.appendChild(this._fileSelectorElement);
 },
+
 
 _loadFromFile: function(file)
 {
@@ -273,9 +277,10 @@ this._profilerEnabled = false;
 this._reset();
 },
 
+
 _onProfileTypeSelected: function(event)
 {
-this._selectedProfileType = event.data;
+this._selectedProfileType =   (event.data);
 this.recordButton.title = this._selectedProfileType.buttonTooltip;
 },
 
@@ -355,6 +360,7 @@ profileType.treeElement.hidden = true;
 this.sidebarTree.appendChild(profileType.treeElement);
 profileType.treeElement.childrenListElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), true);
 },
+
 
 _handleContextMenuEvent: function(event)
 {
@@ -451,7 +457,9 @@ sidebarParent.appendChild(profileTreeElement);
 if (!profile.isTemporary) {
 if (!this.visibleView)
 this.showProfile(profile);
-this.dispatchEventToListeners("profile added");
+this.dispatchEventToListeners("profile added", {
+type: typeId
+});
 }
 },
 
@@ -874,13 +882,19 @@ return;
 this._toggleProfiling(this.panelEnablerView.alwaysEnabled);
 },
 
-_toggleProfiling: function(optionalAlways)
+
+_onToggleProfiling: function(event) {
+this._toggleProfiling(true);
+},
+
+
+_toggleProfiling: function(always)
 {
 if (this._profilerEnabled) {
 WebInspector.settings.profilerEnabled.set(false);
 ProfilerAgent.disable(this._profilerWasDisabled.bind(this));
 } else {
-WebInspector.settings.profilerEnabled.set(!!optionalAlways);
+WebInspector.settings.profilerEnabled.set(always);
 ProfilerAgent.enable(this._profilerWasEnabled.bind(this));
 }
 },
@@ -908,15 +922,24 @@ ProfilerAgent.getProfileHeaders(populateCallback.bind(this));
 this._profilesWereRequested = true;
 },
 
+
 sidebarResized: function(event)
 {
-this.onResize();
+var sidebarWidth =   (event.data);
+this._resize(sidebarWidth);
 },
 
 onResize: function()
 {
-var minFloatingStatusBarItemsOffset = document.getElementById("panel-status-bar").totalOffsetLeft() + this._statusBarButtons.length * WebInspector.StatusBarButton.width;
-this.profileViewStatusBarItemsContainer.style.left = Math.max(minFloatingStatusBarItemsOffset, this.splitView.sidebarWidth()) + "px";
+this._resize(this.splitView.sidebarWidth());
+},
+
+
+_resize: function(sidebarWidth)
+{
+var lastItemElement = this._statusBarButtons[this._statusBarButtons.length - 1].element;
+var minFloatingStatusBarItemsOffset = lastItemElement.totalOffsetLeft() + lastItemElement.offsetWidth;
+this.profileViewStatusBarItemsContainer.style.left = Math.max(minFloatingStatusBarItemsOffset, sidebarWidth) + "px";
 },
 
 
@@ -1004,47 +1027,47 @@ __proto__: WebInspector.Panel.prototype
 }
 
 
-WebInspector.ProfilerDispatcher = function(profiler)
+WebInspector.ProfilerDispatcher = function(profilesPanel)
 {
-this._profiler = profiler;
+this._profilesPanel = profilesPanel;
 }
 
 WebInspector.ProfilerDispatcher.prototype = {
 
 addProfileHeader: function(profile)
 {
-var profileType = this._profiler.getProfileType(profile.typeId);
-this._profiler.addProfileHeader(profileType.createProfile(profile));
+var profileType = this._profilesPanel.getProfileType(profile.typeId);
+this._profilesPanel.addProfileHeader(profileType.createProfile(profile));
 },
 
 
 addHeapSnapshotChunk: function(uid, chunk)
 {
-this._profiler._addHeapSnapshotChunk(uid, chunk);
+this._profilesPanel._addHeapSnapshotChunk(uid, chunk);
 },
 
 
 finishHeapSnapshot: function(uid)
 {
-this._profiler._finishHeapSnapshot(uid);
+this._profilesPanel._finishHeapSnapshot(uid);
 },
 
 
 setRecordingProfile: function(isProfiling)
 {
-this._profiler.setRecordingProfile(WebInspector.CPUProfileType.TypeId, isProfiling);
+this._profilesPanel.setRecordingProfile(WebInspector.CPUProfileType.TypeId, isProfiling);
 },
 
 
 resetProfiles: function()
 {
-this._profiler._reset();
+this._profilesPanel._reset();
 },
 
 
 reportHeapSnapshotProgress: function(done, total)
 {
-this._profiler._reportHeapSnapshotProgress(done, total);
+this._profilesPanel._reportHeapSnapshotProgress(done, total);
 }
 }
 
@@ -1103,6 +1126,7 @@ return;
 this.bubbleText = matches;
 this.bubbleElement.addStyleClass("search-matches");
 },
+
 
 handleContextMenuEvent: function(event)
 {
@@ -1856,6 +1880,10 @@ if (!profile.head) {
 return;
 }
 this.profile.head = profile.head;
+
+if (profile.idleTime)
+this._injectIdleTimeNode(profile);
+
 this._assignParentsInProfile();
 this._changeView();
 this._updatePercentButton();
@@ -1948,6 +1976,7 @@ var profileNode = this._searchResults[i].profileNode;
 
 delete profileNode._searchMatchedSelfColumn;
 delete profileNode._searchMatchedTotalColumn;
+delete profileNode._searchMatchedAverageColumn;
 delete profileNode._searchMatchedCallsColumn;
 delete profileNode._searchMatchedFunctionColumn;
 
@@ -1992,6 +2021,8 @@ var queryNumberMilliseconds = (secondsUnits ? (queryNumber * 1000) : queryNumber
 
 if (!isNaN(queryNumber) && !(greaterThan || lessThan))
 equalTo = true;
+
+var matcher = new RegExp(query.escapeForRegExp(), "i");
 
 function matchesQuery(  profileDataGridNode)
 {
@@ -2060,7 +2091,7 @@ if (lessThan && profileDataGridNode.numberOfCalls < queryNumber)
 profileDataGridNode._searchMatchedCallsColumn = true;
 }
 
-if (profileDataGridNode.functionName.hasSubstring(query, true) || profileDataGridNode.url.hasSubstring(query, true))
+if (profileDataGridNode.functionName.match(matcher) || profileDataGridNode.url.match(matcher))
 profileDataGridNode._searchMatchedFunctionColumn = true;
 
 if (profileDataGridNode._searchMatchedSelfColumn ||
@@ -2293,6 +2324,38 @@ if (children[i].children.length > 0)
 nodesToTraverse.push({ parent: children[i], children: children[i].children });
 }
 }
+},
+
+_injectIdleTimeNode: function(profile)
+{
+var idleTime = profile.idleTime;
+var nodes = profile.head.children;
+
+var programNode = {selfTime: 0};
+for (var i = nodes.length - 1; i >= 0; --i) {
+if (nodes[i].functionName === "(program)") {
+programNode = nodes[i];
+break;
+}
+}
+var programTime = programNode.selfTime;
+if (idleTime > programTime)
+idleTime = programTime;
+programTime = programTime - idleTime;
+programNode.selfTime = programTime;
+programNode.totalTime = programTime;
+var idleNode = {
+functionName: "(idle)",
+url: null,
+lineNumber: 0,
+totalTime: idleTime,
+selfTime: idleTime,
+numberOfCalls: 0,
+visible: true,
+callUID: 0,
+children: []
+};
+nodes.push(idleNode);
 },
 
 __proto__: WebInspector.View.prototype
@@ -5038,9 +5101,8 @@ WebInspector.HeapSnapshotSortableDataGrid.call(this, columns);
 }
 
 WebInspector.HeapSnapshotContainmentDataGrid.prototype = {
-setDataSource: function(snapshotView, snapshot, nodeIndex)
+setDataSource: function(snapshot, nodeIndex)
 {
-this.snapshotView = snapshotView;
 this.snapshot = snapshot;
 var node = new WebInspector.HeapSnapshotNode(snapshot, nodeIndex || snapshot.rootNodeIndex);
 var fakeEdge = { node: node };
@@ -5143,9 +5205,8 @@ return;
 this.snapshot.nodeClassName(parseInt(id, 10), didGetClassName.bind(this));
 },
 
-setDataSource: function(snapshotView, snapshot)
+setDataSource: function(snapshot)
 {
-this.snapshotView = snapshotView;
 this.snapshot = snapshot;
 if (this._profileIndex === -1)
 this._populateChildren();
@@ -5176,7 +5237,7 @@ var filter = this._profileIndex === -1 ? null : "function(node) { var id = node.
 this.snapshot.aggregates(false, key, filter, this._aggregatesReceived.bind(this, key));
 },
 
-_filterSelectIndexChanged: function(profiles, profileIndex)
+filterSelectIndexChanged: function(profiles, profileIndex)
 {
 this._profileIndex = profileIndex;
 
@@ -5230,9 +5291,8 @@ sizeDelta: ["_sizeDelta", sortAscending, "_name", true]
 }[sortColumn];
 },
 
-setDataSource: function(snapshotView, snapshot)
+setDataSource: function(snapshot)
 {
-this.snapshotView = snapshotView;
 this.snapshot = snapshot;
 },
 
@@ -5293,9 +5353,8 @@ defaultPopulateCount: function()
 return 25;
 },
 
-setDataSource: function(snapshotView, snapshot)
+setDataSource: function(snapshot)
 {
-this.snapshotView = snapshotView;
 this.snapshot = snapshot;
 
 var fakeNode = { nodeIndex: this.snapshot.rootNodeIndex };
@@ -5748,7 +5807,6 @@ if (this.detachedDOMTreeNode)
 valueStyle += " detached-dom-tree-node";
 data["object"] = { valueStyle: valueStyle, value: value, nodeId: this.snapshotNodeId };
 
-var view = this.dataGrid.snapshotView;
 data["distanceToWindow"] =  this._distanceToWindow;
 data["shallowSize"] = Number.withThousandsSeparator(this._shallowSize);
 data["retainedSize"] = Number.withThousandsSeparator(this._retainedSize);
@@ -6113,7 +6171,6 @@ return childNode.snapshotNodeId;
 get data()
 {
 var data = { object: this._name };
-var view = this.dataGrid.snapshotView;
 data["count"] =  Number.withThousandsSeparator(this._count);
 data["distanceToWindow"] =  this._distanceToWindow;
 data["shallowSize"] = Number.withThousandsSeparator(this._shallowSize);
@@ -7159,7 +7216,7 @@ if (profileIndex > 0)
 this.baseSelectElement.selectedIndex = profileIndex - 1;
 else
 this.baseSelectElement.selectedIndex = profileIndex;
-this.dataGrid.setDataSource(this, heapSnapshotProxy);
+this.dataGrid.setDataSource(heapSnapshotProxy);
 }
 }
 
@@ -7390,7 +7447,12 @@ this.performSearch(this.currentQuery, this._searchFinishedCallback);
 _changeFilter: function()
 {
 var profileIndex = this.filterSelectElement.selectedIndex - 1;
-this.dataGrid._filterSelectIndexChanged(this._profiles(), profileIndex);
+this.dataGrid.filterSelectIndexChanged(this._profiles(), profileIndex);
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.HeapSnapshotFilterChanged,
+label: this.filterSelectElement[this.filterSelectElement.selectedIndex].label
+});
 
 if (!this.currentQuery || !this._searchFinishedCallback || !this._searchResults)
 return;
@@ -7419,6 +7481,7 @@ _changeNameFilter: function(classNameInputElement)
 var filter = classNameInputElement.value;
 this.dataGrid.changeNameFilter(filter);
 },
+
 
 _profiles: function()
 {
@@ -7456,7 +7519,7 @@ ConsoleAgent.addInspectedHeapObject(selectedNode.snapshotNodeId);
 _setRetainmentDataGridSource: function(nodeItem)
 {
 if (nodeItem && nodeItem.snapshotNodeIndex)
-this.retainmentDataGrid.setDataSource(this, nodeItem.isDeletedNode ? nodeItem.dataGrid.baseSnapshot : nodeItem.dataGrid.snapshot, nodeItem.snapshotNodeIndex);
+this.retainmentDataGrid.setDataSource(nodeItem.isDeletedNode ? nodeItem.dataGrid.baseSnapshot : nodeItem.dataGrid.snapshot, nodeItem.snapshotNodeIndex);
 else
 this.retainmentDataGrid.reset();
 },
@@ -7502,7 +7565,7 @@ this._changeView(viewIndex);
 _updateDataSourceAndView: function()
 {
 var dataGrid = this.dataGrid;
-if (dataGrid.snapshotView)
+if (dataGrid.snapshot)
 return;
 
 this.profile.load(didLoadSnapshot.bind(this));
@@ -7511,7 +7574,7 @@ function didLoadSnapshot(snapshotProxy)
 if (this.dataGrid !== dataGrid)
 return;
 if (dataGrid.snapshot !== snapshotProxy)
-dataGrid.setDataSource(this, snapshotProxy);
+dataGrid.setDataSource(snapshotProxy);
 if (dataGrid === this.diffDataGrid) {
 if (!this._baseProfileUid)
 this._baseProfileUid = this._profiles()[this.baseSelectElement.selectedIndex].uid;
@@ -7917,16 +7980,18 @@ return !this.fromFile() && !!this._snapshotProxy && !this._receiver;
 saveToFile: function()
 {
 this._numberOfChunks = 0;
+
+var fileOutputStream = new WebInspector.FileOutputStream();
 function onOpen()
 {
+this._receiver = fileOutputStream;
 this._savedChunks = 0;
 this._updateTransferProgress(0, this._totalNumberOfChunks);
 ProfilerAgent.getProfile(this.profileType().id, this.uid);
 }
 this._savingToFile = true;
 this._fileName = this._fileName || "Heap-" + new Date().toISO8601Compact() + ".heapsnapshot";
-this._receiver = new WebInspector.FileOutputStream();
-this._receiver.open(this._fileName, onOpen.bind(this));
+fileOutputStream.open(this._fileName, onOpen.bind(this));
 },
 
 
@@ -8066,45 +8131,339 @@ this._postMessage(response);
 
 
 
+
+WebInspector.NativeHeapGraph = function(rawGraph)
+{
+this._rawGraph = rawGraph;
+
+this._nodeFieldCount = 5;
+this._nodeTypeOffset = 0;
+this._nodeSizeOffset = 1;
+this._nodeClassNameOffset = 2;
+this._nodeNameOffset = 3;
+this._nodeEdgeCountOffset = 4;
+this._nodeFirstEdgeOffset = this._nodeEdgeCountOffset;
+
+this._edgeFieldCount = 3;
+this._edgeTypeOffset = 0;
+this._edgeTargetOffset = 1;
+this._edgeNameOffset = 2;
+
+this._nodeCount = rawGraph.nodes.length / this._nodeFieldCount;
+this._nodes = rawGraph.nodes;
+this._edges = rawGraph.edges;
+this._strings = rawGraph.strings;
+
+this._calculateNodeEdgeIndexes();
+}
+
+WebInspector.NativeHeapGraph.prototype = {
+rootNodes: function()
+{
+var nodeHasIncomingEdges = new Uint8Array(this._nodeCount);
+var edges = this._edges;
+var edgesLength = edges.length;
+var edgeFieldCount = this._edgeFieldCount;
+var nodeFieldCount = this._nodeFieldCount;
+for (var i = this._edgeTargetOffset; i < edgesLength; i += edgeFieldCount) {
+var targetIndex = edges[i];
+nodeHasIncomingEdges[targetIndex] = 1;
+}
+var roots = [];
+var nodeCount = nodeHasIncomingEdges.length;
+for (var i = 0; i < nodeCount; i++) {
+if (!nodeHasIncomingEdges[i])
+roots.push(new WebInspector.NativeHeapGraph.Node(this, i * nodeFieldCount));
+}
+return roots;
+},
+
+_calculateNodeEdgeIndexes: function()
+{
+var nodes = this._nodes;
+var nodeFieldCount = this._nodeFieldCount;
+var nodeLength = nodes.length;
+var firstEdgeIndex = 0;
+for (var i = this._nodeEdgeCountOffset; i < nodeLength; i += nodeFieldCount) {
+var count = nodes[i];
+nodes[i] = firstEdgeIndex;
+firstEdgeIndex += count;
+}
+this._addDummyNode();
+},
+
+_addDummyNode: function()
+{
+var firstEdgePosition = this._nodes.length + this._nodeFirstEdgeOffset;
+for (var i = 0; i < this._nodeFieldCount; i++)
+this._nodes.push(0);
+this._nodes[firstEdgePosition] = this._edges.length;
+}
+}
+
+
+
+WebInspector.NativeHeapGraph.Edge = function(graph, position)
+{
+this._graph = graph;
+this._position = position;
+}
+
+WebInspector.NativeHeapGraph.Edge.prototype = {
+type: function()
+{
+return this._getStringField(this._graph._edgeTypeOffset);
+},
+
+name: function()
+{
+return this._getStringField(this._graph._edgeNameOffset);
+},
+
+target: function()
+{
+var edges = this._graph._edges;
+var targetPosition = edges[this._position + this._graph._edgeTargetOffset] * this._graph._nodeFieldCount;
+return new WebInspector.NativeHeapGraph.Node(this._graph, targetPosition);
+},
+
+_getStringField: function(offset)
+{
+var typeIndex = this._graph._edges[this._position + offset];
+return this._graph._rawGraph.strings[typeIndex];
+},
+
+toString: function()
+{
+return "Edge#" + this._position + " -" + this.name() + "-> " + this.target();
+}
+
+}
+
+
+
+WebInspector.NativeHeapGraph.Node = function(graph, position)
+{
+this._graph = graph;
+this._position = position;
+}
+
+WebInspector.NativeHeapGraph.Node.prototype = {
+id: function()
+{
+return this._position / this._graph._nodeFieldCount;
+},
+
+type: function()
+{
+return this._getStringField(this._graph._nodeTypeOffset);
+},
+
+size: function()
+{
+return this._graph._nodes[this._position + this._graph._nodeSizeOffset];
+},
+
+className: function()
+{
+return this._getStringField(this._graph._nodeClassNameOffset);
+},
+
+name: function()
+{
+return this._getStringField(this._graph._nodeNameOffset);
+},
+
+hasReferencedNodes: function()
+{
+return this._afterLastEdgePosition() > this._firstEdgePoistion();
+},
+
+referencedNodes: function()
+{
+var edges = this._graph._edges;
+var nodes = this._graph._nodes;
+var edgeFieldCount = this._graph._edgeFieldCount;
+var nodeFieldCount = this._graph._nodeFieldCount;
+
+var firstEdgePosition = this._firstEdgePoistion();
+var afterLastEdgePosition = this._afterLastEdgePosition();
+var result = [];
+for (var i = firstEdgePosition + this._graph._edgeTargetOffset; i < afterLastEdgePosition; i += edgeFieldCount)
+result.push(new WebInspector.NativeHeapGraph.Node(this._graph, edges[i] * nodeFieldCount));
+return result;
+},
+
+outgoingEdges: function()
+{
+var edges = this._graph._edges;
+var edgeFieldCount = this._graph._edgeFieldCount;
+
+var firstEdgePosition = this._firstEdgePoistion();
+var afterLastEdgePosition = this._afterLastEdgePosition();
+var result = [];
+for (var i = firstEdgePosition; i < afterLastEdgePosition; i += edgeFieldCount)
+result.push(new WebInspector.NativeHeapGraph.Edge(this._graph, i));
+return result;
+},
+
+targetOfEdge: function(edgeName)
+{
+return this.targetsOfAllEdges(edgeName)[0];
+},
+
+targetsOfAllEdges: function(edgeName)
+{
+var edges = this._graph._edges;
+var edgeFieldCount = this._graph._edgeFieldCount;
+
+var firstEdgePosition = this._firstEdgePoistion();
+var afterLastEdgePosition = this._afterLastEdgePosition();
+
+var edge = new WebInspector.NativeHeapGraph.Edge(this._graph, firstEdgePosition)
+var result = [];
+for (var i = firstEdgePosition; i < afterLastEdgePosition; i += edgeFieldCount) {
+edge._position = i;
+if (edge.name() === edgeName)
+result.push(edge.target());
+}
+return result;
+},
+
+_firstEdgePoistion: function()
+{
+return this._graph._nodes[this._position + this._graph._nodeFirstEdgeOffset] * this._graph._edgeFieldCount;
+},
+
+_afterLastEdgePosition: function()
+{
+return this._graph._nodes[this._position + this._graph._nodeFieldCount + this._graph._nodeFirstEdgeOffset] * this._graph._edgeFieldCount;
+},
+
+_getStringField: function(offset)
+{
+var typeIndex = this._graph._nodes[this._position + offset];
+return this._graph._rawGraph.strings[typeIndex];
+},
+
+toString: function()
+{
+return "Node#" + this.id() + " " + this.name() + "(" + this.className() + ")";
+}
+}
+;
+
+
+
 WebInspector.NativeMemorySnapshotView = function(profile)
 {
 WebInspector.View.call(this);
 this.registerRequiredCSS("nativeMemoryProfiler.css");
 
 this.element.addStyleClass("native-snapshot-view");
-this.containmentDataGrid = new WebInspector.NativeSnapshotDataGrid(profile._memoryBlock);
-this.containmentDataGrid.show(this.element);
+this._containmentDataGrid = new WebInspector.NativeSnapshotDataGrid(profile);
+this._containmentDataGrid.show(this.element);
+
+this._heapGraphDataGrid = new WebInspector.NativeHeapGraphDataGrid(profile._graph);
+
+this._viewSelectElement = document.createElement("select");
+this._viewSelectElement.className = "status-bar-item";
+this._viewSelectElement.addEventListener("change", this._onSelectedViewChanged.bind(this), false);
+
+this._views = [{title: "Aggregated", view: this._containmentDataGrid},
+{title: "Graph", view: this._heapGraphDataGrid}];
+this._currentViewIndex = 0;
+for (var i = 0; i < this._views.length; ++i) {
+var view = this._views[i];
+var option = document.createElement("option");
+option.label = WebInspector.UIString(view.title);
+this._viewSelectElement.appendChild(option);
+}
 }
 
 WebInspector.NativeMemorySnapshotView.prototype = {
+_onSelectedViewChanged: function(event)
+{
+var index = event.target.selectedIndex;
+if (index === this._currentViewIndex)
+return;
+
+var currentView = this._views[this._currentViewIndex].view;
+currentView.detach();
+
+this._currentViewIndex = index;
+var selectedView = this._views[index].view;
+selectedView.show(this.element);
+},
+
+get statusBarItems()
+{
+var span = document.createElement("span");
+span.className = "status-bar-select-container";
+span.appendChild(this._viewSelectElement);
+return [span];
+},
+
 __proto__: WebInspector.View.prototype
 }
+
+
 
 
 WebInspector.NativeSnapshotDataGrid = function(profile)
 {
 var columns = {
-object: { title: WebInspector.UIString("Object"), width: "200px", disclosure: true, sortable: false },
-size: { title: WebInspector.UIString("Size"), sortable: false },
+name: { title: WebInspector.UIString("Object"), width: "200px", disclosure: true, sortable: true },
+size: { title: WebInspector.UIString("Size"), sortable: true, sort: "descending" },
 };
 WebInspector.DataGrid.call(this, columns);
+this._profile = profile;
+this._totalNode = new WebInspector.NativeSnapshotNode(profile._memoryBlock, profile._memoryBlock);
+if (WebInspector.settings.showNativeSnapshotUninstrumentedSize.get()) {
 this.setRootNode(new WebInspector.DataGridNode(null, true));
-var totalNode = new WebInspector.NativeSnapshotNode(profile, profile);
-this.rootNode().appendChild(totalNode);
-totalNode.expand();
+this.rootNode().appendChild(this._totalNode)
+this._totalNode.expand();
+} else {
+this.setRootNode(this._totalNode);
+this._totalNode._populate();
+}
+this.addEventListener("sorting changed", this.sortingChanged.bind(this), this);
 }
 
 WebInspector.NativeSnapshotDataGrid.prototype = {
+sortingChanged: function()
+{
+var expandedNodes = {};
+this._totalNode._storeState(expandedNodes);
+this._totalNode.removeChildren();
+this._totalNode._populate();
+this._totalNode._shouldRefreshChildren = true;
+this._totalNode._restoreState(expandedNodes);
+},
+
+
+_sortingFunction: function(nodeA, nodeB)
+{
+var sortColumnIdentifier = this.sortColumnIdentifier;
+var sortAscending = this.sortOrder === "ascending";
+var field1 = nodeA[sortColumnIdentifier];
+var field2 = nodeB[sortColumnIdentifier];
+var result = field1 < field2 ? -1 : (field1 > field2 ? 1 : 0);
+if (!sortAscending)
+result = -result;
+return result;
+},
+
 __proto__: WebInspector.DataGrid.prototype
 }
 
 
-WebInspector.NativeSnapshotNode = function(nodeData, profile)
+WebInspector.NativeSnapshotNode = function(nodeData, rootMemoryBlock)
 {
 this._nodeData = nodeData;
-this._profile = profile;
+this._rootMemoryBlock = rootMemoryBlock;
 var viewProperties = WebInspector.MemoryBlockViewProperties._forMemoryBlock(nodeData);
-var data = { object: viewProperties._description, size: this._nodeData.size };
+var data = { name: viewProperties._description, size: this._nodeData.size };
 var hasChildren = !!nodeData.children && nodeData.children.length !== 0;
 WebInspector.DataGridNode.call(this, data, hasChildren);
 this.addEventListener("populate", this._populate, this);
@@ -8121,24 +8480,55 @@ return cell;
 },
 
 
+_storeState: function(expandedNodes)
+{
+if (!this.expanded)
+return;
+expandedNodes[this.uid()] = true;
+for (var i in this.children)
+this.children[i]._storeState(expandedNodes);
+},
+
+
+_restoreState: function(expandedNodes)
+{
+if (!expandedNodes[this.uid()])
+return;
+this.expand();
+for (var i in this.children)
+this.children[i]._restoreState(expandedNodes);
+},
+
+
+uid: function()
+{
+if (!this._uid)
+this._uid = (!this.parent || !this.parent.uid ? "" : this.parent.uid() || "") + "/" + this._nodeData.name;
+return this._uid;
+},
+
+
 _createSizeCell: function(columnIdentifier)
 {
 var node = this;
 var viewProperties = null;
+var dimmed = false;
 while (!viewProperties || viewProperties._fillStyle === "inherit") {
 viewProperties = WebInspector.MemoryBlockViewProperties._forMemoryBlock(node._nodeData);
+if (viewProperties._fillStyle === "inherit")
+dimmed = true;
 node = node.parent;
 }
 
-var sizeKiB = this._nodeData.size / 1024;
-var totalSize = this._profile.size;
+var sizeKB = this._nodeData.size / 1024;
+var totalSize = this._rootMemoryBlock.size;
 var percentage = this._nodeData.size / totalSize  * 100;
 
 var cell = document.createElement("td");
 cell.className = columnIdentifier + "-column";
 
 var textDiv = document.createElement("div");
-textDiv.textContent = Number.withThousandsSeparator(sizeKiB.toFixed(0)) + "\u2009" + WebInspector.UIString("KiB");
+textDiv.textContent = Number.withThousandsSeparator(sizeKB.toFixed(0)) + "\u2009" + WebInspector.UIString("KB");
 textDiv.className = "size-text";
 cell.appendChild(textDiv);
 
@@ -8156,6 +8546,8 @@ percentDiv.className = "percent-text"
 barDiv.appendChild(percentDiv);
 
 var barHolderDiv = document.createElement("div");
+if (dimmed)
+barHolderDiv.className = "dimmed";
 barHolderDiv.appendChild(barDiv);
 cell.appendChild(barHolderDiv);
 
@@ -8164,20 +8556,137 @@ return cell;
 
 _populate: function() {
 this.removeEventListener("populate", this._populate, this);
-function comparator(a, b) {
-return b.size - a.size;
-}
-if (this._nodeData !== this._profile)
-this._nodeData.children.sort(comparator);
+this._nodeData.children.sort(this.dataGrid._sortingFunction.bind(this.dataGrid));
+
 for (var node in this._nodeData.children) {
 var nodeData = this._nodeData.children[node];
+this._addChildrenFromGraph(nodeData);
 if (WebInspector.settings.showNativeSnapshotUninstrumentedSize.get() || nodeData.name !== "Other")
-this.appendChild(new WebInspector.NativeSnapshotNode(nodeData, this._profile));
+this.appendChild(new WebInspector.NativeSnapshotNode(nodeData, this._rootMemoryBlock));
 }
+},
+
+
+_addChildrenFromGraph: function(memoryBlock)
+{
+if (memoryBlock.children)
+return;
+if (memoryBlock.name !== "Image" || this._nodeData.name !== "MemoryCache")
+return;
+
+
+var graph = this.dataGrid._profile._graph;
+var roots = graph.rootNodes();
+var memoryCache;
+for (var i = 0; i < roots.length; i++) {
+var root = roots[i];
+if (root.className() === "MemoryCache") {
+memoryCache = root;
+break;
+}
+}
+var edges = memoryCache.outgoingEdges();
+var cachedImages = [];
+for (var i = 0; i < edges.length; i++) {
+var target = edges[i].target();
+if (target.className() === "CachedImage") {
+var cachedImage = {
+name: target.name(),
+size: target.size(),
+children: []
+};
+cachedImages.push(cachedImage);
+var image = target.targetOfEdge("m_image");
+if (image.className() === "BitmapImage") {
+var frames = image.targetsOfAllEdges("m_frame");
+for (var j = 0; j < frames.length; j++) {
+var pixels = frames[j].targetOfEdge("pixels");
+if (pixels) {
+cachedImage.size += pixels.size();
+cachedImage.children.push({
+name: "Bitmap pixels",
+size: pixels.size()
+});
+}
+}
+}
+}
+}
+memoryBlock.children = cachedImages;
 },
 
 __proto__: WebInspector.DataGridNode.prototype
 }
+
+
+
+WebInspector.NativeHeapGraphDataGrid = function(nativeHeapGraph)
+{
+var columns = {
+id: { title: WebInspector.UIString("id"), width: "80px", disclosure: true, sortable: true },
+type: { title: WebInspector.UIString("Type"), width: "200px", sortable: true },
+className: { title: WebInspector.UIString("Class name"), width: "200px", sortable: true },
+name: { title: WebInspector.UIString("Name"), width: "200px", sortable: true },
+size: { title: WebInspector.UIString("Size"), sortable: true, sort: "descending" },
+};
+WebInspector.DataGrid.call(this, columns);
+this._nativeHeapGraph = nativeHeapGraph;
+this._root = new WebInspector.NativeHeapGraphDataGridRoot(this._nativeHeapGraph);
+this.setRootNode(this._root);
+this._root._populate();
+}
+
+WebInspector.NativeHeapGraphDataGrid.prototype = {
+__proto__: WebInspector.DataGrid.prototype
+}
+
+
+
+WebInspector.NativeHeapGraphDataGridRoot = function(graph)
+{
+WebInspector.DataGridNode.call(this, { id: "root" }, true);
+this._graph = graph;
+this.addEventListener("populate", this._populate, this);
+}
+
+WebInspector.NativeHeapGraphDataGridRoot.prototype = {
+_populate: function() {
+this.removeEventListener("populate", this._populate, this);
+var roots = this._graph.rootNodes();
+for (var i = 0; i < roots.length; i++)
+this.appendChild(new WebInspector.NativeHeapGraphDataGridNode(roots[i]));
+},
+
+__proto__: WebInspector.DataGridNode.prototype
+}
+
+
+
+WebInspector.NativeHeapGraphDataGridNode = function(node)
+{
+var data = {
+id: node.id(),
+size: node.size(),
+type: node.type(),
+className: node.className(),
+name: node.name(),
+};
+WebInspector.DataGridNode.call(this, data, node.hasReferencedNodes());
+this._node = node;
+this.addEventListener("populate", this._populate, this);
+}
+
+WebInspector.NativeHeapGraphDataGridNode.prototype = {
+_populate: function() {
+this.removeEventListener("populate", this._populate, this);
+var children = this._node.referencedNodes();
+for (var i = 0; i < children.length; i++)
+this.appendChild(new WebInspector.NativeHeapGraphDataGridNode(children[i]));
+},
+
+__proto__: WebInspector.DataGridNode.prototype
+}
+
 
 
 WebInspector.NativeMemoryProfileType = function()
@@ -8201,7 +8710,8 @@ var profileHeader = new WebInspector.NativeMemoryProfileHeader(this, WebInspecto
 ++this._nextProfileUid;
 profileHeader.isTemporary = true;
 profilesPanel.addProfileHeader(profileHeader);
-function didReceiveMemorySnapshot(error, memoryBlock)
+
+function didReceiveMemorySnapshot(error, memoryBlock, graph)
 {
 if (memoryBlock.size && memoryBlock.children) {
 var knownSize = 0;
@@ -8220,10 +8730,11 @@ size: otherSize
 }
 }
 profileHeader._memoryBlock = memoryBlock;
+profileHeader._graph = new WebInspector.NativeHeapGraph(graph);
 profileHeader.isTemporary = false;
-profileHeader.sidebarElement.subtitle = Number.bytesToString(memoryBlock.size);
+profileHeader.sidebarElement.subtitle = Number.bytesToString( (memoryBlock.size));
 }
-MemoryAgent.getProcessMemoryDistribution(didReceiveMemorySnapshot.bind(this));
+MemoryAgent.getProcessMemoryDistribution(true, didReceiveMemorySnapshot.bind(this));
 return false;
 },
 
@@ -8311,6 +8822,7 @@ addBlock("hsl( 36, 90%,  50%)", "MemoryCache", "Memory cache resources");
 addBlock("hsl( 40, 80%,  80%)", "GlyphCache", "Glyph cache resources");
 addBlock("hsl( 35, 80%,  80%)", "DOMStorageCache", "DOM storage cache");
 addBlock("hsl( 60, 80%,  60%)", "RenderTree", "Render tree");
+addBlock("hsl( 20, 80%,  50%)", "MallocWaste", "Memory allocator waste");
 }
 
 WebInspector.MemoryBlockViewProperties._forMemoryBlock = function(memoryBlock)
@@ -8322,132 +8834,6 @@ return result;
 return new WebInspector.MemoryBlockViewProperties("inherit", memoryBlock.name, memoryBlock.name);
 }
 
-
-
-WebInspector.NativeMemoryPieChart = function(memorySnapshot)
-{
-WebInspector.View.call(this);
-this._memorySnapshot = memorySnapshot;
-this.element = document.createElement("div");
-this.element.addStyleClass("memory-pie-chart-container");
-this._memoryBlockList = this.element.createChild("div", "memory-blocks-list");
-
-this._canvasContainer = this.element.createChild("div", "memory-pie-chart");
-this._canvas = this._canvasContainer.createChild("canvas");
-this._addBlockLabels(memorySnapshot, true);
-}
-
-WebInspector.NativeMemoryPieChart.prototype = {
-
-onResize: function()
-{
-this._updateSize();
-this._paint();
-},
-
-_updateSize: function()
-{
-var width = this._canvasContainer.clientWidth - 5;
-var height = this._canvasContainer.clientHeight - 5;
-this._canvas.width = width;
-this._canvas.height = height;
-},
-
-_addBlockLabels: function(memoryBlock, includeChildren)
-{
-var viewProperties = WebInspector.MemoryBlockViewProperties._forMemoryBlock(memoryBlock);
-var title = viewProperties._description + ": " + Number.bytesToString(memoryBlock.size);
-
-var swatchElement = this._memoryBlockList.createChild("div", "item");
-swatchElement.createChild("div", "swatch").style.backgroundColor = viewProperties._fillStyle;
-swatchElement.createChild("span", "title").textContent = title;
-
-if (!memoryBlock.children || !includeChildren)
-return;
-for (var i = 0; i < memoryBlock.children.length; i++)
-this._addBlockLabels(memoryBlock.children[i], false);
-},
-
-_paint: function()
-{
-this._clear();
-var width = this._canvas.width;
-var height = this._canvas.height;
-
-var x = width / 2;
-var y = height / 2;
-var radius = 200;
-
-var ctx = this._canvas.getContext("2d");
-ctx.beginPath();
-ctx.arc(x, y, radius, 0, Math.PI*2, false);
-ctx.lineWidth = 1;
-ctx.strokeStyle = "rgba(130, 130, 130, 0.8)";
-ctx.stroke();
-ctx.closePath();
-
-var currentAngle = 0;
-var memoryBlock = this._memorySnapshot;
-
-function paintPercentAndLabel(fraction, title, midAngle)
-{
-ctx.beginPath();
-ctx.font = "13px Arial";
-ctx.fillStyle = "rgba(10, 10, 10, 0.8)";
-
-var textX = x + (radius + 10) * Math.cos(midAngle);
-var textY = y + (radius + 10) * Math.sin(midAngle);
-var relativeOffset = -Math.cos(midAngle) / Math.sin(Math.PI / 12);
-relativeOffset = Number.constrain(relativeOffset, -1, 1);
-var metrics = ctx.measureText(title);
-textX -= metrics.width * (relativeOffset + 1) / 2;
-textY += 5;
-ctx.fillText(title, textX, textY);
-
-
-if (fraction > 0.03) {
-textX = x + radius * Math.cos(midAngle) / 2;
-textY = y + radius * Math.sin(midAngle) / 2;
-ctx.fillText((100 * fraction).toFixed(0) + "%", textX - 8, textY + 5);
-}
-
-ctx.closePath();
-}
-
-if (!memoryBlock.children)
-return;
-var total = memoryBlock.size;
-for (var i = 0; i < memoryBlock.children.length; i++) {
-var child = memoryBlock.children[i];
-if (!child.size)
-continue;
-var viewProperties = WebInspector.MemoryBlockViewProperties._forMemoryBlock(child);
-var angleSpan = Math.PI * 2 * (child.size / total);
-ctx.beginPath();
-ctx.moveTo(x, y);
-ctx.lineTo(x + radius * Math.cos(currentAngle), y + radius * Math.sin(currentAngle));
-ctx.arc(x, y, radius, currentAngle, currentAngle + angleSpan, false);
-ctx.lineWidth = 0.5;
-ctx.lineTo(x, y);
-ctx.fillStyle = viewProperties._fillStyle;
-ctx.strokeStyle = "rgba(100, 100, 100, 0.8)";
-ctx.fill();
-ctx.stroke();
-ctx.closePath();
-
-paintPercentAndLabel(child.size / total, viewProperties._description, currentAngle + angleSpan / 2);
-
-currentAngle += angleSpan;
-}
-},
-
-_clear: function() {
-var ctx = this._canvas.getContext("2d");
-ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-},
-
-__proto__: WebInspector.View.prototype
-}
 
 
 WebInspector.NativeMemoryBarChart = function()
@@ -8467,7 +8853,9 @@ row.insertCell();
 WebInspector.NativeMemoryBarChart.prototype = {
 _updateStats: function()
 {
-function didReceiveMemorySnapshot(error, memoryBlock)
+
+
+function didReceiveMemorySnapshot(error, memoryBlock, graph)
 {
 if (memoryBlock.size && memoryBlock.children) {
 var knownSize = 0;
@@ -8488,7 +8876,7 @@ size: otherSize
 this._memorySnapshot = memoryBlock;
 this._updateView();
 }
-MemoryAgent.getProcessMemoryDistribution(didReceiveMemorySnapshot.bind(this));
+MemoryAgent.getProcessMemoryDistribution(false, didReceiveMemorySnapshot.bind(this));
 },
 
 
@@ -8813,7 +9201,7 @@ replayImageContainer.appendChild(this._debugInfoElement);
 this._splitView.show(this.element);
 
 this._enableWaitIcon(true);
-CanvasAgent.getTraceLog(this._traceLogId, this._didReceiveTraceLog.bind(this));
+CanvasAgent.getTraceLog(this._traceLogId, 0, this._didReceiveTraceLog.bind(this));
 }
 
 WebInspector.CanvasProfileView.prototype = {
@@ -8842,7 +9230,23 @@ return [this._logGrid.scrollContainer];
 
 _enableWaitIcon: function(enable)
 {
+function showWaitIcon()
+{
+this._replayImageElement.className = "wait";
+this._debugInfoElement.textContent = "";
+delete this._showWaitIconTimer;
+}
+
+if (enable && this._replayImageElement.src && !this._showWaitIconTimer)
+this._showWaitIconTimer = setTimeout(showWaitIcon.bind(this), 250);
+else {
+if (this._showWaitIconTimer) {
+clearTimeout(this._showWaitIconTimer);
+delete this._showWaitIconTimer;
+}
 this._replayImageElement.className = enable ? "wait" : "";
+this._debugInfoElement.textContent = "";
+}
 },
 
 _replayTraceLog: function()

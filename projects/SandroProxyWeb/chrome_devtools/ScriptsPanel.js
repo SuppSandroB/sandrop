@@ -717,17 +717,11 @@ text += this.placards[i].title + " (" + this.placards[i].subtitle + ")\n";
 InspectorFrontendHost.copyText(text);
 },
 
-registerShortcuts: function(section, registerShortcutDelegate)
+
+registerShortcuts: function(registerShortcutDelegate)
 {
-var nextCallFrame = WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Period,
-WebInspector.KeyboardShortcut.Modifiers.Ctrl);
-registerShortcutDelegate(nextCallFrame.key, this._selectNextCallFrameOnStack.bind(this));
-
-var prevCallFrame = WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Comma,
-WebInspector.KeyboardShortcut.Modifiers.Ctrl);
-registerShortcutDelegate(prevCallFrame.key, this._selectPreviousCallFrameOnStack.bind(this));
-
-section.addRelatedKeys([ nextCallFrame.name, prevCallFrame.name ], WebInspector.UIString("Next/previous call frame"));
+registerShortcutDelegate(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.NextCallFrame, this._selectNextCallFrameOnStack.bind(this));
+registerShortcutDelegate(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.PrevCallFrame, this._selectPreviousCallFrameOnStack.bind(this));
 },
 
 setStatus: function(status)
@@ -1399,6 +1393,7 @@ this._breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.B
 
 this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.FormattedChanged, this._onFormattedChanged, this);
 this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyChanged, this._onWorkingCopyChanged, this);
+this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyCommitted, this._onWorkingCopyCommitted, this);
 this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.ConsoleMessageAdded, this._consoleMessageAdded, this);
 this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.ConsoleMessageRemoved, this._consoleMessageRemoved, this);
 this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.ConsoleMessagesCleared, this._consoleMessagesCleared, this);
@@ -1442,7 +1437,7 @@ _onFormattedChanged: function(event)
 {
 var content =   (event.data.content);
 this._textEditor.setReadOnly(this._uiSourceCode.formatted());
-this._innerSetContent(content);
+this.setContent(content, false, this._uiSourceCode.mimeType());
 },
 
 
@@ -1451,11 +1446,19 @@ _onWorkingCopyChanged: function(event)
 this._innerSetContent(this._uiSourceCode.workingCopy());
 },
 
+
+_onWorkingCopyCommitted: function(event)
+{
+this._innerSetContent(this._uiSourceCode.workingCopy());
+},
+
 _innerSetContent: function(content)
 {
 if (this._isSettingWorkingCopy || this._isCommittingEditing)
 return;
-
+var breakpointLocations = this._breakpointManager.breakpointLocationsForUISourceCode(this._uiSourceCode);
+for (var i = 0; i < breakpointLocations.length; ++i)
+breakpointLocations[i].breakpoint.remove();
 this.setContent(content, false, this._uiSourceCode.mimeType());
 },
 
@@ -1611,7 +1614,7 @@ ranges.push({offset: match.index, length: regex.lastIndex - match.index});
 
 
 var changes = [];
-WebInspector.highlightRangesWithStyleClass(lineElement, ranges, "source-frame-token", changes);
+this.textEditor.highlightRangesWithStyleClass(lineElement, ranges, "source-frame-token", changes);
 var lineOffsetLeft = lineElement.totalOffsetLeft();
 for (var child = lineElement.firstChild; child; child = child.nextSibling) {
 if (child.nodeType !== Node.ELEMENT_NODE || !child.hasStyleClass("source-frame-token"))
@@ -1657,38 +1660,14 @@ if (!highlightElement)
 return;
 
 
-var parentElement = highlightElement.parentElement;
-if (parentElement) {
-var child = highlightElement.firstChild;
-while (child) {
-var nextSibling = child.nextSibling;
-parentElement.insertBefore(child, highlightElement);
-child = nextSibling;
-}
-parentElement.removeChild(highlightElement);
-}
+this.textEditor.hideHighlightedExpression(highlightElement);
 delete this._highlightElement;
 },
 
+
 _highlightExpression: function(element)
 {
-
-var tokens = [ element ];
-var token = element.previousSibling;
-while (token && (token.className === "webkit-javascript-ident" || token.className === "source-frame-token" || token.className === "webkit-javascript-keyword" || token.textContent.trim() === ".")) {
-tokens.push(token);
-token = token.previousSibling;
-}
-tokens.reverse();
-
-
-var parentElement = element.parentElement;
-var nextElement = element.nextSibling;
-var container = document.createElement("span");
-for (var i = 0; i < tokens.length; ++i)
-container.appendChild(tokens[i]);
-parentElement.insertBefore(container, nextElement);
-return container;
+return this.textEditor.highlightExpression(element, { "webkit-javascript-ident": true, "source-frame-token": true, "webkit-javascript-keyword": true }, { ".": true });
 },
 
 
@@ -1933,6 +1912,13 @@ this._toggleBreakpoint(selection.startLine, false);
 _setBreakpoint: function(lineNumber, condition, enabled)
 {
 this._breakpointManager.setBreakpoint(this._uiSourceCode, lineNumber, condition, enabled);
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.SetBreakpoint,
+url: this._uiSourceCode.url,
+line: lineNumber,
+enabled: enabled
+});
 },
 
 
@@ -2498,6 +2484,8 @@ return this._titleText;
 
 set titleText(titleText)
 {
+if (this._titleText === titleText)
+return;
 this._titleText = titleText || "";
 if (this.titleElement)
 this.titleElement.textContent = this._titleText;
@@ -3607,24 +3595,27 @@ return;
 var tabId = this._tabIds.get(uiSourceCode) || this._appendFileTab(uiSourceCode, false);
 
 
-if (index === 0)
-this._innerShowFile(uiSourceCode, false);
+if (!index)
+this._innerShowFile(uiSourceCode, true);
 },
 
 
 removeUISourceCode: function(uiSourceCode)
 {
-var wasCurrent = this._currentFile === uiSourceCode;
+this.removeUISourceCodes([uiSourceCode]);
+},
 
+
+removeUISourceCodes: function(uiSourceCodes)
+{
+var tabIds = [];
+for (var i = 0; i < uiSourceCodes.length; ++i) {
+var uiSourceCode = uiSourceCodes[i];
 var tabId = this._tabIds.get(uiSourceCode);
 if (tabId)
-this._tabbedPane.closeTab(tabId);
-
-if (wasCurrent && uiSourceCode.isTemporary) {
-var newUISourceCode = WebInspector.workspace.uiSourceCodeForURL(uiSourceCode.url);
-if (newUISourceCode)
-this._innerShowFile(newUISourceCode, false);
+tabIds.push(tabId);
 }
+this._tabbedPane.closeTabs(tabIds);
 },
 
 
@@ -4576,7 +4567,7 @@ return this.visibleView;
 WebInspector.GoToLineDialog.install(this, viewGetter.bind(this));
 
 var helpSection = WebInspector.shortcutsScreen.section(WebInspector.UIString("Sources Panel"));
-this.debugToolbar = this._createDebugToolbar(helpSection);
+this.debugToolbar = this._createDebugToolbar();
 
 const initialDebugSidebarWidth = 225;
 const minimumDebugSidebarWidthPercent = 50;
@@ -4648,18 +4639,10 @@ this.sidebarPanes.callstack.expanded = true;
 this.sidebarPanes.scopechain.expanded = true;
 this.sidebarPanes.jsBreakpoints.expanded = true;
 
-this.sidebarPanes.callstack.registerShortcuts(helpSection, this.registerShortcut.bind(this));
-var evaluateInConsoleShortcut = WebInspector.KeyboardShortcut.makeDescriptor("e", WebInspector.KeyboardShortcut.Modifiers.Shift | WebInspector.KeyboardShortcut.Modifiers.Ctrl);
-helpSection.addKey(evaluateInConsoleShortcut.name, WebInspector.UIString("Evaluate selection in console"));
-this.registerShortcut(evaluateInConsoleShortcut.key, this._evaluateSelectionInConsole.bind(this));
-
-var outlineShortcut = WebInspector.KeyboardShortcut.makeDescriptor("o", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta | WebInspector.KeyboardShortcut.Modifiers.Shift);
-helpSection.addKey(outlineShortcut.name, WebInspector.UIString("Go to member"));
-this.registerShortcut(outlineShortcut.key, this._showOutlineDialog.bind(this));
-
-var createBreakpointShortcut = WebInspector.KeyboardShortcut.makeDescriptor("b", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta);
-helpSection.addKey(createBreakpointShortcut.name, WebInspector.UIString("Toggle breakpoint"));
-this.registerShortcut(createBreakpointShortcut.key, this._toggleBreakpoint.bind(this));
+this.sidebarPanes.callstack.registerShortcuts(this.registerShortcuts.bind(this));
+this.registerShortcuts(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.EvaluateSelectionInConsole, this._evaluateSelectionInConsole.bind(this));
+this.registerShortcuts(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.GoToMember, this._showOutlineDialog.bind(this));
+this.registerShortcuts(WebInspector.ScriptsPanelDescriptor.ShortcutKeys.ToggleBreakpoint, this._toggleBreakpoint.bind(this));
 
 var panelEnablerHeading = WebInspector.UIString("You need to enable debugging before you can use the Scripts panel.");
 var panelEnablerDisclaimer = WebInspector.UIString("Enabling debugging will make scripts run slower.");
@@ -4766,9 +4749,16 @@ this._editorContainer.addUISourceCode(uiSourceCode);
 _uiSourceCodeRemoved: function(event)
 {
 var uiSourceCode =   (event.data);
+var wasCurrent = uiSourceCode === this._currentUISourceCode;
 this._editorContainer.removeUISourceCode(uiSourceCode);
 this._navigator.removeUISourceCode(uiSourceCode);
 this._removeSourceFrame(uiSourceCode);
+
+if (wasCurrent && uiSourceCode.isTemporary) {
+var newUISourceCode = WebInspector.workspace.uiSourceCodeForURL(uiSourceCode.url);
+if (newUISourceCode)
+this._showFile(newUISourceCode);
+}
 },
 
 _consoleCommandEvaluatedInSelectedCallFrame: function(event)
@@ -4916,6 +4906,12 @@ var sourceFrame = this._showFile(uiSourceCode);
 if (typeof lineNumber === "number")
 sourceFrame.highlightLine(lineNumber);
 sourceFrame.focus();
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.OpenSourceLink,
+url: uiSourceCode.url,
+lineNumber: lineNumber
+});
 },
 
 
@@ -5241,48 +5237,36 @@ if (selection.type === "Range" && !selection.isCollapsed)
 WebInspector.evaluateInConsole(selection.toString());
 },
 
-_createDebugToolbar: function(section)
+_createDebugToolbar: function()
 {
 var debugToolbar = document.createElement("div");
 debugToolbar.className = "status-bar";
 debugToolbar.id = "scripts-debug-toolbar";
 
-var title, handler, shortcuts;
+var title, handler;
 var platformSpecificModifier = WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta;
 
 
 handler = this._togglePause.bind(this);
-shortcuts = [];
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F8));
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Slash, platformSpecificModifier));
-this.pauseButton = this._createButtonAndRegisterShortcuts(section, "scripts-pause", "", handler, shortcuts, WebInspector.UIString("Pause/Continue"));
+this.pauseButton = this._createButtonAndRegisterShortcuts("scripts-pause", "", handler, WebInspector.ScriptsPanelDescriptor.ShortcutKeys.PauseContinue);
 debugToolbar.appendChild(this.pauseButton);
 
 
 title = WebInspector.UIString("Step over next function call (%s).");
 handler = this._stepOverClicked.bind(this);
-shortcuts = [];
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F10));
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.SingleQuote, platformSpecificModifier));
-this.stepOverButton = this._createButtonAndRegisterShortcuts(section, "scripts-step-over", title, handler, shortcuts, WebInspector.UIString("Step over"));
+this.stepOverButton = this._createButtonAndRegisterShortcuts("scripts-step-over", title, handler, WebInspector.ScriptsPanelDescriptor.ShortcutKeys.StepOver);
 debugToolbar.appendChild(this.stepOverButton);
 
 
 title = WebInspector.UIString("Step into next function call (%s).");
 handler = this._stepIntoClicked.bind(this);
-shortcuts = [];
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F11));
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Semicolon, platformSpecificModifier));
-this.stepIntoButton = this._createButtonAndRegisterShortcuts(section, "scripts-step-into", title, handler, shortcuts, WebInspector.UIString("Step into"));
+this.stepIntoButton = this._createButtonAndRegisterShortcuts("scripts-step-into", title, handler, WebInspector.ScriptsPanelDescriptor.ShortcutKeys.StepInto);
 debugToolbar.appendChild(this.stepIntoButton);
 
 
 title = WebInspector.UIString("Step out of current function (%s).");
 handler = this._stepOutClicked.bind(this);
-shortcuts = [];
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.F11, WebInspector.KeyboardShortcut.Modifiers.Shift));
-shortcuts.push(WebInspector.KeyboardShortcut.makeDescriptor(WebInspector.KeyboardShortcut.Keys.Semicolon, WebInspector.KeyboardShortcut.Modifiers.Shift | platformSpecificModifier));
-this.stepOutButton = this._createButtonAndRegisterShortcuts(section, "scripts-step-out", title, handler, shortcuts, WebInspector.UIString("Step out"));
+this.stepOutButton = this._createButtonAndRegisterShortcuts("scripts-step-out", title, handler, WebInspector.ScriptsPanelDescriptor.ShortcutKeys.StepOut);
 debugToolbar.appendChild(this.stepOutButton);
 
 this._toggleBreakpointsButton = new WebInspector.StatusBarButton(WebInspector.UIString("Deactivate breakpoints."), "toggle-breakpoints");
@@ -5307,7 +5291,8 @@ else
 button.title = buttonTitle;
 },
 
-_createButtonAndRegisterShortcuts: function(section, buttonId, buttonTitle, handler, shortcuts, shortcutDescription)
+
+_createButtonAndRegisterShortcuts: function(buttonId, buttonTitle, handler, shortcuts)
 {
 var button = document.createElement("button");
 button.className = "status-bar-item";
@@ -5318,12 +5303,7 @@ button.disabled = true;
 button.appendChild(document.createElement("img"));
 button.addEventListener("click", handler, false);
 
-var shortcutNames = [];
-for (var i = 0; i < shortcuts.length; ++i) {
-this.registerShortcut(shortcuts[i].key, handler);
-shortcutNames.push(shortcuts[i].name);
-}
-section.addAlternateKeys(shortcutNames, shortcutDescription);
+this.registerShortcuts(shortcuts, handler);
 
 return button;
 },
@@ -5428,6 +5408,12 @@ this._toggleFormatSourceButton.toggled = !this._toggleFormatSourceButton.toggled
 var uiSourceCodes = this._workspace.uiSourceCodes();
 for (var i = 0; i < uiSourceCodes.length; ++i)
 uiSourceCodes[i].setFormatted(this._toggleFormatSourceButton.toggled);
+
+WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+action: WebInspector.UserMetrics.UserActionNames.TogglePrettyPrint,
+enabled: this._toggleFormatSourceButton.toggled,
+url: this._editorContainer.currentFile().url
+});
 },
 
 addToWatch: function(expression)

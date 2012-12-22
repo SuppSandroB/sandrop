@@ -647,7 +647,13 @@ this._contentElement.appendChild(this._headerElement);
 
 WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestStarted, this._onRequestStarted, this);
 WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestFinished, this._onRequestFinished, this);
+
+var defaultSelectedAuditCategory = {};
+defaultSelectedAuditCategory[WebInspector.AuditLauncherView.AllCategoriesKey] = true;
+this._selectedCategoriesSetting = WebInspector.settings.createSetting("selectedAuditCategories", defaultSelectedAuditCategory);
 }
+
+WebInspector.AuditLauncherView.AllCategoriesKey = "__AllCategories";
 
 WebInspector.AuditLauncherView.prototype = {
 _resetResourceCount: function()
@@ -682,9 +688,10 @@ addCategory: function(category)
 if (!this._sortedCategories.length)
 this._createLauncherUI();
 
+var selectedCategories = this._selectedCategoriesSetting.get();
 var categoryElement = this._createCategoryElement(category.displayName, category.id);
 category._checkboxElement = categoryElement.firstChild;
-if (this._selectAllCheckboxElement.checked) {
+if (this._selectAllCheckboxElement.checked || selectedCategories[category.displayName]) {
 category._checkboxElement.checked = true;
 ++this._currentCategoriesCount;
 }
@@ -698,7 +705,7 @@ return aTitle.localeCompare(bTitle);
 var insertBefore = insertionIndexForObjectInListSortedByFunction(category, this._sortedCategories, compareCategories);
 this._categoriesElement.insertBefore(categoryElement, this._categoriesElement.children[insertBefore]);
 this._sortedCategories.splice(insertBefore, 0, category);
-this._updateButton();
+this._selectedCategoriesUpdated();
 },
 
 
@@ -708,6 +715,7 @@ if (this._auditRunning === auditRunning)
 return;
 this._auditRunning = auditRunning;
 this._updateButton();
+this._toggleUIComponents(this._auditRunning);
 if (this._auditRunning)
 this._startAudit();
 else
@@ -742,26 +750,35 @@ this._progressIndicator.done();
 delete this._progressIndicator;
 },
 
+
+_toggleUIComponents: function(disable)
+{
+this._selectAllCheckboxElement.disabled = disable;
+this._categoriesElement.disabled = disable;
+this._auditPresentStateElement.disabled = disable;
+this._auditReloadedStateElement.disabled = disable;
+},
+
 _launchButtonClicked: function(event)
 {
 this._setAuditRunning(!this._auditRunning);
 },
 
 
-_selectAllClicked: function(checkCategories)
+_selectAllClicked: function(checkCategories, userGesture)
 {
 var childNodes = this._categoriesElement.childNodes;
 for (var i = 0, length = childNodes.length; i < length; ++i)
 childNodes[i].firstChild.checked = checkCategories;
 this._currentCategoriesCount = checkCategories ? this._sortedCategories.length : 0;
-this._updateButton();
+this._selectedCategoriesUpdated(userGesture);
 },
 
 _categoryClicked: function(event)
 {
 this._currentCategoriesCount += event.target.checked ? 1 : -1;
 this._selectAllCheckboxElement.checked = this._currentCategoriesCount === this._sortedCategories.length;
-this._updateButton();
+this._selectedCategoriesUpdated(true);
 },
 
 
@@ -776,6 +793,7 @@ if (id !== "")
 element.addEventListener("click", this._boundCategoryClickListener, false);
 labelElement.appendChild(element);
 labelElement.appendChild(document.createTextNode(title));
+labelElement.__displayName = title;
 
 return labelElement;
 },
@@ -792,16 +810,16 @@ this._contentElement.appendChild(this._headerElement);
 
 function handleSelectAllClick(event)
 {
-this._selectAllClicked(event.target.checked);
+this._selectAllClicked(event.target.checked, true);
 }
 var categoryElement = this._createCategoryElement(WebInspector.UIString("Select All"), "");
 categoryElement.id = "audit-launcher-selectall";
 this._selectAllCheckboxElement = categoryElement.firstChild;
-this._selectAllCheckboxElement.checked = true;
+this._selectAllCheckboxElement.checked = this._selectedCategoriesSetting.get()[WebInspector.AuditLauncherView.AllCategoriesKey];
 this._selectAllCheckboxElement.addEventListener("click", handleSelectAllClick.bind(this), false);
 this._contentElement.appendChild(categoryElement);
 
-this._categoriesElement = this._contentElement.createChild("div", "audit-categories-container");
+this._categoriesElement = this._contentElement.createChild("fieldset", "audit-categories-container");
 this._currentCategoriesCount = 0;
 
 this._contentElement.createChild("div", "flexible-space");
@@ -817,9 +835,9 @@ this._auditPresentStateLabelElement = document.createTextNode(WebInspector.UIStr
 labelElement.appendChild(this._auditPresentStateLabelElement);
 
 labelElement = this._buttonContainerElement.createChild("label");
-this.auditReloadedStateElement = labelElement.createChild("input");
-this.auditReloadedStateElement.name = "audit-mode";
-this.auditReloadedStateElement.type = "radio";
+this._auditReloadedStateElement = labelElement.createChild("input");
+this._auditReloadedStateElement.name = "audit-mode";
+this._auditReloadedStateElement.type = "radio";
 labelElement.appendChild(document.createTextNode("Reload Page and Audit on Load"));
 
 this._launchButton = this._buttonContainerElement.createChild("button");
@@ -827,13 +845,27 @@ this._launchButton.textContent = WebInspector.UIString("Run");
 this._launchButton.addEventListener("click", this._launchButtonClicked.bind(this), false);
 
 this._selectAllClicked(this._selectAllCheckboxElement.checked);
-this._updateButton();
 },
 
 _updateResourceProgress: function()
 {
 if (this._displayResourceLoadingProgress)
 this._progressIndicator.setTitle(WebInspector.UIString("Loading (%d of %d)", this._loadedResources, this._totalResources));
+},
+
+
+_selectedCategoriesUpdated: function(userGesture)
+{
+
+
+
+var selectedCategories = userGesture ? {} : this._selectedCategoriesSetting.get();
+var childNodes = this._categoriesElement.childNodes;
+for (var i = 0, length = childNodes.length; i < length; ++i)
+selectedCategories[childNodes[i].__displayName] = childNodes[i].firstChild.checked;
+selectedCategories[WebInspector.AuditLauncherView.AllCategoriesKey] = this._selectAllCheckboxElement.checked;
+this._selectedCategoriesSetting.set(selectedCategories);
+this._updateButton();
 },
 
 _updateButton: function()

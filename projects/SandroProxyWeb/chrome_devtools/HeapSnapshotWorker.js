@@ -2824,12 +2824,6 @@ return index;
 }
 }
 
-Array.convert = function(list)
-{
-
-return Array.prototype.slice.call(list);
-}
-
 
 String.sprintf = function(format, var_arg)
 {
@@ -3213,43 +3207,9 @@ _importedScripts[scriptName] = true;
 var xhr = new XMLHttpRequest();
 xhr.open("GET", scriptName, false);
 xhr.send(null);
-window.eval(xhr.responseText + "\n//@ sourceURL=" + scriptName);
+var sourceURL = WebInspector.ParsedURL.completeURL(window.location.href, scriptName); 
+window.eval(xhr.responseText + "\n//@ sourceURL=" + sourceURL);
 }
-
-
-
-function NonLeakingMutationObserver(handler)
-{
-this._observer = new WebKitMutationObserver(handler);
-NonLeakingMutationObserver._instances.push(this);
-if (!window.testRunner && !WebInspector.isUnderTest && !NonLeakingMutationObserver._unloadListener) {
-NonLeakingMutationObserver._unloadListener = function() {
-while (NonLeakingMutationObserver._instances.length)
-NonLeakingMutationObserver._instances[NonLeakingMutationObserver._instances.length - 1].disconnect();
-};
-window.addEventListener("unload", NonLeakingMutationObserver._unloadListener, false);
-}
-}
-
-NonLeakingMutationObserver._instances = [];
-
-NonLeakingMutationObserver.prototype = {
-
-observe: function(element, config)
-{
-if (this._observer)
-this._observer.observe(element, config);
-},
-
-disconnect: function()
-{
-if (this._observer)
-this._observer.disconnect();
-NonLeakingMutationObserver._instances.remove(this);
-delete this._observer;
-}
-}
-
 ;
 
 function postMessageWrapper(message)
