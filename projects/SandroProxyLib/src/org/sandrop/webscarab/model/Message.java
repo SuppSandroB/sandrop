@@ -188,6 +188,17 @@ public class Message {
                 }
             }
         }
+        if (contentFileName.length() > 0){
+            try {
+                File file = new File(contentFileName);
+                FileInputStream fis = new FileInputStream(file);
+                int fileSize = (int) fis.getChannel().size();
+                fis.close();
+                return fileSize ;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         return 0;
     }
     
