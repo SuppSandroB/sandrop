@@ -4985,7 +4985,7 @@ InspectorBackend.registerCommand("Page.navigate", [{"name": "url", "type": "stri
 InspectorBackend.registerCommand("Page.getCookies", [], ["cookies", "cookiesString"]);
 InspectorBackend.registerCommand("Page.deleteCookie", [{"name": "cookieName", "type": "string", "optional": false}, {"name": "domain", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Page.getResourceTree", [], ["frameTree"]);
-InspectorBackend.registerCommand("Page.getResourceContent", [{"name": "frameId", "type": "string", "optional": false}, {"name": "url", "type": "string", "optional": false}], ["content", "base64Encoded"]);
+InspectorBackend.registerCommand("Page.getResourceContent", [{"name": "frameId", "type": "string", "optional": false}, {"name": "url", "type": "string", "optional": false}, {"name": "resourceId", "type": "string", "optional": true}], ["content", "base64Encoded"]);
 InspectorBackend.registerCommand("Page.searchInResource", [{"name": "frameId", "type": "string", "optional": false}, {"name": "url", "type": "string", "optional": false}, {"name": "query", "type": "string", "optional": false}, {"name": "caseSensitive", "type": "boolean", "optional": true}, {"name": "isRegex", "type": "boolean", "optional": true}], ["result"]);
 InspectorBackend.registerCommand("Page.searchInResources", [{"name": "text", "type": "string", "optional": false}, {"name": "caseSensitive", "type": "boolean", "optional": true}, {"name": "isRegex", "type": "boolean", "optional": true}], ["result"]);
 InspectorBackend.registerCommand("Page.setDocumentContent", [{"name": "frameId", "type": "string", "optional": false}, {"name": "html", "type": "string", "optional": false}], []);
@@ -12819,7 +12819,7 @@ this.lineContent = lineContent;
 
 
 
-WebInspector.Resource = function(request, url, documentURL, frameId, loaderId, type, mimeType, isHidden)
+WebInspector.Resource = function(request, url, documentURL, frameId, loaderId, type, mimeType, isHidden, resourceId)
 {
 this._request = request;
 this.url = url;
@@ -12829,6 +12829,7 @@ this._loaderId = loaderId;
 this._type = type || WebInspector.resourceTypes.Other;
 this._mimeType = mimeType;
 this._isHidden = isHidden;
+this._resourceId = resourceId;
 
 this._content;
 this._contentEncoded;
@@ -12882,6 +12883,12 @@ return this._frameId;
 get loaderId()
 {
 return this._loaderId;
+},
+
+
+get resourceId()
+{
+return this._resourceId;
 },
 
 
@@ -13065,7 +13072,7 @@ contentLoaded.call(this, content, contentEncoded);
 this.request.requestContent(requestContentLoaded.bind(this));
 return;
 }
-PageAgent.getResourceContent(this.frameId, this.url, resourceContentLoaded.bind(this));
+PageAgent.getResourceContent(this.frameId, this.url, this.resourceId, resourceContentLoaded.bind(this));
 },
 
 
@@ -16438,7 +16445,7 @@ var framePayload = frameTreePayload.frame;
 var frame = new WebInspector.ResourceTreeFrame(this, parentFrame, framePayload);
 this._addFrame(frame);
 
-var frameResource = this._createResourceFromFramePayload(framePayload, framePayload.url, WebInspector.resourceTypes.Document, framePayload.mimeType);
+var frameResource = this._createResourceFromFramePayload(framePayload, framePayload.url, WebInspector.resourceTypes.Document, framePayload.mimeType, framePayload.id);
 if (frame.isMainFrame())
 WebInspector.inspectedPageURL = frameResource.url;
 frame.addResource(frameResource);
@@ -16448,15 +16455,15 @@ this._addFramesRecursively(frame, frameTreePayload.childFrames[i]);
 
 for (var i = 0; i < frameTreePayload.resources.length; ++i) {
 var subresource = frameTreePayload.resources[i];
-var resource = this._createResourceFromFramePayload(framePayload, subresource.url, WebInspector.resourceTypes[subresource.type], subresource.mimeType);
+var resource = this._createResourceFromFramePayload(framePayload, subresource.url, WebInspector.resourceTypes[subresource.type], subresource.mimeType, subresource.resourceId);
 frame.addResource(resource);
 }
 },
 
 
-_createResourceFromFramePayload: function(frame, url, type, mimeType)
+_createResourceFromFramePayload: function(frame, url, type, mimeType, resourceId)
 {
-return new WebInspector.Resource(null, url, frame.url, frame.id, frame.loaderId, type, mimeType);
+return new WebInspector.Resource(null, url, frame.url, frame.id, frame.loaderId, type, mimeType, null, resourceId);
 },
 
 __proto__: WebInspector.Object.prototype
