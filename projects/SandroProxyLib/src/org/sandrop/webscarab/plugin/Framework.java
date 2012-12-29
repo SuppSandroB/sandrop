@@ -452,6 +452,11 @@ public class Framework {
         return _model.updateConversation(conversationId, when, null, response);
     }
     
+    public long failedResponse(long conversationId, Date when, Request request, Response response){
+        if (!canStore(request)) return -1;
+        return _model.updateConversation(conversationId, when, null, null);
+    }
+    
     /*
     public long updateConversation(long conversationId, Date when, Request request, Response response) {
         if (!canStore(request)) return -1;

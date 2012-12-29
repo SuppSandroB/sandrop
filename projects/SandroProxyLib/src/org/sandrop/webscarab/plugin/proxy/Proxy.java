@@ -625,8 +625,7 @@ public class Proxy implements Plugin {
      *            the conversation ID
      */
     protected void failedResponse(Request request, Response response, long id, String reason) {
-        // TODO sandrop mark conversation status as aborted
-        _framework.gotResponse(id, new Date(System.currentTimeMillis()), request, response);
+        _framework.failedResponse(id, new Date(System.currentTimeMillis()), request, response);
     }
 
     private void parseListenerConfig() {
