@@ -418,8 +418,8 @@ public class Proxy implements Plugin {
      * @return the conversation ID
      */
     protected long gotRequest(Request request, String from) {
-        long id = _framework.createConversation(new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , from);
-        _framework.updateConversation(id, new Date(System.currentTimeMillis()), request, null);
+        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , from);
+        _framework.gotRequest(id, new Date(System.currentTimeMillis()), request);
         return id;
     }
 
@@ -433,8 +433,9 @@ public class Proxy implements Plugin {
      * @param response
      *            the Response
      */
-    protected void gotResponse(long id, Response response) {
-        _framework.updateConversation(id, new Date(System.currentTimeMillis()), null, response);
+    protected void gotResponse(long id, Request request, Response response) {
+        _framework.gotResponse(id, new Date(System.currentTimeMillis()), request, response);
+        _framework.cleanConversation(request, response);
     }
 
     protected SSLSocketFactory getSocketFactory(String host) {
@@ -623,9 +624,9 @@ public class Proxy implements Plugin {
      * @param id
      *            the conversation ID
      */
-    protected void failedResponse(long id, String reason) {
+    protected void failedResponse(Request request, Response response, long id, String reason) {
         // TODO sandrop mark conversation status as aborted
-        _framework.updateConversation(id, new Date(System.currentTimeMillis()), null, null);
+        _framework.gotResponse(id, new Date(System.currentTimeMillis()), request, response);
     }
 
     private void parseListenerConfig() {

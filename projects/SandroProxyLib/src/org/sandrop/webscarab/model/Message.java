@@ -214,6 +214,15 @@ public class Message {
         return contentFileName;
     }
     
+    public void clean(){
+        if (contentFileName.length() > 0){
+            File file = new File(contentFileName);
+            if (file.exists() && file.canWrite()){
+                file.delete();
+            }
+        }
+    }
+    
     private boolean createRandomFileName() {
         String rootDirName = Preferences.getPreference(PreferenceUtils.dataStorageKey, null);
         String tempDirName = null;

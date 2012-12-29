@@ -418,12 +418,59 @@ public class Framework {
         return _model.reserveConversationID();
     }
     
-    public long createConversation(Date when, int type, String clientAddress) {
+    private boolean canStore(Request request){
+        //Do we have whitelisting? If so, check if it matches
+        if (request == null) {
+            return false;
+        }
+        if(whitelistPattern != null && !whitelistPattern.matcher(request.getURL().toString()).matches())
+        {
+            _logger.finest("storage skipped. Url not in whitelist");
+            return false;
+        }
+        // Also, check blacklist - drop pattern
+        
+        if (dropPattern != null && dropPattern.matcher(request.getURL().toString()).matches()) {
+            _logger.finest("storage skipped. Url is in blacklist");
+            return false;
+        }
+        return true;
+    }
+    
+    public long createConversation(Request request, Date when, int type, String clientAddress) {
+        if (!canStore(request)) return -1;
         return _model.createNewConversation(when, type, clientAddress);
     }
     
+    public long gotRequest(long conversationId, Date when, Request request){
+        if (!canStore(request)) return -1;
+        return _model.updateConversation(conversationId, when, request, null);
+    }
+    
+    public long gotResponse(long conversationId, Date when, Request request, Response response){
+        if (!canStore(request)) return -1;
+        return _model.updateConversation(conversationId, when, null, response);
+    }
+    
+    /*
     public long updateConversation(long conversationId, Date when, Request request, Response response) {
+        if (!canStore(request)) return -1;
         return _model.updateConversation(conversationId, when, request, response);
+    }
+    */
+    
+    
+    public void cleanConversation(Request request, Response response){
+        // Do we have whitelisting? If so, check if it matches
+        if (!canStore(request)){
+            // clean is needed because there can be some temp files for request/response big content
+            if (request != null){
+                request.clean();
+            }
+            if (response != null){
+               response.clean();
+            }
+        }
     }
     
     public void addConversation(ConversationID id, Request request, Response response, String origin) {
