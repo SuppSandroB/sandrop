@@ -803,5 +803,12 @@ public class FileSystemStore implements SiteModelStore {
         // TODO Auto-generated method stub
         return 0;
     }
+
+    @Override
+    public long updateFailedConversation(long conversationId, Date when,
+            String reason) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
     
 }

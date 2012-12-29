@@ -186,6 +186,10 @@ public class FrameworkModel {
         return _store.updateConversation(conversationId, when, request, response);
     }
     
+    public long updateFailedConversation(long conversationId, Date when, String reason){
+        return _store.updateFailedConversation(conversationId, when, reason);
+    }
+    
     /**
      * adds a request and a response to the model, also specifying which plugin caused
      * it.
