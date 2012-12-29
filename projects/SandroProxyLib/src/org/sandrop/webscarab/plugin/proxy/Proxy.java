@@ -625,7 +625,7 @@ public class Proxy implements Plugin {
      *            the conversation ID
      */
     protected void failedResponse(Request request, Response response, long id, String reason) {
-        _framework.failedResponse(id, new Date(System.currentTimeMillis()), request, response);
+        _framework.failedResponse(id, new Date(System.currentTimeMillis()), request, response, reason);
     }
 
     private void parseListenerConfig() {

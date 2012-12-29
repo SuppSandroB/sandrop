@@ -45,9 +45,9 @@ public interface SiteModelStore {
     long createNewConversation(Date when, int type, String clientAddress);
     
 
-    long updateConversation(long  conversationId, Date when, Request request, Response response); 
+    long updateConversation(long  conversationId, Date when, Request request, Response response);
     
-    
+    long updateFailedConversation(long  conversationId, Date when, String reason); 
     
     /**
      * adds a new conversation
