@@ -231,7 +231,7 @@ public class ConnectionHandler implements Runnable {
                 if (request == null)
                     throw new IOException("Request was cancelled");
                 if (response != null) {
-                    _proxy.failedResponse(conversationId, "Response provided by script");
+                    _proxy.failedResponse(request, response, conversationId, "Response provided by script");
                     _proxy = null;
                 } else {
 
@@ -249,12 +249,12 @@ public class ConnectionHandler implements Runnable {
                         response = errorResponse(request, ioe);
                         // prevent the conversation from being
                         // submitted/recorded
-                        _proxy.failedResponse(conversationId, ioe.toString());
+                        _proxy.failedResponse(request, response, conversationId, ioe.toString());
                         _proxy = null;
                     }
                     if (response == null) {
                         _logger.severe("Got a null response from the fetcher");
-                        _proxy.failedResponse(conversationId, "Null response");
+                        _proxy.failedResponse(request, response, conversationId, "Null response");
                         return;
                     }
                 }
@@ -274,8 +274,7 @@ public class ConnectionHandler implements Runnable {
                     if (_clientOut != null) {
                         _logger.fine("Writing the response to the browser");
                         response.write(_clientOut);
-                        _logger
-                                .fine("Finished writing the response to the browser");
+                        _logger.fine("Finished writing the response to the browser");
                     }
                 } catch (IOException ioe) {
                     _logger
@@ -292,7 +291,7 @@ public class ConnectionHandler implements Runnable {
                     response.setRequest(request);
                 }
                 if (_proxy != null && !request.getMethod().equals("CONNECT")) {
-                    _proxy.gotResponse(conversationId, response);
+                    _proxy.gotResponse(conversationId, request, response);
                 }
 
                 keepAlive = response.getHeader("Connection");
@@ -309,7 +308,7 @@ public class ConnectionHandler implements Runnable {
             _logger.fine("Finished handling connection");
         } catch (Exception e) {
             if (conversationId != -1)
-                _proxy.failedResponse(conversationId, e.getMessage());
+                _proxy.failedResponse(null, null, conversationId, e.getMessage());
             _logger.severe("ConnectionHandler got an error : " + e);
             e.printStackTrace();
         } finally {
