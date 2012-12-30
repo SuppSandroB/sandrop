@@ -1826,7 +1826,7 @@ this._requests.push(request);
 
 
 
-if (this._requestsById[request.requestId]) {
+if (request.redirects && this._requestsById[request.requestId]) {
 var oldRequest = request.redirects[request.redirects.length - 1];
 this._requestsById[oldRequest.requestId] = oldRequest;
 
