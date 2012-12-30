@@ -47,7 +47,7 @@ public interface ConversationModel {
     
     int getIndexOfConversation(ConversationID id);
     
-    Sync readLock();
+    // Sync readLock();
     
     String getConversationOrigin(ConversationID id);
     

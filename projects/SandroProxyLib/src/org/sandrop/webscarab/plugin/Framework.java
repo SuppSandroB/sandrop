@@ -117,10 +117,7 @@ public class Framework {
         }
 
         configureHTTPClient(mContext);
-
-        // setting when to switch to files instead of memory buffers
-        Message.setLargeContentSize(Preferences.getPreference(PreferenceUtils.dataLargeSize, "1000000"));
-
+        
         String dropRegex = Preferences.getPreference(PreferenceUtils.dataCaptureBlackListRegEx, null);
         try {
             setDropPattern(dropRegex);
