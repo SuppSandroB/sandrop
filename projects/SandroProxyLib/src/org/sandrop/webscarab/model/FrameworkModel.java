@@ -55,7 +55,7 @@ import java.io.File;
  */
 public class FrameworkModel {
     
-    private ReentrantReaderPreferenceReadWriteLock _rwl = new ReentrantReaderPreferenceReadWriteLock();
+    // private ReentrantReaderPreferenceReadWriteLock _rwl = new ReentrantReaderPreferenceReadWriteLock();
     
     private static final Cookie[] NO_COOKIES = new Cookie[0];
     
@@ -98,7 +98,7 @@ public class FrameworkModel {
     
     public void setSession(String type, Object store, String session) throws StoreException {
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             if (type.equals("FileSystem") && store instanceof File) {
                 try {
                     _store = new FileSystemStore((File) store);
@@ -108,16 +108,16 @@ public class FrameworkModel {
             }else if (type.equals("Database")){
                 _store = (SiteModelStore)store;
             } else {
-                _rwl.writeLock().release();
+                //_rwl.writeLock().release();
                 throw new StoreException("Unknown store type " + type + " and store " + store);
             }
-            _rwl.readLock().acquire(); // downgrade
-            _rwl.writeLock().release();
+            //_rwl.readLock().acquire(); // downgrade
+            //_rwl.writeLock().release();
             _urlModel.fireUrlsChanged();
             _conversationModel.fireConversationsChanged();
             fireCookiesChanged();
-            _rwl.readLock().release();
-        } catch (InterruptedException ie) {
+            //_rwl.readLock().release();
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
         
@@ -127,9 +127,9 @@ public class FrameworkModel {
         return _store != null;
     }
     
-    public Sync readLock() {
-        return _rwl.readLock();
-    }
+//    public Sync readLock() {
+//        return //_rwl.readLock();
+//    }
     
     public UrlModel getUrlModel() {
         return _urlModel;
@@ -147,12 +147,12 @@ public class FrameworkModel {
     public void flush() throws StoreException {
         if (_modified) {
             try {
-                _rwl.readLock().acquire();
+                //_rwl.readLock().acquire();
                 try {
                     _store.flush();
                     _modified = false;
                 } finally {
-                    _rwl.readLock().release();
+                    //_rwl.readLock().release();
                 }
             } catch (Exception ie) {
                 _logger.severe("Error flushing store " + ie);
@@ -203,7 +203,7 @@ public class FrameworkModel {
             if (_store != null){
                 HttpUrl url = request.getURL();
                 addUrl(url); // fires appropriate events
-                _rwl.writeLock().acquire();
+                //_rwl.writeLock().acquire();
                 int index = _store.addConversation(id, when, request, response);
                 _store.setConversationProperty(id, "METHOD", request.getMethod());
                 _store.setConversationProperty(id, "URL", request.getURL().toString());
@@ -212,10 +212,10 @@ public class FrameworkModel {
                 _store.setConversationProperty(id, "ORIGIN", origin);
                 if (response.getContentSize() > 0)
                     _store.setConversationProperty(id, "RESPONSE_SIZE", Integer.toString(response.getContentSize()));
-                _rwl.readLock().acquire();
-                _rwl.writeLock().release();
+                //_rwl.readLock().acquire();
+                //_rwl.writeLock().release();
                 _conversationModel.fireConversationAdded(id, index); // FIXME
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
                 addUrlProperty(url, "METHODS", request.getMethod());
                 addUrlProperty(url, "STATUS", response.getStatusLine());
             }
@@ -231,7 +231,7 @@ public class FrameworkModel {
     
     public Date getConversationDate(ConversationID id) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 String when = getConversationProperty(id, "WHEN");
                 if (when == null) return null;
@@ -243,9 +243,9 @@ public class FrameworkModel {
                     return null;
                 }
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -259,7 +259,7 @@ public class FrameworkModel {
     
     public HttpUrl getRequestUrl(ConversationID conversation) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 // this allows us to reuse HttpUrl objects
                 if (_urlCache.containsKey(conversation))
@@ -275,9 +275,9 @@ public class FrameworkModel {
                     return null;
                 }
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -291,14 +291,14 @@ public class FrameworkModel {
      */
     public void setConversationProperty(ConversationID conversation, String property, String value) {
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             _store.setConversationProperty(conversation, property, value);
-            _rwl.readLock().acquire(); // downgrade
-            _rwl.writeLock().release();
+            //_rwl.readLock().acquire(); // downgrade
+            //_rwl.writeLock().release();
             _conversationModel.fireConversationChanged(conversation, 0); // FIXME
             fireConversationPropertyChanged(conversation, property);
-            _rwl.readLock().release();
-        } catch (InterruptedException ie) {
+            //_rwl.readLock().release();
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
         _modified = true;
@@ -313,16 +313,16 @@ public class FrameworkModel {
     public boolean addConversationProperty(ConversationID conversation, String property, String value) {
         boolean change = false;
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             change = _store.addConversationProperty(conversation, property, value);
-            _rwl.readLock().acquire(); // downgrade to read lock
-            _rwl.writeLock().release();
+            //_rwl.readLock().acquire(); // downgrade to read lock
+            //_rwl.writeLock().release();
             if (change) {
                 _conversationModel.fireConversationChanged(conversation, 0); // FIXME
                 fireConversationPropertyChanged(conversation, property);
             }
-            _rwl.readLock().release();
-        } catch (InterruptedException ie) {
+            //_rwl.readLock().release();
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
         _modified = _modified || change;
@@ -360,13 +360,13 @@ public class FrameworkModel {
      */
     public String[] getConversationProperties(ConversationID conversation, String property) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getConversationProperties(conversation, property);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -374,13 +374,13 @@ public class FrameworkModel {
     
     private void addUrl(HttpUrl url) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 if (_store != null && !_store.isKnownUrl(url)) {
                     HttpUrl[] path = url.getUrlHierarchy();
                     for (int i=0; i<path.length; i++) {
                         if (!_store.isKnownUrl(path[i])) {
-                            _rwl.readLock().release(); // must give it up before writing
+                            // _rwl.readLock().release(); // must give it up before writing
                             // XXX We could be vulnerable to a race condition here
                             // we should check again to make sure that it does not exist
                             // AFTER we get our writelock
@@ -390,27 +390,27 @@ public class FrameworkModel {
                             // but there does not seem to be anything competing for the lock.
                             // This works, but it feels like a kluge! FIXME!!!
                             // _rwl.writeLock().acquire();
-                            while (!_rwl.writeLock().attempt(5000)) {
-                                _logger.severe("Timed out waiting for write lock, trying again");
-                                _rwl.debug();
-                            }
+//                            while (!_rwl.writeLock().attempt(5000)) {
+//                                _logger.severe("Timed out waiting for write lock, trying again");
+//                                _rwl.debug();
+//                            }
                             if (!_store.isKnownUrl(path[i])) {
                                 _store.addUrl(path[i]);
-                                _rwl.readLock().acquire(); // downgrade without giving up lock
-                                _rwl.writeLock().release();
+                                //_rwl.readLock().acquire(); // downgrade without giving up lock
+                                //_rwl.writeLock().release();
                                 _urlModel.fireUrlAdded(path[i], 0); // FIXME
                                 _modified = true;
                             } else { // modified by some other thread?! Go through the motions . . .
-                                _rwl.readLock().acquire();
-                                _rwl.writeLock().release();
+                                //_rwl.readLock().acquire();
+                                //_rwl.writeLock().release();
                             }
                         }
                     }
                 }
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
     }
@@ -424,14 +424,14 @@ public class FrameworkModel {
     public void setUrlProperty(HttpUrl url, String property, String value) {
         addUrl(url);
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             _store.setUrlProperty(url, property, value);
-            _rwl.readLock().acquire(); // downgrade write to read
-            _rwl.writeLock().release();
+            //_rwl.readLock().acquire(); // downgrade write to read
+            //_rwl.writeLock().release();
             _urlModel.fireUrlChanged(url, 0); // FIXME
             fireUrlPropertyChanged(url, property);
-            _rwl.readLock().release();
-        } catch (InterruptedException ie) {
+            //_rwl.readLock().release();
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
         _modified = true;
@@ -447,16 +447,16 @@ public class FrameworkModel {
         boolean change = false;
         addUrl(url);
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             change = _store.addUrlProperty(url, property, value);
-            _rwl.readLock().acquire();
-            _rwl.writeLock().release();
+            //_rwl.readLock().acquire();
+            //_rwl.writeLock().release();
             if (change) {
                 _urlModel.fireUrlChanged(url, 0);
                 fireUrlPropertyChanged(url, property);
             }
-            _rwl.readLock().release();
-        } catch (InterruptedException ie) {
+            //_rwl.readLock().release();
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
         _modified = _modified || change;
@@ -471,13 +471,13 @@ public class FrameworkModel {
      */
     public String[] getUrlProperties(HttpUrl url, String property) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getUrlProperties(url, property);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -506,13 +506,13 @@ public class FrameworkModel {
      */
     public Request getRequest(ConversationID conversation) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getRequest(conversation);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -525,13 +525,13 @@ public class FrameworkModel {
      */
     public Response getResponse(ConversationID conversation) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getResponse(conversation);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -565,13 +565,13 @@ public class FrameworkModel {
     public int getCookieCount() {
         if (_store == null) return 0;
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getCookieCount();
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return 0;
         }
@@ -584,13 +584,13 @@ public class FrameworkModel {
      */
     public int getCookieCount(String key) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getCookieCount(key);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return 0;
         }
@@ -603,13 +603,13 @@ public class FrameworkModel {
      */
     public String getCookieAt(int index) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getCookieAt(index);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -623,13 +623,13 @@ public class FrameworkModel {
      */
     public Cookie getCookieAt(String key, int index) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getCookieAt(key, index);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -643,13 +643,13 @@ public class FrameworkModel {
      */
     public int getIndexOfCookie(Cookie cookie) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getIndexOfCookie(cookie);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return 0;
         }
@@ -663,13 +663,13 @@ public class FrameworkModel {
      */
     public int getIndexOfCookie(String key, Cookie cookie) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 return _store.getIndexOfCookie(key, cookie);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return 0;
         }
@@ -677,14 +677,14 @@ public class FrameworkModel {
     
     public Cookie getCurrentCookie(String key) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 int count = _store.getCookieCount(key);
                 return _store.getCookieAt(key, count-1);
             } finally {
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return null;
         }
@@ -696,18 +696,18 @@ public class FrameworkModel {
      */
     public void addCookie(Cookie cookie) {
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             boolean added = _store.addCookie(cookie);
             if (! added) { // we already had the cookie
-                _rwl.writeLock().release();
+                //_rwl.writeLock().release();
             } else {
                 _modified = true;
-                _rwl.readLock().acquire();
-                _rwl.writeLock().release();
+                //_rwl.readLock().acquire();
+                //_rwl.writeLock().release();
                 fireCookieAdded(cookie);
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
     }
@@ -718,18 +718,18 @@ public class FrameworkModel {
      */
     public void removeCookie(Cookie cookie) {
         try {
-            _rwl.writeLock().acquire();
+            //_rwl.writeLock().acquire();
             boolean deleted = _store.removeCookie(cookie);
             if (deleted) {
                 _modified = true;
-                _rwl.readLock().acquire();
-                _rwl.writeLock().release();
+                //_rwl.readLock().acquire();
+                //_rwl.writeLock().release();
                 fireCookieRemoved(cookie);
-                _rwl.readLock().release();
+                //_rwl.readLock().release();
             } else {
-                _rwl.writeLock().release();
+                //_rwl.writeLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
         }
     }
@@ -741,7 +741,7 @@ public class FrameworkModel {
      */
     public Cookie[] getCookiesForUrl(HttpUrl url) {
         try {
-            _rwl.readLock().acquire();
+            //_rwl.readLock().acquire();
             try {
                 List<Cookie> cookies = new ArrayList<Cookie>();
                 
@@ -761,9 +761,9 @@ public class FrameworkModel {
                 }
                 return cookies.toArray(NO_COOKIES);
             } finally {
-                _rwl.readLock().release();
+                // _rwl.readLock().release();
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.severe("Interrupted! " + ie);
             return NO_COOKIES;
         }
@@ -874,20 +874,20 @@ public class FrameworkModel {
     
     private class FrameworkUrlModel extends AbstractUrlModel {
         
-        public Sync readLock() {
-            return _rwl.readLock();
-        }
+//        public Sync readLock() {
+//            return _rwl.readLock();
+//        }
         
         public int getChildCount(HttpUrl parent) {
             if (_store == null) return 0;
             try {
-                readLock().acquire();
+                // readLock().acquire();
                 try {
                     return _store.getChildCount(parent);
                 } finally {
-                    readLock().release();
+                    //readLock().release();
                 }
-            } catch (InterruptedException ie) {
+            } catch (Exception ie) {
                 _logger.severe("Interrupted! " + ie);
                 return 0;
             }
@@ -895,13 +895,13 @@ public class FrameworkModel {
         
         public int getIndexOf(HttpUrl url) {
             try {
-                readLock().acquire();
+                //readLock().acquire();
                 try {
                     return _store.getIndexOf(url);
                 } finally {
-                    readLock().release();
+                    //readLock().release();
                 }
-            } catch (InterruptedException ie) {
+            } catch (Exception ie) {
                 _logger.severe("Interrupted! " + ie);
                 return -1;
             }
@@ -909,13 +909,13 @@ public class FrameworkModel {
         
         public HttpUrl getChildAt(HttpUrl parent, int index) {
             try {
-                readLock().acquire();
+                //readLock().acquire();
                 try {
                     return _store.getChildAt(parent, index);
                 } finally {
-                    readLock().release();
+                    //readLock().release();
                 }
-            } catch (InterruptedException ie) {
+            } catch (Exception ie) {
                 _logger.severe("Interrupted! " + ie);
                 return null;
             }
@@ -929,19 +929,19 @@ public class FrameworkModel {
             super(model);
         }
         
-        public Sync readLock() {
-            return _rwl.readLock();
-        }
+//        public Sync readLock() {
+//            return _rwl.readLock();
+//        }
         
         public ConversationID getConversationAt(int index) {
             try {
-                readLock().acquire();
+                //readLock().acquire();
                 try {
                     return _store.getConversationAt(null, index);
                 } finally {
-                    readLock().release();
+                    //readLock().release();
                 }
-            } catch (InterruptedException ie) {
+            } catch (Exception ie) {
                 _logger.severe("Interrupted! " + ie);
                 return null;
             }
@@ -950,13 +950,13 @@ public class FrameworkModel {
         public int getConversationCount() {
             if (_store == null) return 0;
             try {
-                readLock().acquire();
+                //readLock().acquire();
                 try {
                     return _store.getConversationCount(null);
                 } finally {
-                    readLock().release();
+                    //readLock().release();
                 }
-            } catch (InterruptedException ie) {
+            } catch (Exception ie) {
                 _logger.severe("Interrupted! " + ie);
                 return 0;
             }
@@ -964,18 +964,17 @@ public class FrameworkModel {
         
         public int getIndexOfConversation(ConversationID id) {
             try {
-                readLock().acquire();
+                //readLock().acquire();
                 try {
                     return _store.getIndexOfConversation(null, id);
                 } finally {
-                    readLock().release();
+                    //readLock().release();
                 }
-            } catch (InterruptedException ie) {
+            } catch (Exception ie) {
                 _logger.severe("Interrupted! " + ie);
                 return 0;
             }
         }
-        
     }
     
 }

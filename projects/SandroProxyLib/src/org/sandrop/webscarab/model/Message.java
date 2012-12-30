@@ -71,7 +71,7 @@ public class Message {
     
     private static final byte[] NO_CONTENT = new byte[0];
     private static final byte[] CONTENT_TOO_BIG = "Content to big to parse".getBytes();
-    public static int LARGE_CONTENT_SIZE = 100000;
+    public static int LARGE_CONTENT_SIZE = 1000000;
     
     InputStream _contentStream = null;
     OutputStream _content = null;
@@ -97,6 +97,10 @@ public class Message {
         }catch(Exception ex){
             ex.printStackTrace();
         }
+    }
+    
+    public static long getLargeContentSize(String size){
+        return LARGE_CONTENT_SIZE;
     }
     
     /**

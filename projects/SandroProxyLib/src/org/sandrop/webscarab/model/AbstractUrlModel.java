@@ -58,7 +58,7 @@ public abstract class AbstractUrlModel implements UrlModel {
     
     public abstract HttpUrl getChildAt(HttpUrl parent, int index);
     
-    public abstract Sync readLock();
+    // public abstract Sync readLock();
     
     public void addUrlListener(UrlListener listener) {
         synchronized(_listenerList) {

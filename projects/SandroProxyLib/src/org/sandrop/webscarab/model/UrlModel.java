@@ -46,7 +46,7 @@ public interface UrlModel {
     
     int getIndexOf(HttpUrl url);
     
-    Sync readLock();
+    // Sync readLock();
     
     void addUrlListener(UrlListener listener);
     

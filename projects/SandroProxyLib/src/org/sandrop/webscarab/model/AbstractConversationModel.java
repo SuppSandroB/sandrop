@@ -62,7 +62,7 @@ public abstract class AbstractConversationModel implements ConversationModel {
     
     public abstract int getIndexOfConversation(ConversationID id);
     
-    public abstract Sync readLock();
+    // public abstract Sync readLock();
     
     public String getConversationOrigin(ConversationID id) {
         return _model.getConversationOrigin(id);

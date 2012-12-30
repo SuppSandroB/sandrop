@@ -106,12 +106,12 @@ public class SpiderModel extends AbstractPluginModel {
     public void queueLink(Link link) {
         // _logger.info("Queueing " + link);
         try {
-            _model.readLock().acquire();
+            //_model.readLock().acquire();
             _linkQueue.add(link);
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.warning("Interrupted waiting for the read lock! " + ie.getMessage());
         } finally {
-            _model.readLock().release();
+            //_model.readLock().release();
         }
         // _logger.info("Done queuing " + link);
     }
@@ -120,7 +120,7 @@ public class SpiderModel extends AbstractPluginModel {
         // _logger.info("Dequeueing a link");
         Link link = null;
         try {
-            _model.readLock().acquire();
+            //_model.readLock().acquire();
             if (_linkQueue.size() > 0) 
                 link = _linkQueue.remove(0);
             if (_linkQueue.size() == 0) {
@@ -128,10 +128,10 @@ public class SpiderModel extends AbstractPluginModel {
             } else {
                 setStatus(_linkQueue.size() + " links remaining");
             }
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.warning("Interrupted waiting for the read lock! " + ie.getMessage());
         } finally {
-            _model.readLock().release();
+            //_model.readLock().release();
             // _logger.info("Done dequeuing a link " + link);
         }
         return link;
@@ -139,23 +139,23 @@ public class SpiderModel extends AbstractPluginModel {
     
     public void clearLinkQueue() {
         try {
-            _model.readLock().acquire();
+            //_model.readLock().acquire();
             _linkQueue.clear();
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.warning("Interrupted waiting for the read lock! " + ie.getMessage());
         } finally {
-            _model.readLock().release();
+            //_model.readLock().release();
         }
     }
     
     public int getQueuedLinkCount() {
         try {
-            _model.readLock().acquire();
+            //_model.readLock().acquire();
             return _linkQueue.size();
-        } catch (InterruptedException ie) {
+        } catch (Exception ie) {
             _logger.warning("Interrupted waiting for the read lock! " + ie.getMessage());
         } finally {
-            _model.readLock().release();
+            //_model.readLock().release();
         }
         return 0;
     }
