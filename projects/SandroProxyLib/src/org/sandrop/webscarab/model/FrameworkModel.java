@@ -182,12 +182,16 @@ public class FrameworkModel {
         return _store.createNewConversation(when, type, clientAddress);
     }
     
-    public long updateConversation(long conversationId, Date when, Request request, Response response){
-        return _store.updateConversation(conversationId, when, request, response);
+    public long updateGotRequestConversation(long conversationId, Date when, Request request){
+        return _store.updateGotRequestConversation(conversationId, when, request);
     }
     
-    public long updateFailedConversation(long conversationId, Date when, String reason){
-        return _store.updateFailedConversation(conversationId, when, reason);
+    public long updateGotResponseConversation(long conversationId, Date when, Request request, Response response){
+        return _store.updateGotResponseConversation(conversationId, when, request, response);
+    }
+    
+    public long updateFailedConversation(long conversationId, Date when,  Request request, String reason){
+        return _store.updateFailedConversation(conversationId, when, request, reason);
     }
     
     /**

@@ -433,8 +433,8 @@ public class Proxy implements Plugin {
      * @param response
      *            the Response
      */
-    protected void gotResponse(long id, Request request, Response response) {
-        _framework.gotResponse(id, new Date(System.currentTimeMillis()), request, response);
+    protected void gotResponse(long id, Request request, Response response, boolean dataModified) {
+        _framework.gotResponse(id, new Date(System.currentTimeMillis()), request, response, dataModified);
         _framework.cleanConversation(request, response);
     }
 
@@ -624,8 +624,9 @@ public class Proxy implements Plugin {
      * @param id
      *            the conversation ID
      */
-    protected void failedResponse(Request request, Response response, long id, String reason) {
-        _framework.failedResponse(id, new Date(System.currentTimeMillis()), request, response, reason);
+    protected void failedResponse(Request request, Response response, long id, String reason, boolean dataModified) {
+        _framework.failedResponse(id, new Date(System.currentTimeMillis()), request, response, reason, dataModified);
+        _framework.cleanConversation(request, response);
     }
 
     private void parseListenerConfig() {

@@ -36,7 +36,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.io.IOException;
@@ -71,6 +70,11 @@ public class Message {
     
     private static final byte[] NO_CONTENT = new byte[0];
     private static final byte[] CONTENT_TOO_BIG = "Content to big to parse".getBytes();
+    
+    private static boolean LOGD = true;
+    private static String TAG = Message.class.getName();
+    
+    
     public static int LARGE_CONTENT_SIZE = 1000000;
     
     InputStream _contentStream = null;
@@ -301,7 +305,7 @@ public class Message {
             {
                 fs.write(buffer, 0, bytesRead);
             }
-            Log.d("STORE FILE", " byte buffer storing content to file " + file.getAbsolutePath());
+            if (LOGD) Log.d(TAG, " byte buffer storing content to file " + file.getAbsolutePath());
             fs.flush();
             fs.close();
             contentFileName = file.getAbsolutePath();
@@ -310,13 +314,15 @@ public class Message {
             if (contentFileName.length() > 0 && !file.getAbsolutePath().equalsIgnoreCase(contentFileName)){
                 File fs = new File(contentFileName);
                 if (fs.exists()){
+                    String absolutePath = file.getAbsolutePath();
+                    if (LOGD) Log.d(TAG, " start rename file storing content to file " + absolutePath);
                     fs.renameTo(file);
-                    Log.d("STORE FILE", " rename file storing content to file " + file.getAbsolutePath());
-                    contentFileName = file.getAbsolutePath();
+                    if (LOGD) Log.d(TAG, " end rename file storing content to file " + absolutePath);
+                    contentFileName = absolutePath;
                    return true;
                 }else{
                     // throw new IOException("cleanContentInputStream: file " + contentFileName + " not exist");
-                    Log.d("STORE FILE", "empty file storing content to file " + file.getAbsolutePath());
+                    if (LOGD) Log.d(TAG, "empty file storing content to file " + file.getAbsolutePath());
                     return false;
                 }
             }

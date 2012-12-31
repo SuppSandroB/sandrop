@@ -102,6 +102,7 @@ public class ConnectionHandler implements Runnable {
             return;
         }
         long conversationId = -1;
+        boolean httpDataModified = false;
         try {
             Request request = null;
             // if we do not already have a base URL (i.e. we operate as a normal
@@ -181,9 +182,14 @@ public class ConnectionHandler implements Runnable {
             // in reverse order so that they operate intuitively
             // the first plugin in the array gets the first chance to modify
             // the request, and the last chance to modify the response
+            // we also set flag if there is any chance that request/response is modified
             if (_plugins != null) {
                 for (int i = _plugins.length - 1; i >= 0; i--) {
-                    hc = _plugins[i].getProxyPlugin(hc);
+                    ProxyPlugin plugin = _plugins[i];
+                    if (plugin.getEnabled()){
+                        httpDataModified = true;
+                    }
+                    hc = plugin.getProxyPlugin(hc);
                 }
             }
 
@@ -212,11 +218,14 @@ public class ConnectionHandler implements Runnable {
                         request.addHeader("Proxy-Authorization", proxyAuth);
                     }
                 }
+                if (request.getURL() == null){
+                    return;
+                }
                 if (from != null) {
                     request.addHeader("X-Forwarded-For", from);
                 }
-                _logger.fine("Browser requested : " + request.getMethod() + " "
-                        + request.getURL().toString());
+                
+                _logger.fine("Browser requested : " + request.getMethod() + " "+ request.getURL().toString());
 
                 // report the request to the listener, and get the allocated ID
                 conversationId = _proxy.gotRequest(request, from);
@@ -231,7 +240,7 @@ public class ConnectionHandler implements Runnable {
                 if (request == null)
                     throw new IOException("Request was cancelled");
                 if (response != null) {
-                    _proxy.failedResponse(request, response, conversationId, "Response provided by script");
+                    _proxy.failedResponse(request, response, conversationId, "Response provided by script", httpDataModified);
                     _proxy = null;
                 } else {
 
@@ -249,12 +258,12 @@ public class ConnectionHandler implements Runnable {
                         response = errorResponse(request, ioe);
                         // prevent the conversation from being
                         // submitted/recorded
-                        _proxy.failedResponse(request, response, conversationId, ioe.toString());
+                        _proxy.failedResponse(request, response, conversationId, ioe.toString(), httpDataModified);
                         _proxy = null;
                     }
                     if (response == null) {
                         _logger.severe("Got a null response from the fetcher");
-                        _proxy.failedResponse(request, response, conversationId, "Null response");
+                        _proxy.failedResponse(request, response, conversationId, "Null response", httpDataModified);
                         return;
                     }
                 }
@@ -291,7 +300,7 @@ public class ConnectionHandler implements Runnable {
                     response.setRequest(request);
                 }
                 if (_proxy != null && !request.getMethod().equals("CONNECT")) {
-                    _proxy.gotResponse(conversationId, request, response);
+                    _proxy.gotResponse(conversationId, request, response, httpDataModified);
                 }
 
                 keepAlive = response.getHeader("Connection");
@@ -308,7 +317,7 @@ public class ConnectionHandler implements Runnable {
             _logger.fine("Finished handling connection");
         } catch (Exception e) {
             if (conversationId != -1)
-                _proxy.failedResponse(null, null, conversationId, e.getMessage());
+                _proxy.failedResponse(null, null, conversationId, e.getMessage(), httpDataModified);
             _logger.severe("ConnectionHandler got an error : " + e);
             e.printStackTrace();
         } finally {

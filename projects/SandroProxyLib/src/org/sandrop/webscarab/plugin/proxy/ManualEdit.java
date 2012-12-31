@@ -247,5 +247,10 @@ public class ManualEdit extends ProxyPlugin {
         }
         
     }
+
+    @Override
+    public boolean getEnabled() {
+        return false;
+    }
     
 }

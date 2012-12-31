@@ -100,7 +100,7 @@ public class ManualRequest implements Plugin {
                 _response = HTTPClientFactory.getValidInstance().fetchResponse(_request);
                 if (_response != null) {
                     _responseDate = new Date();
-                    _framework.gotResponse(conversationId, new Date(System.currentTimeMillis()), _request, _response);
+                    _framework.gotResponse(conversationId, new Date(System.currentTimeMillis()), _request, _response, false);
                     // _framework.addConversation(_request, _response, "Manual Request");
                     if (_ui != null) _ui.responseChanged(_response);
                 }

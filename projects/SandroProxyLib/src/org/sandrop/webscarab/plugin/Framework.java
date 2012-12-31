@@ -441,17 +441,25 @@ public class Framework {
     
     public long gotRequest(long conversationId, Date when, Request request){
         if (!canStore(request)) return -1;
-        return _model.updateConversation(conversationId, when, request, null);
+        return _model.updateGotRequestConversation(conversationId, when, request);
     }
     
-    public long gotResponse(long conversationId, Date when, Request request, Response response){
+    public long gotResponse(long conversationId, Date when, Request request, Response response, boolean dataModified){
         if (!canStore(request)) return -1;
-        return _model.updateConversation(conversationId, when, null, response);
+        Request requestToStore = null;
+        if (dataModified){
+            requestToStore = request;
+        }
+        return _model.updateGotResponseConversation(conversationId, when, requestToStore, response);
     }
     
-    public long failedResponse(long conversationId, Date when, Request request, Response response, String reason){
+    public long failedResponse(long conversationId, Date when, Request request, Response response, String reason, boolean dataModified){
         if (!canStore(request)) return -1;
-        return _model.updateFailedConversation(conversationId, when, reason);
+        Request requestToStore = null;
+        if (dataModified){
+            requestToStore = request;
+        }
+        return _model.updateFailedConversation(conversationId, when, requestToStore, reason);
     }
     
     /*

@@ -53,4 +53,6 @@ public abstract class ProxyPlugin {
     
     public abstract HTTPClient getProxyPlugin(HTTPClient in);
     
+    public abstract boolean getEnabled();
+    
 }
