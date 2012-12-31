@@ -797,16 +797,24 @@ public class FileSystemStore implements SiteModelStore {
         return 0;
     }
 
+
     @Override
-    public long updateConversation(long conversationId, Date when,
-            Request request, Response response){
+    public long updateGotRequestConversation(long conversationId, Date when,
+            Request request) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public long updateGotResponseConversation(long conversationId, Date when,
+            Request request, Response response) {
         // TODO Auto-generated method stub
         return 0;
     }
 
     @Override
     public long updateFailedConversation(long conversationId, Date when,
-            String reason) {
+            Request request, String reason) {
         // TODO Auto-generated method stub
         return 0;
     }

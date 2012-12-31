@@ -3,6 +3,7 @@ package org.sandroproxy.plugin.gui;
 import java.io.File;
 
 import org.sandrop.webscarab.model.Preferences;
+import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.Framework;
 import org.sandrop.webscarab.plugin.proxy.Proxy;
 import org.sandrop.webscarab.plugin.proxy.ProxyPlugin;
@@ -10,13 +11,16 @@ import org.sandroproxy.logger.Logger;
 import org.sandroproxy.plugin.R;
 import org.sandroproxy.proxy.plugin.CustomPlugin;
 import org.sandroproxy.utils.PreferenceUtils;
+import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
 import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnLongClickListener;
@@ -62,6 +66,7 @@ public class MainActivity extends Activity {
                         public void run() {
                             Preferences.init(getApplicationContext());
                             framework = new Framework(getApplicationContext());
+                            setStore(getApplicationContext());
                             Proxy proxy = new Proxy(framework, null);
                             framework.addPlugin(proxy);
                             if (true){
@@ -134,6 +139,25 @@ public class MainActivity extends Activity {
         }
         
         mLogView.setText(mLogWindowMessage);
+    }
+    
+    
+    public static void setStore(Context context){
+        if (framework != null){
+            try {
+                File file =  PreferenceUtils.getDataStorageDir(context);
+                if (file != null){
+                    File rootDir = new File(file.getAbsolutePath() + "/content");
+                    if (!rootDir.exists()){
+                        rootDir.mkdir();
+                    }
+                    framework.setSession("Database", SqlLiteStore.getInstance(context, rootDir.getAbsolutePath()), "");
+                }
+            } catch (StoreException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
     }
     
     /*

@@ -130,5 +130,11 @@ public class CookieTracker extends ProxyPlugin {
         }
         
     }
+
+    @Override
+    public boolean getEnabled() {
+        // TODO Auto-generated method stub
+        return _injectRequests || _readResponses;
+    }
     
 }
