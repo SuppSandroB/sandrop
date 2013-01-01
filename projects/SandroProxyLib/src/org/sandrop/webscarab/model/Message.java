@@ -71,7 +71,7 @@ public class Message {
     private static final byte[] NO_CONTENT = new byte[0];
     private static final byte[] CONTENT_TOO_BIG = "Content to big to parse".getBytes();
     
-    private static boolean LOGD = true;
+    private static boolean LOGD = false;
     private static String TAG = Message.class.getName();
     
     
@@ -327,7 +327,7 @@ public class Message {
                 }
             }
             // throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
-            Log.d("STORE FILE", "NOT storing content to file " + file.getAbsolutePath());
+            if (LOGD) Log.d(TAG, "NOT storing content to file " + file.getAbsolutePath());
             return false;
         }
     }
