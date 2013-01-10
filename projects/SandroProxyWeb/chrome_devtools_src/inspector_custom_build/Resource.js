@@ -39,7 +39,7 @@
  * @param {string} mimeType
  * @param {boolean=} isHidden
  */
-WebInspector.Resource = function(request, url, documentURL, frameId, loaderId, type, mimeType, isHidden)
+WebInspector.Resource = function(request, url, documentURL, frameId, loaderId, type, mimeType, isHidden, resourceId)
 {
     this._request = request;
     this.url = url;
@@ -49,6 +49,7 @@ WebInspector.Resource = function(request, url, documentURL, frameId, loaderId, t
     this._type = type || WebInspector.resourceTypes.Other;
     this._mimeType = mimeType;
     this._isHidden = isHidden;
+    this._resourceId = resourceId;
 
     /** @type {?string} */ this._content;
     /** @type {boolean} */ this._contentEncoded;
