@@ -781,7 +781,7 @@ WebInspector.NetworkLogView.prototype = {
 
         // In case of redirect request id is reassigned to a redirected
         // request and we need to update _requestsById ans search results.
-        if (this._requestsById[request.requestId]) {
+        if (request.redirects && this._requestsById[request.requestId]) {
             var oldRequest = request.redirects[request.redirects.length - 1];
             this._requestsById[oldRequest.requestId] = oldRequest;
 
