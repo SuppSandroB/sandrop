@@ -314,7 +314,7 @@ WebInspector.ResourceTreeModel.prototype = {
         var frame = new WebInspector.ResourceTreeFrame(this, parentFrame, framePayload);
         this._addFrame(frame);
 
-        var frameResource = this._createResourceFromFramePayload(framePayload, framePayload.url, WebInspector.resourceTypes.Document, framePayload.mimeType);
+        var frameResource = this._createResourceFromFramePayload(framePayload, framePayload.url, WebInspector.resourceTypes.Document, framePayload.mimeType,  framePayload.id);
         if (frame.isMainFrame())
             WebInspector.inspectedPageURL = frameResource.url;
         frame.addResource(frameResource);
@@ -324,7 +324,7 @@ WebInspector.ResourceTreeModel.prototype = {
 
         for (var i = 0; i < frameTreePayload.resources.length; ++i) {
             var subresource = frameTreePayload.resources[i];
-            var resource = this._createResourceFromFramePayload(framePayload, subresource.url, WebInspector.resourceTypes[subresource.type], subresource.mimeType);
+            var resource = this._createResourceFromFramePayload(framePayload, subresource.url, WebInspector.resourceTypes[subresource.type], subresource.mimeType, subresource.resourceId);
             frame.addResource(resource);
         }
     },
@@ -336,9 +336,9 @@ WebInspector.ResourceTreeModel.prototype = {
      * @param {string} mimeType
      * @return {WebInspector.Resource}
      */
-    _createResourceFromFramePayload: function(frame, url, type, mimeType)
+    _createResourceFromFramePayload: function(frame, url, type, mimeType, resourceId)
     {
-        return new WebInspector.Resource(null, url, frame.url, frame.id, frame.loaderId, type, mimeType);
+        return new WebInspector.Resource(null, url, frame.url, frame.id, frame.loaderId, type, mimeType, null, resourceId);
     },
 
     __proto__: WebInspector.Object.prototype

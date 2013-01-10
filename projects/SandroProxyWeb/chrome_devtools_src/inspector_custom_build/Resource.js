@@ -113,6 +113,14 @@ WebInspector.Resource.prototype = {
     {
         return this._loaderId;
     },
+    
+    /**
+     * @return {string}
+     */
+    get resourceId()
+    {
+        return this._resourceId;
+    },
 
     /**
      * @return {string}
@@ -340,7 +348,7 @@ WebInspector.Resource.prototype = {
             this.request.requestContent(requestContentLoaded.bind(this));
             return;
         }
-        PageAgent.getResourceContent(this.frameId, this.url, resourceContentLoaded.bind(this));
+        PageAgent.getResourceContent(this.frameId, this.url, this.resourceId, resourceContentLoaded.bind(this));
     },
 
     /**
