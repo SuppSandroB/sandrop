@@ -1,0 +1,45 @@
+.request {
+	width: 140px;
+	height: 180px;
+	box-shadow: 0px 0px 20px rgba(0,255,255,0.5);
+	border: 1px solid rgba(127,255,255,0.25);
+	cursor: default;
+}
+
+.request:hover {
+	box-shadow: 0px 0px 20px rgba(0,255,255,0.75);
+	border: 1px solid rgba(127,255,255,0.75);
+}
+
+.request .data {
+	position: absolute;
+	top: 20px;
+	right: 20px;
+	#font-size: 20px;
+	color: rgba(127,255,255,0.75);
+}
+
+.request .content {
+	position: absolute;
+	top: 40px;
+	width: 100%;
+	#font-size: 70px;
+	text-align: center;
+	color: rgba(255,255,255,0.75);
+	font-weight: bold;
+
+	-webkit-filter: drop-shadow(0px 0px 20px rgba(0,255,255,0.95));
+	-moz-filter: drop-shadow(0px 0px 20px rgba(0,255,255,0.95));
+	-o-filter: drop-shadow(0px 0px 20px rgba(0,255,255,0.95));
+	-ms-filter: drop-shadow(0px 0px 20px rgba(0,255,255,0.95));
+	filter: drop-shadow(0px 0px 20px rgba(0,255,255,0.95));
+}
+
+.request .details {
+	position: absolute;
+	top: 125px;
+	width: 100%;
+	#font-size: 18px;
+	text-align: center;
+	color: rgba(127,255,255,0.75);
+}
