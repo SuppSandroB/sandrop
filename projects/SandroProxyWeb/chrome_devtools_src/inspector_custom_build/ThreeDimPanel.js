@@ -37,6 +37,7 @@ importScript("three/renderers/CSS3DRenderer.js");
 var _threeCamera, _threeeScene, _threeRenderer;
 var _threeControls;
 var _threeSelectedType = "Table";
+var _threeAnimationTime = 2500;
 
 var _threeObjects = [];
 var _threeTargets = { table: [], sphere: [], helix: [], grid: [] };
@@ -86,15 +87,15 @@ WebInspector.ThreeDimView = function(){
     this._createStatusBarItems();
     this._linkifier = new WebInspector.Linkifier();
 
-    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestStarted, this._onRequestStarted, this);
-    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestUpdated, this._onRequestUpdated, this);
+    // WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestStarted, this._onRequestStarted, this);
+    // WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestUpdated, this._onRequestUpdated, this);
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestFinished, this._onRequestUpdated, this);
 
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.MainFrameNavigated, this._mainFrameNavigated, this);
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.OnLoad, this._onLoadEventFired, this);
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.DOMContentLoaded, this._domContentLoadedEventFired, this);
+    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.MainFrameNavigated, this._mainFrameNavigated, this);
+    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.OnLoad, this._onLoadEventFired, this);
+    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.DOMContentLoaded, this._domContentLoadedEventFired, this);
 
-    WebInspector.networkLog.requests.forEach(this._appendRequest.bind(this));
+    WebInspector.networkLog.requests.forEach(this._addRequest.bind(this));
     this._initializeView();
     this._viewInitialised = true;
 
@@ -128,7 +129,10 @@ WebInspector.ThreeDimView.prototype = {
         symbol.className = 'content';
         
         if (request._type._title == "Image"){
-            symbol.innerHTML = "<img src=\"data:" + mimeType +  "; base64,"+ request._content +"\"  />"
+            var previewImage = document.createElement("img");
+            previewImage.className = "image-network-icon-preview";
+            request.populateImageSource(previewImage);
+            symbol.appendChild(previewImage);
         }else{
             symbol.textContent = host;    
         }
@@ -284,11 +288,11 @@ WebInspector.ThreeDimView.prototype = {
         _threeControls = new THREE.TrackballControls( _threeCamera, _threeRenderer.domElement );
         _threeControls.rotateSpeed = 0.5;
         _threeControls.addEventListener( 'change', _threeRender );
-        this._activateThreeTransform();
+        this._activateThreeTransformAll();
         window.addEventListener( 'resize', _threeOnWindowResize, false );
     },
 
-    _threeTransform: function(targets, duration){
+    _threeTransformAll: function(targets, duration){
         TWEEN.removeAll();
         for ( var i = 0; i < _threeObjects.length; i ++ ) {
             var object = _threeObjects[ i ];
@@ -307,6 +311,26 @@ WebInspector.ThreeDimView.prototype = {
             .onUpdate( _threeRender )
             .start();
     },
+    
+    _threeTransformOne: function(targets, pos, duration){
+        // TWEEN.removeAll();
+        var object = _threeObjects[ pos ];
+        var target = targets[ pos ];
+        new TWEEN.Tween( object.position )
+            .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
+            .easing( TWEEN.Easing.Exponential.InOut )
+            .start();
+        new TWEEN.Tween( object.rotation )
+            .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
+            .easing( TWEEN.Easing.Exponential.InOut )
+            .start();
+        // TODO do we need this
+        new TWEEN.Tween( this )
+            .to( {}, duration * 2 )
+            .onUpdate( _threeRender )
+            .start();
+    },
+    
     
     _createThreeTypeBarItems: function(){
         var threeTypeBarElement = document.createElement("div");
@@ -344,20 +368,34 @@ WebInspector.ThreeDimView.prototype = {
     _updateThreeVievTypeByClick: function(e)
     {
         _threeSelectedType = e.target.typeName;
-        this._activateThreeTransform();
+        this._activateThreeTransformAll();
     },
     
-    _activateThreeTransform : function(){
+    _activateThreeTransformAll : function(){
         var selectedType = _threeSelectedType;
-        var animationTime = 1000;
+        var animationTime = _threeAnimationTime;
         if (selectedType == "Sphere"){
-            this._threeTransform( _threeTargets.sphere, animationTime );    
+            this._threeTransformAll( _threeTargets.sphere, animationTime );    
         }else if (selectedType == "Table"){
-            this._threeTransform( _threeTargets.table, animationTime );    
+            this._threeTransformAll( _threeTargets.table, animationTime );    
         }else if (selectedType == "Helix"){
-            this._threeTransform( _threeTargets.helix, animationTime );    
+            this._threeTransformAll( _threeTargets.helix, animationTime );    
         }else if (selectedType == "Grid"){    
-            this._threeTransform( _threeTargets.grid, animationTime );    
+            this._threeTransformAll( _threeTargets.grid, animationTime );    
+        }
+    },
+    
+    _activateThreeTransformOne : function(pos){
+        var selectedType = _threeSelectedType;
+        var animationTime = _threeAnimationTime;
+        if (selectedType == "Sphere"){
+            this._threeTransformOne( _threeTargets.sphere, pos,  animationTime );    
+        }else if (selectedType == "Table"){
+            this._threeTransformOne( _threeTargets.table, pos, animationTime );    
+        }else if (selectedType == "Helix"){
+            this._threeTransformOne( _threeTargets.helix, pos, animationTime );    
+        }else if (selectedType == "Grid"){    
+            this._threeTransformOne( _threeTargets.grid, pos, animationTime );    
         }
     },
     
@@ -430,9 +468,11 @@ WebInspector.ThreeDimView.prototype = {
         }
 
         this._refreshRequest(request);
-        if (this._viewInitialised){
-            this._threeAddNewObject(request, this._requests.length);    
-        }
+    },
+    
+    _addRequest: function(event){
+       var request = /** @type {WebInspector.NetworkRequest} */ (event); 
+       this._requests.push(request);
     },
     
     /**
@@ -441,7 +481,12 @@ WebInspector.ThreeDimView.prototype = {
     _onRequestUpdated: function(event)
     {
         var request = /** @type {WebInspector.NetworkRequest} */ (event.data);
-        this._refreshRequest(request);
+        // this._refreshRequest(request);
+        this._requests.push(request);
+        if (this._viewInitialised && event.type == "RequestFinished"){
+            this._threeAddNewObject(request, this._requests.length - 1 );
+            this._activateThreeTransformOne( this._requests.length - 1 );
+        }
     },
     
     /**
@@ -544,10 +589,6 @@ WebInspector.ThreeDimView.prototype = {
             clearTimeout(this._refreshTimeout);
             delete this._refreshTimeout;
         }
-        if ( this._viewInitialised ){
-            // refresh gui 
-            this._activateThreeTransform();
-        }
     },
     
     _mainFrameNavigated: function(event)
@@ -638,15 +679,3 @@ WebInspector.ThreeDimPanel.prototype = {
     },
     __proto__: WebInspector.Panel.prototype
 }
-
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
