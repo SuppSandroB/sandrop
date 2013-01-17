@@ -37,15 +37,16 @@ var WebInspector = {
         WebInspector.inspectorView.show(parentElement);
         WebInspector.inspectorView.addEventListener(WebInspector.InspectorView.Events.PanelSelected, this._panelSelected, this);
 
-        var elements = new WebInspector.ElementsPanelDescriptor();
+        // var elements = new WebInspector.ElementsPanelDescriptor();
         var resources = new WebInspector.PanelDescriptor("resources", WebInspector.UIString("Resources"), "ResourcesPanel", "ResourcesPanel.js");
         var network = new WebInspector.NetworkPanelDescriptor();
         var scripts = new WebInspector.ScriptsPanelDescriptor();
-        var timeline = new WebInspector.TimelinePanelDescriptor();
-        var profiles = new WebInspector.PanelDescriptor("profiles", WebInspector.UIString("Profiles"), "ProfilesPanel", "ProfilesPanel.js");
-        var audits = new WebInspector.PanelDescriptor("audits", WebInspector.UIString("Audits"), "AuditsPanel", "AuditsPanel.js");
+        // var timeline = new WebInspector.TimelinePanelDescriptor();
+        // var profiles = new WebInspector.PanelDescriptor("profiles", WebInspector.UIString("Profiles"), "ProfilesPanel", "ProfilesPanel.js");
+        // var audits = new WebInspector.PanelDescriptor("audits", WebInspector.UIString("Audits"), "AuditsPanel", "AuditsPanel.js");
         var console = new WebInspector.PanelDescriptor("console", WebInspector.UIString("Console"), "ConsolePanel");
-        var allDescriptors = [elements, resources, network, scripts, timeline, profiles, audits, console];
+        var threeDim = new WebInspector.PanelDescriptor("3D", WebInspector.UIString("3D"), "ThreeDimPanel", "ThreeDimPanel.js");
+        var allDescriptors = [resources, network, scripts, console, threeDim];
 
         var panelDescriptors = [];
         if (WebInspector.WorkerManager.isWorkerFrontend()) {
