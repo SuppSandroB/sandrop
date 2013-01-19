@@ -43,3 +43,35 @@
 	text-align: center;
 	color: rgba(127,255,255,0.75);
 }
+
+.three-view-tabbed-pane {
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    height: 75%;
+    width: 33%;
+    position: absolute;
+}
+
+.three-network-item-view {
+    display: none;
+    position: absolute;
+    background-color: rgba(253, 248, 248, 0.73);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.three-network-item-view.visible {
+    display: -webkit-box;
+}
+
+.three-network-item-view .tabbed-pane-header {
+    background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));
+    border-bottom: 1px solid rgb(163, 163, 163);
+}
+
+.three-network-item-view .scope-bar li {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}

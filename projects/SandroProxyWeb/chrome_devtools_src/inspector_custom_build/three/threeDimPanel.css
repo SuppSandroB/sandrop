@@ -1,6 +1,6 @@
 .threeDimPanel {
     background-color: #000000;
     margin: 0;
-    font-family: Arial;
-    overflow: hidden;
+    #font-family: Arial;
+    #overflow: hidden;
 }
