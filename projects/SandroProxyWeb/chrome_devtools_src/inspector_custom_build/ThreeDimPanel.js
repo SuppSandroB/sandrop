@@ -28,6 +28,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
+importScript("RequestView.js");
+importScript("NetworkItemView.js");
+importScript("RequestCookiesView.js");
+importScript("RequestHeadersView.js");
+importScript("RequestHTMLView.js");
+importScript("RequestJSONView.js");
+importScript("RequestPreviewView.js");
+importScript("RequestResponseView.js");
+importScript("RequestTimingView.js");
+importScript("ResourceWebSocketFrameView.js");
+
 importScript("three/three.js");
 importScript("three/libs/tween.js");
 importScript("three/controls/TrackballControls.js");
@@ -42,6 +53,8 @@ var _threeAnimationTime = 2500;
 var _threeObjects = [];
 var _threeTargets = { table: [], sphere: [], helix: [], grid: [] };
 
+var _threeCanUpdateSphere = true;
+var _threeHaveUnplacedItems = false;
 
 function _threeOnWindowResize(){
     _threeCamera.aspect = window.innerWidth / window.innerHeight;
@@ -54,6 +67,14 @@ function _threeAnimate(){
     TWEEN.update();
     _threeControls.update();
 }
+
+function _threeUpdateSphereComplete(){
+    if (_threeHaveUnplacedItems){
+        // TODO here we can start new transformation if type is still the same        
+    }
+    _threeCanUpdateSphere = true;
+}
+
     
 function _threeRender(){
     _threeRenderer.render(_threeScene, _threeCamera );
@@ -63,6 +84,7 @@ WebInspector.ThreeDimView = function(){
 
     WebInspector.View.call(this);
     this.registerRequiredCSS("three/threeDimView.css");
+    this.registerRequiredCSS("networkLogView.css");
     
     // chrome data interaction
     this._allowRequestSelection = false;
@@ -83,17 +105,9 @@ WebInspector.ThreeDimView = function(){
     this._matchedRequestsMap = {};
     this._currentMatchedRequestIndex = -1;
 
-    this._createThreeTypeBarItems();
-    this._createStatusBarItems();
-    this._linkifier = new WebInspector.Linkifier();
 
-    // WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestStarted, this._onRequestStarted, this);
-    // WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestUpdated, this._onRequestUpdated, this);
+
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestFinished, this._onRequestUpdated, this);
-
-    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.MainFrameNavigated, this._mainFrameNavigated, this);
-    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.OnLoad, this._onLoadEventFired, this);
-    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.DOMContentLoaded, this._domContentLoadedEventFired, this);
 
     WebInspector.networkLog.requests.forEach(this._addRequest.bind(this));
     this._initializeView();
@@ -103,11 +117,58 @@ WebInspector.ThreeDimView = function(){
 
 WebInspector.ThreeDimView.prototype = {
     
+    _createNetworkItemView: function(){
+        this._networkItemElement = document.createElement("div");
+        this.element.appendChild(this._networkItemElement);
+    },
+    
+    _createThreeView: function(){
+        this._threeViewElement = document.createElement("div");
+        this.element.appendChild(this._threeViewElement);
+    }, 
+    
     _initializeView: function()
     {
         this.element.id = "threeDim-container";
+        this._createThreeTypeBarItems();
+        this._createThreeView();
+        this._createNetworkItemView();
+        // this._popoverHelper = new WebInspector.PopoverHelper(this.element, this._getPopoverAnchor.bind(this), this._showPopover.bind(this));
+        // Enable faster hint.
+        // this._popoverHelper.setTimeout(1000);
+
         this._threeInit();
         _threeAnimate();
+    },
+    
+    _getPopoverAnchor: function(element)
+    {
+        var anchor = element.enclosingNodeOrSelfWithClass("request");
+        if (anchor)
+            return anchor;
+        anchor = element.enclosingNodeOrSelfWithClass("network-script-initiated");
+        if (anchor && anchor.request && anchor.request.initiator)
+            return anchor;
+
+        return null;
+    },
+    
+        /**
+     * @param {Element} anchor
+     * @param {WebInspector.Popover} popover
+     */
+    _showPopover: function(anchor, popover)
+    {
+        var content;
+        if (anchor.hasStyleClass("request")){
+                // TODO content = this._generateScriptInitiatedPopoverContent(anchor.request);
+        }else{
+                // TODO content = WebInspector.RequestTimingView.createTimingTable(anchor.parentElement.request);
+        }
+        
+        var view = new WebInspector.NetworkItemView(this._requests[0]);
+        content = view;
+        popover.show(content, anchor.element, 400, 400);
     },
     
     _threeCreateHtmlElement: function(request, pos){
@@ -117,6 +178,7 @@ WebInspector.ThreeDimView.prototype = {
         var requestId = request.requestId;
     
         var element = document.createElement( 'div' );
+        element.id = pos;
         element.className = 'request';
         element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
 
@@ -142,12 +204,14 @@ WebInspector.ThreeDimView.prototype = {
         details.className = 'details';
         details.innerHTML = mimeType + '<br>' + requestId;
         element.appendChild( details );
+        element.addEventListener("click", this._threeClickOnElement.bind(this), false);
         return element;
     },
     
     _threeAddNewObject: function(request, pos){
             
             var element = this._threeCreateHtmlElement(request, pos);
+            
             var object = new THREE.CSS3DObject( element );
             object.position.x = Math.random() * 4000 - 2000;
             object.position.y = Math.random() * 4000 - 2000;
@@ -164,7 +228,25 @@ WebInspector.ThreeDimView.prototype = {
             objectTable.position.y = - ( posY * 200 ) + 1100;
             _threeTargets.table.push( objectTable );   
             
+            
             // sphere
+            var vector = new THREE.Vector3();
+            _threeTargets.sphere = [];
+            
+            for ( var i = 0, l = _threeObjects.length; i < l; i ++ ) {
+                var object = _threeObjects[ i ];
+                var phi = Math.acos( -1 + ( 2 * i ) / l );
+                var theta = Math.sqrt( l * Math.PI ) * phi;
+                var object = new THREE.Object3D();
+                object.position.x = 1000 * Math.cos( theta ) * Math.sin( phi );
+                object.position.y = 1000 * Math.sin( theta ) * Math.sin( phi );
+                object.position.z = 1000 * Math.cos( phi );
+                vector.copy( object.position ).multiplyScalar( 2 );
+                object.lookAt( vector );
+                _threeTargets.sphere.push( object );
+    
+            }
+            
             var vectorSphere = new THREE.Vector3();
             var l = pos + 1;
             var phi = Math.acos( -1 + ( 2 * pos ) / l );
@@ -200,8 +282,6 @@ WebInspector.ThreeDimView.prototype = {
     },
     
     _threeCreateObjects: function (){
-        // create three objects
-
         var j = 1;
         var k = 1;
         _threeTargets = { table: [], sphere: [], helix: [], grid: [] };
@@ -284,7 +364,7 @@ WebInspector.ThreeDimView.prototype = {
         _threeRenderer = new THREE.CSS3DRenderer();
         _threeRenderer.setSize( window.innerWidth, window.innerHeight );
         _threeRenderer.domElement.style.position = 'absolute';
-        this.element.appendChild( _threeRenderer.domElement );
+        this._threeViewElement.appendChild( _threeRenderer.domElement );
         _threeControls = new THREE.TrackballControls( _threeCamera, _threeRenderer.domElement );
         _threeControls.rotateSpeed = 0.5;
         _threeControls.addEventListener( 'change', _threeRender );
@@ -292,46 +372,6 @@ WebInspector.ThreeDimView.prototype = {
         window.addEventListener( 'resize', _threeOnWindowResize, false );
     },
 
-    _threeTransformAll: function(targets, duration){
-        TWEEN.removeAll();
-        for ( var i = 0; i < _threeObjects.length; i ++ ) {
-            var object = _threeObjects[ i ];
-            var target = targets[ i ];
-            new TWEEN.Tween( object.position )
-                .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
-                .easing( TWEEN.Easing.Exponential.InOut )
-                .start();
-            new TWEEN.Tween( object.rotation )
-                .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
-                .easing( TWEEN.Easing.Exponential.InOut )
-                .start();
-        }
-        new TWEEN.Tween( this )
-            .to( {}, duration * 2 )
-            .onUpdate( _threeRender )
-            .start();
-    },
-    
-    _threeTransformOne: function(targets, pos, duration){
-        // TWEEN.removeAll();
-        var object = _threeObjects[ pos ];
-        var target = targets[ pos ];
-        new TWEEN.Tween( object.position )
-            .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
-            .easing( TWEEN.Easing.Exponential.InOut )
-            .start();
-        new TWEEN.Tween( object.rotation )
-            .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
-            .easing( TWEEN.Easing.Exponential.InOut )
-            .start();
-        // TODO do we need this
-        new TWEEN.Tween( this )
-            .to( {}, duration * 2 )
-            .onUpdate( _threeRender )
-            .start();
-    },
-    
-    
     _createThreeTypeBarItems: function(){
         var threeTypeBarElement = document.createElement("div");
         threeTypeBarElement.className = "scope-bar status-bar-item";
@@ -368,28 +408,100 @@ WebInspector.ThreeDimView.prototype = {
     _updateThreeVievTypeByClick: function(e)
     {
         _threeSelectedType = e.target.typeName;
+        function unselectAll()
+        {
+            for (var i = 0; i < this._threeTypeBarElement.childNodes.length; ++i) {
+                var child = this._threeTypeBarElement.childNodes[i];
+                if (!child.typeName)
+                    continue;
+                child.removeStyleClass("selected");
+            }
+        }
+        unselectAll.call(this);
+        e.target.addStyleClass("selected");
         this._activateThreeTransformAll();
+    },
+    
+    _threeClickOnElement : function(e){
+        element = e.currentTarget;
+        this._showRequest(this._requests[element.id]);
+    },
+    
+    _threeTransformAll: function(targets, duration, callbackOnEnd){
+        for ( var i = 0; i < _threeObjects.length; i ++ ) {
+            var object = _threeObjects[ i ];
+            var target = targets[ i ];
+            new TWEEN.Tween( object.position )
+                .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
+                .easing( TWEEN.Easing.Exponential.InOut )
+                .start();
+            new TWEEN.Tween( object.rotation )
+                .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
+                .easing( TWEEN.Easing.Exponential.InOut )
+                .start();
+        }
+        var tween = new TWEEN.Tween( this )
+                    .to( {}, duration * 2 )
+                .onUpdate( _threeRender );
+        if (callbackOnEnd){
+            tween.onComplete( callbackOnEnd );            
+        }
+        tween.start();
     },
     
     _activateThreeTransformAll : function(){
         var selectedType = _threeSelectedType;
         var animationTime = _threeAnimationTime;
         if (selectedType == "Sphere"){
+            TWEEN.removeAll();
             this._threeTransformAll( _threeTargets.sphere, animationTime );    
         }else if (selectedType == "Table"){
+            TWEEN.removeAll();
             this._threeTransformAll( _threeTargets.table, animationTime );    
         }else if (selectedType == "Helix"){
+            TWEEN.removeAll();
             this._threeTransformAll( _threeTargets.helix, animationTime );    
-        }else if (selectedType == "Grid"){    
+        }else if (selectedType == "Grid"){
+            TWEEN.removeAll();    
             this._threeTransformAll( _threeTargets.grid, animationTime );    
         }
+    },
+    
+    _threeTransformOne: function(targets, pos, duration, callbackOnEnd){
+        var object = _threeObjects[ pos ];
+        var target = targets[ pos ];
+        new TWEEN.Tween( object.position )
+            .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
+            .easing( TWEEN.Easing.Exponential.InOut )
+            .start();
+        new TWEEN.Tween( object.rotation )
+            .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
+            .easing( TWEEN.Easing.Exponential.InOut )
+            .start();
+        var tween = new TWEEN.Tween( this )
+                    .to( {}, duration * 2 )
+                .onUpdate( _threeRender );
+        if (callbackOnEnd){
+            tween.onComplete( callbackOnEnd );            
+        }
+        tween.start();
     },
     
     _activateThreeTransformOne : function(pos){
         var selectedType = _threeSelectedType;
         var animationTime = _threeAnimationTime;
         if (selectedType == "Sphere"){
-            this._threeTransformOne( _threeTargets.sphere, pos,  animationTime );    
+            // we activate all transform because on sphere all positions are changed
+            // we also do this more quickly because every new item resets movements for previous elements
+            if (_threeCanUpdateSphere){
+                _threeCanUpdateSphere = false;
+                _threeHaveUnplacedItems = false;
+                this._threeTransformAll( _threeTargets.sphere, animationTime, _threeUpdateSphereComplete);        
+            }else{
+                // TODO how to handle last fetch to animate
+                _threeHaveUnplacedItems = true;
+            }
+            
         }else if (selectedType == "Table"){
             this._threeTransformOne( _threeTargets.table, pos, animationTime );    
         }else if (selectedType == "Helix"){
@@ -399,77 +511,11 @@ WebInspector.ThreeDimView.prototype = {
         }
     },
     
-    _createStatusBarItems: function(){
-        var filterBarElement = document.createElement("div");
-        filterBarElement.className = "scope-bar status-bar-item";
-
-        /**
-         * @param {string} typeName
-         * @param {string} label
-         */
-        function createFilterElement(typeName, label)
-        {
-            var categoryElement = document.createElement("li");
-            categoryElement.typeName = typeName;
-            categoryElement.className = typeName;
-            categoryElement.appendChild(document.createTextNode(label));
-            categoryElement.addEventListener("click", this._updateFilter.bind(this), false);
-            filterBarElement.appendChild(categoryElement);
-
-            return categoryElement;
-        }
-
-        this._filterAllElement = createFilterElement.call(this, "all", WebInspector.UIString("All"));
-
-        // Add a divider
-        var dividerElement = document.createElement("div");
-        dividerElement.addStyleClass("scope-bar-divider");
-        filterBarElement.appendChild(dividerElement);
-
-        for (var typeId in WebInspector.resourceTypes) {
-            var type = WebInspector.resourceTypes[typeId];
-            createFilterElement.call(this, type.name(), type.categoryTitle());
-        }
-        this._filterBarElement = filterBarElement;
-        this._progressBarContainer = document.createElement("div");
-        this._progressBarContainer.className = "status-bar-item";
-    },
-    
     get statusBarItems()
     {
-        return [ this._threeTypeBarElement, this._filterBarElement, this._progressBarContainer ];
+        return [ this._threeTypeBarElement];
     },
 
-    _onRequestStarted: function(event)
-    {
-        this._appendRequest(event.data);
-    },
-    
-    _appendRequest: function(request)
-    {
-        this._requests.push(request);
-
-        // In case of redirect request id is reassigned to a redirected
-        // request and we need to update _requestsById ans search results.
-        if (request.redirects && this._requestsById[request.requestId]) {
-            var oldRequest = request.redirects[request.redirects.length - 1];
-            this._requestsById[oldRequest.requestId] = oldRequest;
-
-            this._updateSearchMatchedListAfterRequestIdChanged(request.requestId, oldRequest.requestId);
-        }
-        this._requestsById[request.requestId] = request;
-
-        this._requestsByURL[request.url] = request;
-
-        // Pull all the redirects of the main request upon commit load.
-        if (request.redirects) {
-            for (var i = 0; i < request.redirects.length; ++i)
-                this._refreshRequest(request.redirects[i]);
-        }
-
-        this._refreshRequest(request);
-    },
-    
     _addRequest: function(event){
        var request = /** @type {WebInspector.NetworkRequest} */ (event); 
        this._requests.push(request);
@@ -489,172 +535,28 @@ WebInspector.ThreeDimView.prototype = {
         }
     },
     
-    /**
-     * @param {WebInspector.NetworkRequest} request
-     */
-    _refreshRequest: function(request)
+    _showRequest: function(request)
     {
-        this._staleRequests[request.requestId] = request;
-        this._scheduleRefresh();
-    },
-    
-    _updateFilter: function(e)
-    {
-        // TODO this._removeAllNodeHighlights();
-        var isMac = WebInspector.isMac();
-        var selectMultiple = false;
-        if (isMac && e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey)
-            selectMultiple = true;
-        if (!isMac && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey)
-            selectMultiple = true;
-
-        this._filter(e.target, selectMultiple);
-        // TODO this.searchCanceled();
-        // TODO this._updateSummaryBar();
-    },
-
-    _filter: function(target, selectMultiple)
-    {
-        function unselectAll()
-        {
-            for (var i = 0; i < this._filterBarElement.childNodes.length; ++i) {
-                var child = this._filterBarElement.childNodes[i];
-                if (!child.typeName)
-                    continue;
-
-                child.removeStyleClass("selected");
-                // TODO this._hideCategory(child.typeName);
-            }
-        }
-
-        if (target === this._filterAllElement) {
-            if (target.hasStyleClass("selected")) {
-                // We can't unselect All, so we break early here
-                return;
-            }
-
-            // If All wasn't selected, and now is, unselect everything else.
-            unselectAll.call(this);
-        } else {
-            // Something other than All is being selected, so we want to unselect All.
-            if (this._filterAllElement.hasStyleClass("selected")) {
-                this._filterAllElement.removeStyleClass("selected");
-                // TODO this._hideCategory("all");
-            }
-        }
-
-        if (!selectMultiple) {
-            // If multiple selection is off, we want to unselect everything else
-            // and just select ourselves.
-            unselectAll.call(this);
-
-            target.addStyleClass("selected");
-            // TODO this._showCategory(target.typeName);
-            // TODO this._updateOffscreenRows();
-            return;
-        }
-
-        if (target.hasStyleClass("selected")) {
-            // If selectMultiple is turned on, and we were selected, we just
-            // want to unselect ourselves.
-            target.removeStyleClass("selected");
-            // TODO this._hideCategory(target.typeName);
-        } else {
-            // If selectMultiple is turned on, and we weren't selected, we just
-            // want to select ourselves.
-            target.addStyleClass("selected");
-            // TODO this._showCategory(target.typeName);
-        }
-        // TODO what do do after we set all filter stuff
-        // this._updateOffscreenRows();
-    },
-    
-    _defaultRefreshDelay: 2500,
-
-    _scheduleRefresh: function()
-    {
-        if (this._needsRefresh)
+        if (!request)
             return;
 
-        this._needsRefresh = true;
+        var view = new WebInspector.NetworkItemView(request);
+        
+        // remove generated tabbed style and add custom one 
+        view.element.removeStyleClass("tabbed-pane");
+        view.element.addStyleClass("three-view-tabbed-pane");
+        
+        view.element.removeStyleClass("network-item-view");
+        view.element.addStyleClass("three-network-item-view");
 
-        if (this.isShowing() && !this._refreshTimeout)
-            this._refreshTimeout = setTimeout(this.refresh.bind(this), this._defaultRefreshDelay);
-    },
-    
-    refresh: function()
-    {
-        this._needsRefresh = false;
-        if (this._refreshTimeout) {
-            clearTimeout(this._refreshTimeout);
-            delete this._refreshTimeout;
+        if (this.visibleView) {
+            this.visibleView.detach();
+            delete this.visibleView;
         }
+        view.show(this._networkItemElement);
+        this.visibleView = view;
     },
     
-    _mainFrameNavigated: function(event)
-    {
-        if (this._preserveLogToggle.toggled)
-            return;
-
-        var frame = /** @type {WebInspector.ResourceTreeFrame} */ (event.data);
-        var loaderId = frame.loaderId;
-
-        // Preserve provisional load requests.
-        var requestsToPreserve = [];
-        for (var i = 0; i < this._requests.length; ++i) {
-            var request = this._requests[i];
-            if (request.loaderId === loaderId)
-                requestsToPreserve.push(request);
-        }
-
-        this._reset();
-
-        // Restore preserved items.
-        for (var i = 0; i < requestsToPreserve.length; ++i)
-            this._appendRequest(requestsToPreserve[i]);
-    },
-    
-    _onLoadEventFired: function(event)
-    {
-        this._mainRequestLoadTime = event.data || -1;
-        // Schedule refresh to update boundaries and draw the new line.
-        this._scheduleRefresh();
-    },
-
-    _domContentLoadedEventFired: function(event)
-    {
-        this._mainRequestDOMContentTime = event.data || -1;
-        // Schedule refresh to update boundaries and draw the new line.
-        this._scheduleRefresh();
-    },
-    
-    _reset: function()
-    {
-        this.dispatchEventToListeners(WebInspector.NetworkLogView.EventTypes.ViewCleared);
-
-        this._clearSearchMatchedList();
-        if (this._popoverHelper)
-            this._popoverHelper.hidePopover();
-
-        if (this._calculator)
-            this._calculator.reset();
-
-        this._requests = [];
-        this._requestsById = {};
-        this._requestsByURL = {};
-        this._staleRequests = {};
-        this._requestGridNodes = {};
-
-        if (this._dataGrid) {
-            this._dataGrid.rootNode().removeChildren();
-            this._updateDividersIfNeeded();
-            this._updateSummaryBar();
-        }
-
-        this._mainRequestLoadTime = -1;
-        this._mainRequestDOMContentTime = -1;
-        this._linkifier.reset();
-    },
     
     __proto__: WebInspector.View.prototype
 }
@@ -666,6 +568,7 @@ WebInspector.ThreeDimView.prototype = {
  */
 WebInspector.ThreeDimPanel = function(){
     WebInspector.Panel.call(this, "threeDimPanel");
+    this.registerRequiredCSS("networkPanel.css");
     this.registerRequiredCSS("three/threeDimPanel.css");
     this._threeDimView = new WebInspector.ThreeDimView();
     this.element.id = "threeDimPanel";
@@ -679,3 +582,6 @@ WebInspector.ThreeDimPanel.prototype = {
     },
     __proto__: WebInspector.Panel.prototype
 }
+
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
