@@ -48,7 +48,7 @@ importScript("three/renderers/CSS3DRenderer.js");
 var _threeCamera, _threeeScene, _threeRenderer;
 var _threeControls;
 var _threeSelectedType = "Table";
-var _threeAnimationTime = 2500;
+var _threeAnimationTime = 2000;
 
 var _threeObjects = [];
 var _threeTargets = { table: [], sphere: [], helix: [], grid: [] };
@@ -143,6 +143,7 @@ WebInspector.ThreeDimView.prototype = {
     _threeCreateHtmlElement: function(request, pos){
         
         var host = request._parsedURL.host;
+        var lastPathComp = request._parsedURL.lastPathComponent; 
         var mimeType = request._mimeType;
         var requestId = request.requestId;
     
@@ -177,13 +178,17 @@ WebInspector.ThreeDimView.prototype = {
             }
             content.appendChild(iconImage);    
         }
-        content.title = request.url;
+        element.title = request.url;
         element.appendChild( content );
 
         var details = document.createElement( 'div' );
         details.className = 'details';
+        var parsedPath = lastPathComp;
+        if (parsedPath && parsedPath.length > 20){
+            parsedPath = parsedPath.substring(0, 20) + '...';
+        }
         var transferSize = typeof request.transferSize === "number" ? Number.bytesToString(request.transferSize) : "?";
-        details.innerHTML = mimeType + '<br>' + transferSize;
+        details.innerHTML = parsedPath + '<br>' + host + '<br>' + transferSize;
         element.appendChild( details );
         element.addEventListener("click", this._threeClickOnElement.bind(this), false);
         return element;
@@ -346,10 +351,6 @@ WebInspector.ThreeDimView.prototype = {
         var threeTypeBarElement = document.createElement("div");
         threeTypeBarElement.className = "scope-bar status-bar-item";
 
-        /**
-         * @param {string} typeName
-         * @param {string} label
-         */
         function createThreeTypeElement(typeName, label)
         {
             var threeTypeElement = document.createElement("li");
@@ -414,7 +415,7 @@ WebInspector.ThreeDimView.prototype = {
                     .to( {}, duration * 2 )
                 .onUpdate( _threeRender );
         if (callbackOnEnd){
-            tween.onComplete( callbackOnEnd );            
+            tween.onComplete( callbackOnEnd );
         }
         tween.start();
     },
@@ -424,16 +425,16 @@ WebInspector.ThreeDimView.prototype = {
         var animationTime = _threeAnimationTime;
         if (selectedType == "Sphere"){
             TWEEN.removeAll();
-            this._threeTransformAll( _threeTargets.sphere, animationTime );    
+            this._threeTransformAll( _threeTargets.sphere, animationTime );
         }else if (selectedType == "Table"){
             TWEEN.removeAll();
-            this._threeTransformAll( _threeTargets.table, animationTime );    
+            this._threeTransformAll( _threeTargets.table, animationTime );
         }else if (selectedType == "Helix"){
             TWEEN.removeAll();
-            this._threeTransformAll( _threeTargets.helix, animationTime );    
+            this._threeTransformAll( _threeTargets.helix, animationTime );
         }else if (selectedType == "Grid"){
             TWEEN.removeAll();    
-            this._threeTransformAll( _threeTargets.grid, animationTime );    
+            this._threeTransformAll( _threeTargets.grid, animationTime );
         }
     },
     
@@ -452,7 +453,7 @@ WebInspector.ThreeDimView.prototype = {
                     .to( {}, duration * 2 )
                 .onUpdate( _threeRender );
         if (callbackOnEnd){
-            tween.onComplete( callbackOnEnd );            
+            tween.onComplete( callbackOnEnd );
         }
         tween.start();
     },
@@ -462,7 +463,7 @@ WebInspector.ThreeDimView.prototype = {
         if (_threeHaveUnplacedItems && _threeSelectedType == "Sphere"){
             _threeHaveUnplacedItems = false;
             _threeCanUpdateSphere = false;
-            this._threeTransformAll( _threeTargets.sphere, _threeAnimationTime, this._threeUpdateSphereComplete);        
+            this._threeTransformAll( _threeTargets.sphere, _threeAnimationTime, this._threeUpdateSphereComplete);
         }else{
             _threeCanUpdateSphere = true;    
         }
@@ -477,17 +478,17 @@ WebInspector.ThreeDimView.prototype = {
             if (_threeCanUpdateSphere){
                 _threeCanUpdateSphere = false;
                 _threeHaveUnplacedItems = false;
-                this._threeTransformAll( _threeTargets.sphere, animationTime, this._threeUpdateSphereComplete);        
+                this._threeTransformAll( _threeTargets.sphere, animationTime, this._threeUpdateSphereComplete);
             }else{
                 _threeHaveUnplacedItems = true;
             }
             
         }else if (selectedType == "Table"){
-            this._threeTransformOne( _threeTargets.table, pos, animationTime );    
+            this._threeTransformOne( _threeTargets.table, pos, animationTime );
         }else if (selectedType == "Helix"){
-            this._threeTransformOne( _threeTargets.helix, pos, animationTime );    
+            this._threeTransformOne( _threeTargets.helix, pos, animationTime );
         }else if (selectedType == "Grid"){    
-            this._threeTransformOne( _threeTargets.grid, pos, animationTime );    
+            this._threeTransformOne( _threeTargets.grid, pos, animationTime );
         }
     },
     
@@ -563,6 +564,3 @@ WebInspector.ThreeDimPanel.prototype = {
     },
     __proto__: WebInspector.Panel.prototype
 }
-
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
