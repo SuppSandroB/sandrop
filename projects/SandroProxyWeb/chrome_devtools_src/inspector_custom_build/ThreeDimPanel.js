@@ -68,12 +68,6 @@ function _threeAnimate(){
     _threeControls.update();
 }
 
-function _threeUpdateSphereComplete(){
-    if (_threeHaveUnplacedItems){
-        // TODO here we can start new transformation if type is still the same        
-    }
-    _threeCanUpdateSphere = true;
-}
 
     
 function _threeRender(){
@@ -90,22 +84,6 @@ WebInspector.ThreeDimView = function(){
     this._allowRequestSelection = false;
     this._viewInitialised = false;
     this._requests = [];
-    this._requestsById = {};
-    this._requestsByURL = {};
-    this._staleRequests = {};
-    this._requestGridNodes = {};
-    this._lastRequestGridNodeId = 0;
-    this._mainRequestLoadTime = -1;
-    this._mainRequestDOMContentTime = -1;
-    this._hiddenCategories = {};
-    this._matchedRequests = [];
-    this._highlightedSubstringChanges = [];
-    this._filteredOutRequests = new Map();
-    
-    this._matchedRequestsMap = {};
-    this._currentMatchedRequestIndex = -1;
-
-
 
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.RequestFinished, this._onRequestUpdated, this);
 
@@ -119,11 +97,13 @@ WebInspector.ThreeDimView.prototype = {
     
     _createNetworkItemView: function(){
         this._networkItemElement = document.createElement("div");
+        this._networkItemElement.id = "network-item-details-container";
         this.element.appendChild(this._networkItemElement);
     },
     
     _createThreeView: function(){
         this._threeViewElement = document.createElement("div");
+        this._threeViewElement.id = "three-view-container";
         this.element.appendChild(this._threeViewElement);
     }, 
     
@@ -133,42 +113,31 @@ WebInspector.ThreeDimView.prototype = {
         this._createThreeTypeBarItems();
         this._createThreeView();
         this._createNetworkItemView();
-        // this._popoverHelper = new WebInspector.PopoverHelper(this.element, this._getPopoverAnchor.bind(this), this._showPopover.bind(this));
-        // Enable faster hint.
-        // this._popoverHelper.setTimeout(1000);
+        
+        this._closeButtonElement = document.createElement("button");
+        this._closeButtonElement.id = "network-item-details-close-button";
+        this._closeButtonElement.addEventListener("click", this._hideNetworkItemView.bind(this), false);
+        this._networkItemElement.appendChild(this._closeButtonElement);
 
         this._threeInit();
         _threeAnimate();
     },
+    
+    _hideNetworkItemView: function(event){
+        if (this.visibleView) {
+            this.visibleView.detach();
+            delete this.visibleView;
+            this._closeButtonElement.className = "";
+        }
+    },
+    
     
     _getPopoverAnchor: function(element)
     {
         var anchor = element.enclosingNodeOrSelfWithClass("request");
         if (anchor)
             return anchor;
-        anchor = element.enclosingNodeOrSelfWithClass("network-script-initiated");
-        if (anchor && anchor.request && anchor.request.initiator)
-            return anchor;
-
         return null;
-    },
-    
-        /**
-     * @param {Element} anchor
-     * @param {WebInspector.Popover} popover
-     */
-    _showPopover: function(anchor, popover)
-    {
-        var content;
-        if (anchor.hasStyleClass("request")){
-                // TODO content = this._generateScriptInitiatedPopoverContent(anchor.request);
-        }else{
-                // TODO content = WebInspector.RequestTimingView.createTimingTable(anchor.parentElement.request);
-        }
-        
-        var view = new WebInspector.NetworkItemView(this._requests[0]);
-        content = view;
-        popover.show(content, anchor.element, 400, 400);
     },
     
     _threeCreateHtmlElement: function(request, pos){
@@ -180,29 +149,41 @@ WebInspector.ThreeDimView.prototype = {
         var element = document.createElement( 'div' );
         element.id = pos;
         element.className = 'request';
-        element.style.backgroundColor = 'rgba(0,127,127,' + ( Math.random() * 0.5 + 0.25 ) + ')';
+        element.style.backgroundColor = 'rgba(127,127,0,' + ( Math.random() * 0.5 + 0.25 ) + ')';
 
         var number = document.createElement( 'div' );
         number.className = 'data';
         number.textContent = pos + 1;
         element.appendChild( number );
 
-        var symbol = document.createElement( 'div' );
-        symbol.className = 'content';
+        var content = document.createElement( 'div' );
+        content.className = 'content';
         
         if (request._type._title == "Image"){
             var previewImage = document.createElement("img");
             previewImage.className = "image-network-icon-preview";
             request.populateImageSource(previewImage);
-            symbol.appendChild(previewImage);
+            content.appendChild(previewImage);
         }else{
-            symbol.textContent = host;    
+            var iconImage = document.createElement("img");
+            if (request._type._title == "Document") {
+                iconImage.className = "network-type-document icon";
+            }else if (request._type._title == "Script"){
+                iconImage.className = "network-type-script icon";
+            }else if (request._type._title == "Stylesheet"){
+                iconImage.className = "network-type-stylesheet icon";
+            }else{
+                iconImage.className = "network-type-other icon";
+            }
+            content.appendChild(iconImage);    
         }
-        element.appendChild( symbol );
+        content.title = request.url;
+        element.appendChild( content );
 
         var details = document.createElement( 'div' );
         details.className = 'details';
-        details.innerHTML = mimeType + '<br>' + requestId;
+        var transferSize = typeof request.transferSize === "number" ? Number.bytesToString(request.transferSize) : "?";
+        details.innerHTML = mimeType + '<br>' + transferSize;
         element.appendChild( details );
         element.addEventListener("click", this._threeClickOnElement.bind(this), false);
         return element;
@@ -220,8 +201,8 @@ WebInspector.ThreeDimView.prototype = {
             _threeObjects.push( object );
             
             // table
-            var posX = Math.floor(pos/20);
-            var posY = pos%20;
+            var posX = pos%20;
+            var posY = Math.floor(pos/20);
 
             var objectTable = new THREE.Object3D();
             objectTable.position.x = ( posX * 160 ) - 1540;
@@ -232,32 +213,24 @@ WebInspector.ThreeDimView.prototype = {
             // sphere
             var vector = new THREE.Vector3();
             _threeTargets.sphere = [];
-            
-            for ( var i = 0, l = _threeObjects.length; i < l; i ++ ) {
+            var l = _threeObjects.length;
+            var rad = 1000;
+            if ( l > 400){
+                rad = 2000;
+            }
+            for ( var i = 0; i < l; i ++ ) {
                 var object = _threeObjects[ i ];
                 var phi = Math.acos( -1 + ( 2 * i ) / l );
                 var theta = Math.sqrt( l * Math.PI ) * phi;
                 var object = new THREE.Object3D();
-                object.position.x = 1000 * Math.cos( theta ) * Math.sin( phi );
-                object.position.y = 1000 * Math.sin( theta ) * Math.sin( phi );
-                object.position.z = 1000 * Math.cos( phi );
+                object.position.x = rad * Math.cos( theta ) * Math.sin( phi );
+                object.position.y = rad * Math.sin( theta ) * Math.sin( phi );
+                object.position.z = rad * Math.cos( phi );
                 vector.copy( object.position ).multiplyScalar( 2 );
                 object.lookAt( vector );
                 _threeTargets.sphere.push( object );
     
             }
-            
-            var vectorSphere = new THREE.Vector3();
-            var l = pos + 1;
-            var phi = Math.acos( -1 + ( 2 * pos ) / l );
-            var theta = Math.sqrt( l * Math.PI ) * phi;
-            var objectSphere = new THREE.Object3D();
-            objectSphere.position.x = 1000 * Math.cos( theta ) * Math.sin( phi );
-            objectSphere.position.y = 1000 * Math.sin( theta ) * Math.sin( phi );
-            objectSphere.position.z = 1000 * Math.cos( phi );
-            vectorSphere.copy( objectSphere.position ).multiplyScalar( 2 );
-            object.lookAt( vectorSphere );
-            _threeTargets.sphere.push( objectSphere );
             
             // helix
             var vectorHelix = new THREE.Vector3();
@@ -267,8 +240,9 @@ WebInspector.ThreeDimView.prototype = {
             objectHelix.position.y = - ( pos * 8 ) + 450;
             objectHelix.position.z = 1100 * Math.cos( phi );
             vectorHelix.copy( object.position );
-            vectorHelix.x *= 2;
-            vectorHelix.z *= 2;
+            // vectorHelix.x *= 2;
+            // vectorHelix.z *= 2;    
+            
             object.lookAt( vectorHelix );
             _threeTargets.helix.push( objectHelix );
             
@@ -298,14 +272,12 @@ WebInspector.ThreeDimView.prototype = {
             _threeObjects.push( object );
             
             // table setting
-            k++;
-            if (k >= 20){
-                j++;
-                k = 1;
-            }
+            var posX = i%20;
+            var posY = Math.floor(i/20);
+            
             var object = new THREE.Object3D();
-            object.position.x = ( k * 160 ) - 1540;
-            object.position.y = - ( j * 200 ) + 1100;
+            object.position.x = ( posX * 160 ) - 1540;
+            object.position.y = - ( posY * 200 ) + 1100;
             _threeTargets.table.push( object );
         
         }        
@@ -329,7 +301,6 @@ WebInspector.ThreeDimView.prototype = {
         // helix
         var vector = new THREE.Vector3();
         for ( var i = 0, l = _threeObjects.length; i < l; i ++ ) {
-            var object = _threeObjects[ i ];
             var phi = i * 0.175 + Math.PI;
             var object = new THREE.Object3D();
             object.position.x = 1100 * Math.sin( phi );
@@ -344,7 +315,6 @@ WebInspector.ThreeDimView.prototype = {
 
         // grid
         for ( var i = 0; i < _threeObjects.length; i ++ ) {
-            var object = _threeObjects[ i ];
             var object = new THREE.Object3D();
             object.position.x = ( ( i % 5 ) * 400 ) - 800;
             object.position.y = ( - ( Math.floor( i / 5 ) % 5 ) * 400 ) + 800;
@@ -487,18 +457,28 @@ WebInspector.ThreeDimView.prototype = {
         tween.start();
     },
     
+    
+    _threeUpdateSphereComplete: function(){
+        if (_threeHaveUnplacedItems && _threeSelectedType == "Sphere"){
+            _threeHaveUnplacedItems = false;
+            _threeCanUpdateSphere = false;
+            this._threeTransformAll( _threeTargets.sphere, _threeAnimationTime, this._threeUpdateSphereComplete);        
+        }else{
+            _threeCanUpdateSphere = true;    
+        }
+    },
+
+    
     _activateThreeTransformOne : function(pos){
         var selectedType = _threeSelectedType;
         var animationTime = _threeAnimationTime;
         if (selectedType == "Sphere"){
-            // we activate all transform because on sphere all positions are changed
-            // we also do this more quickly because every new item resets movements for previous elements
+            // we activate the all transform because on sphere all positions are changed
             if (_threeCanUpdateSphere){
                 _threeCanUpdateSphere = false;
                 _threeHaveUnplacedItems = false;
-                this._threeTransformAll( _threeTargets.sphere, animationTime, _threeUpdateSphereComplete);        
+                this._threeTransformAll( _threeTargets.sphere, animationTime, this._threeUpdateSphereComplete);        
             }else{
-                // TODO how to handle last fetch to animate
                 _threeHaveUnplacedItems = true;
             }
             
@@ -553,6 +533,7 @@ WebInspector.ThreeDimView.prototype = {
             this.visibleView.detach();
             delete this.visibleView;
         }
+        this._closeButtonElement.className = "visible";
         view.show(this._networkItemElement);
         this.visibleView = view;
     },
