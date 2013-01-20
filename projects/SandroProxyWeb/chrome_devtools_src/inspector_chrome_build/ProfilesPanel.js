@@ -79,6 +79,14 @@ WebInspector.ProfileType.prototype = {
         return "";
     },
 
+    /**
+     * @return {Element}
+     */
+    decorationElement: function()
+    {
+        return null;
+    },
+
     // Must be implemented by subclasses.
     /**
      * @param {string=} title
@@ -175,11 +183,6 @@ WebInspector.ProfileHeader.prototype = {
     canSaveToFile: function() { return false; },
 
     saveToFile: function() { throw new Error("Needs implemented"); },
-
-    /**
-     * @return {boolean}
-     */
-    canLoadFromFile: function() { return false; },
 
     /**
      * @param {File} file

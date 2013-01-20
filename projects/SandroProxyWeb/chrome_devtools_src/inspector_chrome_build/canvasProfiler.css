@@ -45,7 +45,7 @@
     color: white;
 }
 
-#canvas-replay-image {
+.canvas-replay-image {
     zoom: 100;
     height: auto;
     width: auto;
@@ -55,11 +55,33 @@
     display: block;
 }
 
-#canvas-replay-image.wait {
+.canvas-replay-image.wait {
     content: url(Images/spinnerActiveSelected.gif);
     zoom: inherit;
     position: absolute;
     top: 50%;
     left: 50%;
     margin: -16px 0 0 -16px;
+}
+
+.canvas-replay-log {
+    position: absolute;
+    top: 24px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.canvas-replay-first-step img {
+    content: url(Images/debuggerContinue.png);
+    -webkit-transform: rotate(180deg);
+}
+.canvas-replay-next-step img {
+    content: url(Images/debuggerStepInto.png);
+}
+.canvas-replay-prev-step img {
+    content: url(Images/debuggerStepOut.png);
+}
+.canvas-replay-last-step img {
+    content: url(Images/debuggerContinue.png);
 }
