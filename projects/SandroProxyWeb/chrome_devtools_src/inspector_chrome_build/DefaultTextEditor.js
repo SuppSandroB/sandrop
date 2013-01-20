@@ -110,6 +110,24 @@ WebInspector.DefaultTextEditor.EditInfo = function(range, text)
 
 WebInspector.DefaultTextEditor.prototype = {
     /**
+     * @param {RegExp} regex
+     * @param {string} cssClass
+     */
+    highlightRegex: function(regex, cssClass)
+    {
+        this._mainPanel.highlightRegex(regex, cssClass);
+    },
+
+    /**
+     * @param {RegExp} regex
+     * @return {boolean}
+     */
+    removeRegexHighlight: function(regex)
+    {
+        return this._mainPanel.removeRegexHighlight(regex);
+    },
+
+    /**
      * @param {string} mimeType
      */
     set mimeType(mimeType)
@@ -1338,11 +1356,52 @@ WebInspector.TextEditorMainPanel = function(delegate, textModel, url, syncScroll
 
     this._container.addEventListener("focus", this._handleFocused.bind(this), false);
 
+    this._highlightRegexs = {};
+
     this._freeCachedElements();
     this.buildChunks();
 }
 
 WebInspector.TextEditorMainPanel.prototype = {
+    /**
+     * @param {RegExp} regex
+     * @param {string} cssClass
+     */
+    highlightRegex: function(regex, cssClass)
+    {
+        this._highlightRegexs[regex] = {
+            regex: new RegExp(regex.source, "g" + (regex.ignoreCase ? "i" : "")),
+            cssClass: cssClass
+        };
+        this._repaintVisibleChunks();
+    },
+
+    /**
+     * @param {RegExp} regex
+     * @return {boolean}
+     */
+    removeRegexHighlight: function(regex)
+    {
+        var result = delete this._highlightRegexs[regex];
+        this._repaintVisibleChunks();
+        return result;
+    },
+
+    _repaintVisibleChunks: function()
+    {
+        var visibleFrom = this.scrollTop();
+        var visibleTo = visibleFrom + this.clientHeight();
+
+        var visibleChunks = this.findVisibleChunks(visibleFrom, visibleTo);
+        var selection = this.selection();
+
+        for(var i = visibleChunks.start; i < visibleChunks.end; ++i) {
+            var chunk = this._textChunks[i];
+            this._paintLines(chunk._startLine, chunk._startLine + chunk.linesCount);
+        }
+        this._restoreSelection(selection);
+    },
+
     wasShown: function()
     {
         this._boundSelectionChangeListener = this._handleSelectionChange.bind(this);
@@ -1864,6 +1923,113 @@ WebInspector.TextEditorMainPanel.prototype = {
     },
 
     /**
+     * @param {string} line
+     * @param {RegExp} regex
+     * @return {Array.<{startColumn: number, endColumn: number}>}
+     */
+    _findRegexOccurrences: function(line, regex)
+    {
+        var ranges = [];
+        var regexResult;
+        while (regexResult = regex.exec(line)) {
+            ranges.push({
+                startColumn: regexResult.index,
+                endColumn: regexResult.index + regexResult[0].length - 1
+            });
+        }
+        return ranges;
+    },
+
+    /**
+     * @param {Element} lineRow
+     * @param {string} line
+     * @param {RegExp} regex
+     * @return {Array.<{left: number, width: number}>}
+     */
+    _measureRegex: function(lineRow, line, regex)
+    {
+        var ranges = this._findRegexOccurrences(line, regex);
+        if (ranges.length === 0)
+            return [];
+
+        this._renderRanges(lineRow, line, ranges);
+        var spans = lineRow.getElementsByTagName("span");
+        if (WebInspector.debugDefaultTextEditor)
+            console.assert(spans.length === ranges.length, "Ranges number: " + ranges.length + " !== spans number: " + spans.length);
+
+        var metrics = [];
+        for(var i = 0; i < ranges.length; ++i)
+            metrics.push({
+                left: spans[i].offsetLeft,
+                width: spans[i].offsetWidth
+            });
+        return metrics;
+    },
+
+    /**
+     * @param {Element} lineRow
+     * @param {Array.<{offsetLeft: number, offsetTop: number, offsetWidth: number, offsetHeight: number}>} metrics
+     * @param {string} cssClass
+     */
+    _appendOverlayHighlight: function(lineRow, metrics, cssClass)
+    {
+        const extraWidth = 1;
+        for(var i = 0; i < metrics.length; ++i) {
+            var highlight = document.createElement("span");
+            highlight.addStyleClass(cssClass);
+            lineRow.appendChild(highlight);
+
+            highlight.style.marginLeft = (metrics[i].left - highlight.offsetLeft - extraWidth) + "px";
+            highlight.style.width = (metrics[i].width + extraWidth * 2) + "px";
+            highlight.innerHTML = "&nbsp;";
+            highlight.addStyleClass("text-editor-overlay-highlight");
+        }
+    },
+
+    /**
+     * @param {Element} lineRow
+     * @param {string} line
+     * @param {Array.<{startColumn: number, endColumn: number, token: ?string}>} ranges
+     */
+    _renderRanges: function(lineRow, line, ranges)
+    {
+        var decorationsElement = lineRow.decorationsElement;
+
+        if (!decorationsElement)
+            lineRow.removeChildren();
+        else {
+            while (true) {
+                var child = lineRow.firstChild;
+                if (!child || child === decorationsElement)
+                    break;
+                lineRow.removeChild(child);
+            }
+        }
+
+        if (!line)
+            lineRow.insertBefore(document.createElement("br"), decorationsElement);
+
+        var plainTextStart = 0;
+        for(var i = 0; i < ranges.length; i++) {
+            var rangeStart = ranges[i].startColumn;
+            var rangeEnd = ranges[i].endColumn;
+            var cssClass = ranges[i].token ? "webkit-" + ranges[i].token : "";
+
+            if (plainTextStart < rangeStart) {
+                this._insertTextNodeBefore(lineRow, decorationsElement, line.substring(plainTextStart, rangeStart));
+                --this._paintLinesOperationsCredit;
+            }
+            this._insertSpanBefore(lineRow, decorationsElement, line.substring(rangeStart, rangeEnd + 1), cssClass);
+            --this._paintLinesOperationsCredit;
+            plainTextStart = rangeEnd + 1;
+        }
+        if (plainTextStart < line.length) {
+            this._insertTextNodeBefore(lineRow, decorationsElement, line.substring(plainTextStart, line.length));
+            --this._paintLinesOperationsCredit;
+        }
+    },
+
+    /**
      * @param {Element} lineRow
      */
     _paintLine: function(lineRow)
@@ -1881,42 +2047,21 @@ WebInspector.TextEditorMainPanel.prototype = {
             if (!highlight)
                 return;
 
-            var decorationsElement = lineRow.decorationsElement;
-            if (!decorationsElement)
-                lineRow.removeChildren();
-            else {
-                while (true) {
-                    var child = lineRow.firstChild;
-                    if (!child || child === decorationsElement)
-                        break;
-                    lineRow.removeChild(child);
-                }
-            }
-
             var line = this._textModel.line(lineNumber);
+
+            var metrics = [];
+            var cssClasses = [];
+            for(var key in this._highlightRegexs) {
+                var value = this._highlightRegexs[key];
+                metrics.push(this._measureRegex(lineRow, line, value.regex));
+                cssClasses.push(value.cssClass);
+            }
+
             var ranges = this._highlighter.orderedRangesPerLine(lineNumber);
+            this._renderRanges(lineRow, line, ranges);
 
-            if (!line)
-                lineRow.insertBefore(document.createElement("br"), decorationsElement);
-
-            var plainTextStart = 0;
-            for(var i = 0; i < ranges.length; i++) {
-                var rangeStart = ranges[i].startColumn;
-                var rangeEnd = ranges[i].endColumn;
-                var rangeToken = ranges[i].token;
-
-                if (plainTextStart < rangeStart) {
-                    this._insertTextNodeBefore(lineRow, decorationsElement, line.substring(plainTextStart, rangeStart));
-                    --this._paintLinesOperationsCredit;
-                }
-                this._insertSpanBefore(lineRow, decorationsElement, line.substring(rangeStart, rangeEnd + 1), rangeToken);
-                --this._paintLinesOperationsCredit;
-                plainTextStart = rangeEnd + 1;
-            }
-            if (plainTextStart < line.length) {
-                this._insertTextNodeBefore(lineRow, decorationsElement, line.substring(plainTextStart, line.length));
-                --this._paintLinesOperationsCredit;
-            }
+            for(var i = 0; i < metrics.length; ++i)
+                this._appendOverlayHighlight(lineRow, metrics[i], cssClasses[i]);
         } finally {
             if (this._rangeToMark && this._rangeToMark.startLine === lineNumber)
                 this._markedRangeElement = WebInspector.highlightSearchResult(lineRow, this._rangeToMark.startColumn, this._rangeToMark.endColumn - this._rangeToMark.startColumn);
@@ -2123,7 +2268,7 @@ WebInspector.TextEditorMainPanel.prototype = {
         }
 
         var span = this._cachedSpans.pop() || document.createElement("span");
-        span.className = "webkit-" + className;
+        span.className = className;
         if (WebInspector.FALSE) // For paint debugging.
             span.addStyleClass("debug-fadeout");
         span.textContent = content;

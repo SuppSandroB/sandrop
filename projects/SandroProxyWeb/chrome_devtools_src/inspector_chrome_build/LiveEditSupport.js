@@ -35,9 +35,10 @@
 WebInspector.LiveEditSupport = function(workspace)
 {
     this._workspace = workspace;
-    this._liveEditWorkspaceProvider = new WebInspector.LiveEditWorkspaceProvider(workspace);
-    this._workspace.addEventListener(WebInspector.Workspace.Events.ProjectWillReset, this._reset, this);
-    this._reset();
+    this._workspaceProvider = new WebInspector.SimpleWorkspaceProvider(this._workspace);
+    workspace.addProject(WebInspector.projectNames.LiveEdit, this._workspaceProvider);
+    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this._debuggerReset, this);
+    this._debuggerReset();
 }
 
 WebInspector.LiveEditSupport.prototype = {
@@ -57,21 +58,24 @@ WebInspector.LiveEditSupport.prototype = {
             return uiLocation.uiSourceCode;
         if (this._uiSourceCodeForScriptId[script.scriptId])
             return this._uiSourceCodeForScriptId[script.scriptId];
-        
+
         console.assert(!script.isInlineScript());
-        var uri = uiSourceCode.uri();
-        var liveEditUISourceCode = this._liveEditWorkspaceProvider.addLiveEditFile(uiSourceCode.url, script, true);
+        var uri = "liveedit:" + WebInspector.SimpleWorkspaceProvider.uriForURL(uiSourceCode.url);
+        var uniqueURI = this._workspaceProvider.uniqueURI(uri);
+        var liveEditUISourceCode = this._workspaceProvider.addFile(uniqueURI, uiSourceCode.url, script, true);
+
         liveEditUISourceCode.setScriptFile(new WebInspector.LiveEditScriptFile(uiSourceCode, liveEditUISourceCode, script.scriptId));
         this._uiSourceCodeForScriptId[script.scriptId] = liveEditUISourceCode;
         this._scriptIdForUISourceCode.put(liveEditUISourceCode, script.scriptId);
         return liveEditUISourceCode;
     },
 
-    _reset: function()
+    _debuggerReset: function()
     {
         /** @type {Object.<string, WebInspector.UISourceCode>} */
         this._uiSourceCodeForScriptId = {};
         this._scriptIdForUISourceCode = new Map();
+        this._workspaceProvider.reset();
     },
 }
 
@@ -131,32 +135,3 @@ WebInspector.LiveEditScriptFile.prototype = {
 
 /** @type {WebInspector.LiveEditSupport} */
 WebInspector.liveEditSupport = null;
-
-/**
- * @constructor
- * @extends {WebInspector.ContentProviderWorkspaceProvider}
- */
-WebInspector.LiveEditWorkspaceProvider = function(workspace)
-{
-    WebInspector.ContentProviderWorkspaceProvider.call(this);
-    this._workspace = workspace;
-}
-
-WebInspector.LiveEditWorkspaceProvider.prototype = {
-    /**
-     * @param {string} url
-     * @param {WebInspector.ContentProvider} contentProvider
-     * @param {boolean} isEditable
-     * @return {WebInspector.UISourceCode}
-     */
-    addLiveEditFile: function(url, contentProvider, isEditable)
-    {
-        var uri = "liveedit:" + WebInspector.ContentProviderWorkspaceProvider.uriForURL(url);
-        var uniqueURI = this.uniqueURI(uri);
-        // FIXME: this is a temporary hack to be removed once LiveEdit uiSourceCode become part of the workspace.
-        this._contentProviders[uniqueURI] = null;
-        return this._workspace.addTemporaryUISourceCode(uniqueURI, url, contentProvider, isEditable);
-    },
-
-    __proto__: WebInspector.ContentProviderWorkspaceProvider.prototype
-}

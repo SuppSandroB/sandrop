@@ -350,11 +350,14 @@ WebInspector.FilteredItemSelectionDialog.prototype = {
     _highlightItems: function(query)
     {
         var regex = this._createSearchRegExp(query, true);
+        var elementsToHighlight = [];
         for (var i = 0; i < this._delegate.itemsCount(); ++i) {
             var itemElement = this._itemElements[i];
             if (this._itemElementVisible(itemElement) && this._itemElementInViewport(itemElement))
-                this._highlightItem(itemElement, regex);
+                elementsToHighlight.push(itemElement);
         }
+        for (var i = 0; i < elementsToHighlight.length; ++i)
+            this._highlightItem(elementsToHighlight[i], regex);
     },
 
     _clearHighlight: function()
@@ -609,14 +612,19 @@ WebInspector.JavaScriptOutlineDialog.prototype = {
  * @constructor
  * @implements {WebInspector.SelectionDialogContentProvider}
  * @param {WebInspector.ScriptsPanel} panel
- * @param {WebInspector.UISourceCodeProvider} uiSourceCodeProvider
  */
-WebInspector.OpenResourceDialog = function(panel, uiSourceCodeProvider)
+WebInspector.OpenResourceDialog = function(panel)
 {
     WebInspector.SelectionDialogContentProvider.call(this);
     this._panel = panel;
 
-    this._uiSourceCodes = uiSourceCodeProvider.uiSourceCodes();
+    var projects = WebInspector.workspace.projects();
+    this._uiSourceCodes = [];
+    for (var i = 0; i < projects.length; ++i) {
+        if (projects[i].isServiceProject())
+            continue;
+        this._uiSourceCodes = this._uiSourceCodes.concat(projects[i].uiSourceCodes());
+    }
 
     function filterOutEmptyURLs(uiSourceCode)
     {
@@ -626,7 +634,7 @@ WebInspector.OpenResourceDialog = function(panel, uiSourceCodeProvider)
 
     function compareFunction(uiSourceCode1, uiSourceCode2)
     {
-        return uiSourceCode1.parsedURL.lastPathComponent.localeCompare(uiSourceCode2.parsedURL.lastPathComponent);
+        return uiSourceCode1.parsedURL.lastPathComponent.compareTo(uiSourceCode2.parsedURL.lastPathComponent);
     }
     this._uiSourceCodes.sort(compareFunction);
 }
@@ -714,14 +722,13 @@ WebInspector.OpenResourceDialog.prototype = {
 
 /**
  * @param {WebInspector.ScriptsPanel} panel
- * @param {WebInspector.UISourceCodeProvider} uiSourceCodeProvider
  * @param {Element} relativeToElement
  */
-WebInspector.OpenResourceDialog.show = function(panel, uiSourceCodeProvider, relativeToElement)
+WebInspector.OpenResourceDialog.show = function(panel, relativeToElement)
 {
     if (WebInspector.Dialog.currentInstance())
         return;
 
-    var filteredItemSelectionDialog = new WebInspector.FilteredItemSelectionDialog(new WebInspector.OpenResourceDialog(panel, uiSourceCodeProvider));
+    var filteredItemSelectionDialog = new WebInspector.FilteredItemSelectionDialog(new WebInspector.OpenResourceDialog(panel));
     WebInspector.Dialog.show(relativeToElement, filteredItemSelectionDialog);
 }
