@@ -111,6 +111,7 @@ WebInspector.ThreeDimView.prototype = {
     {
         this.element.id = "threeDim-container";
         this._createThreeTypeBarItems();
+        // this._createStatusBarItems();
         this._createThreeView();
         this._createNetworkItemView();
         
@@ -129,15 +130,6 @@ WebInspector.ThreeDimView.prototype = {
             delete this.visibleView;
             this._closeButtonElement.className = "";
         }
-    },
-    
-    
-    _getPopoverAnchor: function(element)
-    {
-        var anchor = element.enclosingNodeOrSelfWithClass("request");
-        if (anchor)
-            return anchor;
-        return null;
     },
     
     _threeCreateHtmlElement: function(request, pos){
@@ -188,7 +180,7 @@ WebInspector.ThreeDimView.prototype = {
             parsedPath = parsedPath.substring(0, 20) + '...';
         }
         var transferSize = typeof request.transferSize === "number" ? Number.bytesToString(request.transferSize) : "?";
-        details.innerHTML = parsedPath + '<br>' + host + '<br>' + transferSize;
+        details.innerHTML = parsedPath + '<br/>' + host + '<br/>' + transferSize;
         element.appendChild( details );
         element.addEventListener("click", this._threeClickOnElement.bind(this), false);
         return element;
@@ -290,7 +282,6 @@ WebInspector.ThreeDimView.prototype = {
         // sphere
         var vector = new THREE.Vector3();
         for ( var i = 0, l = _threeObjects.length; i < l; i ++ ) {
-            var object = _threeObjects[ i ];
             var phi = Math.acos( -1 + ( 2 * i ) / l );
             var theta = Math.sqrt( l * Math.PI ) * phi;
             var object = new THREE.Object3D();
@@ -351,11 +342,14 @@ WebInspector.ThreeDimView.prototype = {
         var threeTypeBarElement = document.createElement("div");
         threeTypeBarElement.className = "scope-bar status-bar-item";
 
-        function createThreeTypeElement(typeName, label)
+        function createThreeTypeElement(typeName, label, selected)
         {
             var threeTypeElement = document.createElement("li");
             threeTypeElement.typeName = typeName;
             threeTypeElement.className = typeName;
+            if (selected){
+                threeTypeElement.addStyleClass("selected");
+            }
             threeTypeElement.appendChild(document.createTextNode(label));
             threeTypeElement.addEventListener("click", this._updateThreeVievTypeByClick.bind(this), false);
             threeTypeBarElement.appendChild(threeTypeElement);
@@ -366,7 +360,11 @@ WebInspector.ThreeDimView.prototype = {
         var threeTypes = ["Table", "Sphere", "Helix", "Grid"];
         for (var typeId in threeTypes) {
             var typeName = threeTypes[typeId];
-            createThreeTypeElement.call(this, typeName, typeName);
+            var selected = false;
+            if (_threeSelectedType == typeName){
+                selected = true;
+            }
+            createThreeTypeElement.call(this, typeName, typeName, selected);
         }
         
         var dividerElement = document.createElement("div");
@@ -375,6 +373,115 @@ WebInspector.ThreeDimView.prototype = {
         
         this._threeTypeBarElement = threeTypeBarElement;
     },
+    
+    
+    _createStatusBarItems: function()
+    {
+        var filterBarElement = document.createElement("div");
+        filterBarElement.className = "scope-bar status-bar-item";
+
+        function createFilterElement(typeName, label)
+        {
+            var categoryElement = document.createElement("li");
+            categoryElement.typeName = typeName;
+            categoryElement.className = typeName;
+            categoryElement.appendChild(document.createTextNode(label));
+            categoryElement.addEventListener("click", this._updateFilter.bind(this), false);
+            filterBarElement.appendChild(categoryElement);
+
+            return categoryElement;
+        }
+
+        this._filterAllElement = createFilterElement.call(this, "all", WebInspector.UIString("All"));
+
+        // Add a divider
+        var dividerElement = document.createElement("div");
+        dividerElement.addStyleClass("scope-bar-divider");
+        filterBarElement.appendChild(dividerElement);
+
+        for (var typeId in WebInspector.resourceTypes) {
+            var type = WebInspector.resourceTypes[typeId];
+            createFilterElement.call(this, type.name(), type.categoryTitle());
+        }
+        this._filterBarElement = filterBarElement;
+        this._progressBarContainer = document.createElement("div");
+        this._progressBarContainer.className = "status-bar-item";
+    },
+    
+    _updateFilter: function(e)
+    {
+        var isMac = WebInspector.isMac();
+        var selectMultiple = false;
+        if (isMac && e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey)
+            selectMultiple = true;
+        if (!isMac && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey)
+            selectMultiple = true;
+
+        this._filter(e.target, selectMultiple);
+    },
+    
+    // TODO implement hide category
+    _hideCategory: function(typeName){
+        // console.log("hide category " + typeName)
+    },
+    
+    // TODO implement show category
+    _showCategory: function(typeName){
+        // console.log("show category " + typeName)
+    },
+
+    _filter: function(target, selectMultiple){
+        function unselectAll(){
+            for (var i = 0; i < this._filterBarElement.childNodes.length; ++i) {
+                var child = this._filterBarElement.childNodes[i];
+                if (!child.typeName)
+                    continue;
+
+                child.removeStyleClass("selected");
+                this._hideCategory(child.typeName);
+            }
+        }
+
+        if (target === this._filterAllElement) {
+            if (target.hasStyleClass("selected")) {
+                // We can't unselect All, so we break early here
+                return;
+            }
+
+            // If All wasn't selected, and now is, unselect everything else.
+            unselectAll.call(this);
+        } else {
+            // Something other than All is being selected, so we want to unselect All.
+            if (this._filterAllElement.hasStyleClass("selected")) {
+                this._filterAllElement.removeStyleClass("selected");
+                this._hideCategory("all");
+            }
+        }
+
+        if (!selectMultiple) {
+            // If multiple selection is off, we want to unselect everything else
+            // and just select ourselves.
+            unselectAll.call(this);
+
+            target.addStyleClass("selected");
+            this._showCategory(target.typeName);
+            // TODO this._updateOffscreenRows();
+            return;
+        }
+
+        if (target.hasStyleClass("selected")) {
+            // If selectMultiple is turned on, and we were selected, we just
+            // want to unselect ourselves.
+            target.removeStyleClass("selected");
+            this._hideCategory(target.typeName);
+        } else {
+            // If selectMultiple is turned on, and we weren't selected, we just
+            // want to select ourselves.
+            target.addStyleClass("selected");
+            this._showCategory(target.typeName);
+        }
+    },
+    
     
     _updateThreeVievTypeByClick: function(e)
     {
@@ -494,7 +601,8 @@ WebInspector.ThreeDimView.prototype = {
     
     get statusBarItems()
     {
-        return [ this._threeTypeBarElement];
+        // return [ this._threeTypeBarElement, this._filterBarElement, this._progressBarContainer];
+        return [ this._threeTypeBarElement ];
     },
 
     _addRequest: function(event){
@@ -564,3 +672,13 @@ WebInspector.ThreeDimPanel.prototype = {
     },
     __proto__: WebInspector.Panel.prototype
 }
+
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
+//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
