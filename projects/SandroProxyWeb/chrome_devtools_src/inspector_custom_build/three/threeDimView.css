@@ -94,6 +94,14 @@
     display: none;
 }
 
+#network-item-details-close-button:hover {
+    background-position: 14px 0;
+}
+
+#network-item-details-close-button:active {
+    background-position: 28px 0;
+}
+
 
 .three-view-tabbed-pane {
     -webkit-box-orient: vertical;
