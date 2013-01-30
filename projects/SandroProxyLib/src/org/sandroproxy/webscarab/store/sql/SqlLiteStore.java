@@ -151,6 +151,14 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             try {
                 mDatabase = context
                         .openOrCreateDatabase(DATABASE_FILE, 0, null);
+                // mDatabase.setLockingEnabled(false);
+                try{
+                    mDatabase.execSQL("PRAGMA read_uncommitted = true;");
+                    mDatabase.execSQL("PRAGMA synchronous=OFF");
+                }catch(Exception ex){
+                    Log.e(LOGTAG, ex.getMessage());
+                }
+                
             } catch (SQLiteException e) {
                 // try again by deleting the old db and create a new one
                 if (context.deleteDatabase(DATABASE_FILE)) {
