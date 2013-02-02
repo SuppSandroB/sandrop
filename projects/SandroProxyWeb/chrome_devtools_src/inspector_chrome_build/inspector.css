@@ -1212,6 +1212,30 @@ ol.watch-expressions > li.hovered {
     font-style: italic;
 }
 
+.object-info-state-note {
+    display: none;
+    width: 12px;
+    height: 12px;
+    background-color: rgb(179, 203, 247);
+    color: white;
+    text-align: center;
+    border-radius: 5px;
+    line-height: 13px;
+    margin: 0 8px;
+}
+
+.object-info-state-note::before {
+    content: "i";
+}
+
+.object-info-state-note:hover {
+    background-color: rgb(52, 115, 231);
+}
+
+.section.expanded .object-info-state-note {
+    display: inline-block;
+}
+
 .error-message {
     color: red;
 }
@@ -1534,6 +1558,9 @@ iframe.panel.extension {
 
 .section.expanded .properties, .event-bar.expanded .event-properties {
     display: block;
+}
+
+.pane.expanded .section .properties, .event-bar .event-properties {
     padding-left: 16px;
 }
 
@@ -3028,4 +3055,9 @@ body.platform-mac .progress-bar-container progress {
 .progress-bar-container button.status-bar-item {
     border-left: none;
     margin-top: 1px;
+}
+
+.source-frame-position {
+    padding-left: 6px;
+    padding-top: 5px;
 }

@@ -32,6 +32,7 @@
  * @constructor
  * @extends {WebInspector.View}
  * @param {WebInspector.ProfilesPanel} parent
+ * @param {WebInspector.HeapProfileHeader} profile
  */
 WebInspector.HeapSnapshotView = function(parent, profile)
 {
@@ -40,8 +41,7 @@ WebInspector.HeapSnapshotView = function(parent, profile)
     this.element.addStyleClass("heap-snapshot-view");
 
     this.parent = parent;
-    this.parent.addEventListener("profile added", this._updateBaseOptions, this);
-    this.parent.addEventListener("profile added", this._updateFilterOptions, this);
+    this.parent.addEventListener("profile added", this._onProfileHeaderAdded, this);
 
     this.viewsContainer = document.createElement("div");
     this.viewsContainer.addStyleClass("views-container");
@@ -120,6 +120,7 @@ WebInspector.HeapSnapshotView = function(parent, profile)
     }
 
     this._profileUid = profile.uid;
+    this._profileTypeId = profile.profileType().id;
 
     this.baseSelectElement = document.createElement("select");
     this.baseSelectElement.className = "status-bar-item";
@@ -734,6 +735,17 @@ WebInspector.HeapSnapshotView.prototype = {
         }
     },
 
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _onProfileHeaderAdded: function(event)
+    {
+        if (!event.data || event.data.type !== this._profileTypeId)
+            return;
+        this._updateBaseOptions();
+        this._updateFilterOptions();
+    },
+
     __proto__: WebInspector.View.prototype
 }
 
@@ -803,7 +815,7 @@ WebInspector.HeapSnapshotProfileType.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.ProfileHeader}
- * @param {!WebInspector.HeapSnapshotProfileType} type
+ * @param {!WebInspector.ProfileType} type
  * @param {string} title
  * @param {number=} uid
  * @param {number=} maxJSObjectId
@@ -859,10 +871,20 @@ WebInspector.HeapProfileHeader.prototype = {
             this._setupWorker();
             this.sidebarElement.subtitle = WebInspector.UIString("Loading\u2026");
             this.sidebarElement.wait = true;
-            ProfilerAgent.getHeapSnapshot(this.uid);
+            this.startSnapshotTransfer();
         }
         var loaderProxy = /** @type {WebInspector.HeapSnapshotLoaderProxy} */ (this._receiver);
         loaderProxy.addConsumer(callback);
+    },
+
+    startSnapshotTransfer: function()
+    {
+        ProfilerAgent.getHeapSnapshot(this.uid);
+    },
+
+    snapshotConstructorName: function()
+    {
+        return "JSHeapSnapshot";
     },
 
     _setupWorker: function()
@@ -873,7 +895,7 @@ WebInspector.HeapProfileHeader.prototype = {
         }
         var worker = new WebInspector.HeapSnapshotWorker();
         worker.addEventListener("wait", setProfileWait, this);
-        var loaderProxy = worker.createObject("WebInspector.HeapSnapshotLoader");
+        var loaderProxy = worker.createLoader(this.snapshotConstructorName());
         loaderProxy.addConsumer(this._snapshotReceived.bind(this));
         this._receiver = loaderProxy;
     },

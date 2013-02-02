@@ -95,7 +95,7 @@ WebInspector.NetworkLogView = function(coulmnsVisibilitySetting)
     WebInspector.networkLog.requests.forEach(this._appendRequest.bind(this));
 }
 
-WebInspector.NetworkLogView._defaultColumnsVisivility = {method: true, status: true, domain: false, type: true, initiator: true, size: true, time: true};
+WebInspector.NetworkLogView._defaultColumnsVisivility = {method: true, status: true, domain: false, type: true, initiator: true, cookies: false, setCookies: false, size: true, time: true};
 
 WebInspector.NetworkLogView.prototype = {
     _initializeView: function()
@@ -157,7 +157,7 @@ WebInspector.NetworkLogView.prototype = {
 
     _createTable: function()
     {
-        var columns = {name: {}, method: {}, status: {}, domain: {}, type: {}, initiator: {}, size: {}, time: {}, timeline: {}};
+        var columns = {name: {}, method: {}, status: {}, domain: {}, type: {}, initiator: {}, cookies: {}, setCookies: {}, size: {}, time: {}, timeline: {}};
 
         columns.name.titleDOMFragment = this._makeHeaderFragment(WebInspector.UIString("Name"), WebInspector.UIString("Path"));
         columns.name.name = WebInspector.UIString("Name");
@@ -185,6 +185,16 @@ WebInspector.NetworkLogView.prototype = {
         columns.initiator.title = WebInspector.UIString("Initiator");
         columns.initiator.sortable = true;
         columns.initiator.weight = 10;
+
+        columns.cookies.title = WebInspector.UIString("Cookies");
+        columns.cookies.sortable = true;
+        columns.cookies.weight = 6;
+        columns.cookies.aligned = "right";
+
+        columns.setCookies.title = WebInspector.UIString("Set-Cookies");
+        columns.setCookies.sortable = true;
+        columns.setCookies.weight = 6;
+        columns.setCookies.aligned = "right";
 
         columns.size.titleDOMFragment = this._makeHeaderFragment(WebInspector.UIString("Size"), WebInspector.UIString("Content"));
         columns.size.name = WebInspector.UIString("Size");
@@ -280,6 +290,8 @@ WebInspector.NetworkLogView.prototype = {
         this._sortingFunctions.domain = WebInspector.NetworkDataGridNode.RequestPropertyComparator.bind(null, "domain", false);
         this._sortingFunctions.type = WebInspector.NetworkDataGridNode.RequestPropertyComparator.bind(null, "mimeType", false);
         this._sortingFunctions.initiator = WebInspector.NetworkDataGridNode.InitiatorComparator;
+        this._sortingFunctions.cookies = WebInspector.NetworkDataGridNode.RequestCookiesCountComparator;
+        this._sortingFunctions.setCookies = WebInspector.NetworkDataGridNode.ResponseCookiesCountComparator;
         this._sortingFunctions.size = WebInspector.NetworkDataGridNode.SizeComparator;
         this._sortingFunctions.time = WebInspector.NetworkDataGridNode.RequestPropertyComparator.bind(null, "duration", false);
         this._sortingFunctions.timeline = WebInspector.NetworkDataGridNode.RequestPropertyComparator.bind(null, "startTime", false);
@@ -1001,6 +1013,7 @@ WebInspector.NetworkLogView.prototype = {
                 contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy request headers" : "Copy Request Headers"), this._copyRequestHeaders.bind(this, request));
             if (request.responseHeadersText)
                 contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy response headers" : "Copy Response Headers"), this._copyResponseHeaders.bind(this, request));
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy as curl" : "Copy as Curl"), this._copyCurlCommand.bind(this, request));
         }
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy all as HAR" : "Copy All as HAR"), this._copyAll.bind(this));
 
@@ -1054,6 +1067,14 @@ WebInspector.NetworkLogView.prototype = {
         InspectorFrontendHost.copyText(request.responseHeadersText);
     },
 
+    /**
+     * @param {WebInspector.NetworkRequest} request
+     */
+    _copyCurlCommand: function(request)
+    {
+        InspectorFrontendHost.copyText(this._generateCurlCommand(request));
+    },
+
     _exportAll: function()
     {
         var filename = WebInspector.inspectedPageDomain + ".har";
@@ -1068,13 +1089,13 @@ WebInspector.NetworkLogView.prototype = {
         }
     },
 
-    _clearBrowserCache: function(event)
+    _clearBrowserCache: function()
     {
         if (confirm(WebInspector.UIString("Are you sure you want to clear browser cache?")))
             NetworkAgent.clearBrowserCache();
     },
 
-    _clearBrowserCookies: function(event)
+    _clearBrowserCookies: function()
     {
         if (confirm(WebInspector.UIString("Are you sure you want to clear browser cookies?")))
             NetworkAgent.clearBrowserCookies();
@@ -1321,6 +1342,56 @@ WebInspector.NetworkLogView.prototype = {
         node.element.addStyleClass("highlighted-row");
         this._highlightedNode = node;
     },
+
+   /**
+     * @param {WebInspector.NetworkRequest} request
+     * @return {string}
+     */
+    _generateCurlCommand: function(request)
+    {
+        var command = ["curl"];
+        var ignoredHeaders = {};
+
+        function escape(str)
+        {
+            return "\"" + str.replace(/\\/g, "\\\\")
+                             .replace(/\"/g, "\\\"")
+                             .replace(/\$/g, "\\$")
+                             .replace(/\n/g, "\\\n")
+                             .replace(/\`/g, "\\\`") + "\"";
+        }
+        command.push(escape(request.url));
+
+        var inferredMethod = "GET";
+        var data = [];
+        var requestContentType = request.requestContentType();
+        if (requestContentType && requestContentType.startsWith("application/x-www-form-urlencoded") && request.requestFormData) {
+           data.push("--data");
+           data.push(escape(request.requestFormData));
+           ignoredHeaders["Content-Length"] = true;
+           inferredMethod = "POST";
+        } else if (request.requestFormData) {
+           data.push("--data-binary");
+           data.push(escape(request.requestFormData));
+           ignoredHeaders["Content-Length"] = true;
+           inferredMethod = "POST";
+        }
+
+        if (request.requestMethod !== inferredMethod) {
+            command.push("-X");
+            command.push(request.requestMethod);
+        }
+
+        for (var i = 0; i < request.requestHeaders.length; i++) {
+            var header = request.requestHeaders[i];
+            if (header.name in ignoredHeaders)
+                continue;
+            command.push("-H");
+            command.push(escape(header.name + ": " + header.value));
+        }
+        command = command.concat(data);
+        return command.join(" ");
+    }, 
 
     __proto__: WebInspector.View.prototype
 }
@@ -1902,6 +1973,8 @@ WebInspector.NetworkDataGridNode.prototype = {
         this._domainCell = this._createDivInTD("domain");
         this._typeCell = this._createDivInTD("type");
         this._initiatorCell = this._createDivInTD("initiator");
+        this._cookiesCell = this._createDivInTD("cookies");
+        this._setCookiesCell = this._createDivInTD("setCookies");
         this._sizeCell = this._createDivInTD("size");
         this._timeCell = this._createDivInTD("time");
         this._createTimelineCell();
@@ -1956,10 +2029,8 @@ WebInspector.NetworkDataGridNode.prototype = {
 
     _createDivInTD: function(columnIdentifier)
     {
-        var td = document.createElement("td");
-        td.className = columnIdentifier + "-column";
-        var div = document.createElement("div");
-        td.appendChild(div);
+        var td = this.createTD(columnIdentifier);
+        var div = td.createChild("div");
         this._element.appendChild(td);
         return div;
     },
@@ -2010,6 +2081,8 @@ WebInspector.NetworkDataGridNode.prototype = {
         this._refreshDomainCell();
         this._refreshTypeCell();
         this._refreshInitiatorCell();
+        this._refreshCookiesCell();
+        this._refreshSetCookiesCell();
         this._refreshSizeCell();
         this._refreshTimeCell();
 
@@ -2153,6 +2226,18 @@ WebInspector.NetworkDataGridNode.prototype = {
             this._initiatorCell.addStyleClass("network-dim-cell");
             this._initiatorCell.setTextAndTitle(WebInspector.UIString("Other"));
         }
+    },
+
+    _refreshCookiesCell: function()
+    {
+        var requestCookies = this._request.requestCookies;
+        this._cookiesCell.setTextAndTitle(requestCookies ? "" + requestCookies.length : "");
+    },
+
+    _refreshSetCookiesCell: function()
+    {
+        var responseCookies = this._request.responseCookies;
+        this._setCookiesCell.setTextAndTitle(responseCookies ? "" + responseCookies.length : "");
     },
 
     _refreshSizeCell: function()
@@ -2323,6 +2408,20 @@ WebInspector.NetworkDataGridNode.InitiatorComparator = function(a, b)
         return 1;
 
     return a._request.initiator.lineNumber - b._request.initiator.lineNumber;
+}
+
+WebInspector.NetworkDataGridNode.RequestCookiesCountComparator = function(a, b)
+{
+    var aScore = a._request.requestCookies ? a._request.requestCookies.length : 0;
+    var bScore = b._request.requestCookies ? b._request.requestCookies.length : 0;
+    return aScore - bScore;
+}
+
+WebInspector.NetworkDataGridNode.ResponseCookiesCountComparator = function(a, b)
+{
+    var aScore = a._request.responseCookies ? a._request.responseCookies.length : 0;
+    var bScore = b._request.responseCookies ? b._request.responseCookies.length : 0;
+    return aScore - bScore;
 }
 
 WebInspector.NetworkDataGridNode.RequestPropertyComparator = function(propertyName, revert, a, b)
