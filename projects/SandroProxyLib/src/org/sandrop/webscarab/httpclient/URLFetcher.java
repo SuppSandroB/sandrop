@@ -318,8 +318,11 @@ public class URLFetcher implements HTTPClient {
                 String version = request.getVersion();
                 if (version.equals("HTTP/1.0") && "Keep-alive".equalsIgnoreCase(connection)) {
                     _lastRequestTime = System.currentTimeMillis();
+                    _response.setSocket(_socket);
                 } else if (version.equals("HTTP/1.1") && (connection == null || !connection.equalsIgnoreCase("Close"))) {
                     _lastRequestTime = System.currentTimeMillis();
+                    if (status.equals("101")) _response.setNoBody();
+                    _response.setSocket(_socket);
                 } else {
                     _logger.info("Closing connection!");
                     _in = null;

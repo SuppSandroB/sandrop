@@ -119,7 +119,19 @@ public class Request extends Message {
         if (parts.length == 2 || parts.length == 3) {
             setMethod(parts[0]);
             if (getMethod().equalsIgnoreCase("CONNECT")) {
-                setURL(new HttpUrl("https://" + parts[1] + "/"));
+                String schema = "http";
+                String[] hostParts = parts[1].split(":");
+                if (hostParts != null && hostParts.length > 1){
+                    String port = hostParts[1];
+                    // TODO this belongs to connection handler and not here
+                    // it should be like testing https to server then we also make ssl to client
+                    // this hacks are here just for ws:// and wss:// protocols
+                    // if we get port to be 80 or 8021-> sandroproxy default websocket server we assume that is ws:// 
+                    if (port != null && (port.equals("443") || port.equals("4430"))){
+                        schema = "https";
+                    }
+                }
+                setURL(new HttpUrl(schema +"://" + parts[1]));
             } else {
                 // supports creating an absolute url from a relative one
                 setURL(new HttpUrl(base, parts[1]));

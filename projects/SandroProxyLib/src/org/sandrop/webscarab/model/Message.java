@@ -345,6 +345,27 @@ public class Message {
      * Writes the Message headers and content to the supplied OutputStream
      * @param os The OutputStream to write the Message headers and content to
      * @throws IOException any IOException thrown by the supplied OutputStream, or any IOException thrown by the InputStream from which this Message was originally read (if any)
+     */
+    public void writeHeaders(OutputStream os) throws Exception {
+        writeHeaders(os, "\r\n");
+    }
+    
+    public void writeHeaders(OutputStream os, String crlf) throws IOException {
+        if (_headers != null) {
+            for (int i=0; i<_headers.size(); i++) {
+                NamedValue nv = _headers.get(i);
+                os.write(new String(nv.getName() + ": " + nv.getValue() + crlf).getBytes());
+                _logger.finest("Header: " + nv);
+            }
+        }
+        os.write(crlf.getBytes());
+        _logger.finer("wrote headers");
+    }
+    
+    /**
+     * Writes the Message headers and content to the supplied OutputStream
+     * @param os The OutputStream to write the Message headers and content to
+     * @throws IOException any IOException thrown by the supplied OutputStream, or any IOException thrown by the InputStream from which this Message was originally read (if any)
      * @param crlf the line ending to use for the headers
      */
     public void write(OutputStream os, String crlf) throws IOException {
