@@ -2,6 +2,7 @@ package org.sandroproxy.webscarab.store.sql;
 
 import java.io.File;
 import java.net.MalformedURLException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -19,6 +20,8 @@ import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.fragments.FragmentsStore;
 import org.sandrop.webscarab.plugin.spider.Link;
 import org.sandrop.webscarab.plugin.spider.SpiderStore;
+import org.sandroproxy.websockets.WebSocketChannelDTO;
+import org.sandroproxy.websockets.WebSocketMessageDTO;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -38,7 +41,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     // log tag
     protected static final String LOGTAG = "database";
     
-    private static final int DATABASE_VERSION = 1;
+    protected static final boolean LOGD = true;
+    
+    private static final int DATABASE_VERSION = 2;
     
     private static SqlLiteStore mInstance = null;
     
@@ -47,7 +52,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     private List<IStoreEventListener> listOfEventListeners;
     
     public static final String mTableNames[] = {
-        "conversation", "request", "response", "content", "headers", "cookies", "urls"
+        "conversation", "request", "response", "content", "headers", "cookies", "urls", "websocket_channel", "websocket_message"
     };
     
     // Table ids (they are index to mTableNames)
@@ -58,6 +63,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final int TABLE_HEADERS_ID     = 4;
     public static final int TABLE_COOKIES_ID     = 5;
     public static final int TABLE_URLS_ID        = 6;
+    
+    public static final int TABLE_SOCKET_CHANNEL = 7;
+    public static final int TABLE_SOCKET_MESSAGE = 8;
     
     // column id strings for "_id" which can be used by any table
     public static final String ID_COL = "_id";
@@ -141,6 +149,27 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String CONTENT_DATA = "data";
     public static final String CONTENT_FILE_NAME = "file_name";
     
+    // socket channel
+    public static final String SOCKET_CHANNEL_UNIQUE_ID = ID_COL;
+    public static final String SOCKET_CHANNEL_ID = "id";
+    public static final String SOCKET_CHANNEL_HOST = "host";
+    public static final String SOCKET_CHANNEL_PORT = "port";
+    public static final String SOCKET_CHANNEL_URL = "url";
+    public static final String SOCKET_CHANNEL_START_TIMESTAMP = "start_timestamp";
+    public static final String SOCKET_CHANNEL_END_TIMESTAMP = "end_timestamp";
+    public static final String SOCKET_CHANNEL_CONV_ID = "conv_id";
+    
+    // socket message
+    public static final String SOCKET_MSG_UNIQUE_ID = ID_COL;
+    public static final String SOCKET_MSG_TIMESTAMP = "timestamp";
+    public static final String SOCKET_MSG_OPCODE = "opcode";
+    public static final String SOCKET_MSG_PAYLOAD_UTF8 = "payload_utf8";
+    public static final String SOCKET_MSG_PAYLOAD_BYTES = "payload_bytes";
+    public static final String SOCKET_MSG_PAYLOAD_LENGTH = "payload_length";
+    public static final String SOCKET_MSG_IS_OUTGOING = "is_outgoing";
+    public static final String SOCKET_MSG_CHANNEL_ID = "channel_id";
+    
+    
     public static final int CONTENT_PARENT_TYPE_REQUEST = 0;
     public static final int CONTENT_PARENT_TYPE_RESPONSE = 1;
     
@@ -185,14 +214,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return mInstance;
     }
     
-    private static void upgradeDatabase() {
-        int oldVersion = mDatabase.getVersion();
-        if (oldVersion != 0) {
-            Log.i(LOGTAG, "Upgrading database from version "
-                    + oldVersion + " to "
-                    + DATABASE_VERSION + ", which will destroy old data");
-        }
-        
+    
+    private static void createHtmlTables(){
         // conversation
         mDatabase.execSQL("CREATE TABLE " + mTableNames[TABLE_COVERSATION_ID]
                 + " (" + CONVERSATION_UNIQUE_ID + " INTEGER PRIMARY KEY, "
@@ -383,8 +406,45 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
 //                + CONTENT_PARENT_TYPE
 //                + ");";
 //        mDatabase.execSQL(content_index1);
-        
-        
+
+    }
+    
+    private static void createWebSocketsTables(){
+        // socket channel
+        mDatabase.execSQL("CREATE TABLE " + mTableNames[TABLE_SOCKET_CHANNEL]
+                + " (" + SOCKET_CHANNEL_UNIQUE_ID + " INTEGER PRIMARY KEY, "
+                + SOCKET_CHANNEL_ID  + " TEXT, "
+                + SOCKET_CHANNEL_HOST  + " TEXT, "
+                + SOCKET_CHANNEL_PORT  + " INTEGER, "
+                + SOCKET_CHANNEL_URL  + " TEXT, " 
+                + SOCKET_CHANNEL_START_TIMESTAMP  + " INTEGER, "
+                + SOCKET_CHANNEL_END_TIMESTAMP  + " INTEGER, "
+                + SOCKET_CHANNEL_CONV_ID  + " INTEGER "
+                + ");");
+
+        mDatabase.execSQL("CREATE TABLE " + mTableNames[TABLE_SOCKET_MESSAGE]
+                + " (" + SOCKET_MSG_UNIQUE_ID + " INTEGER PRIMARY KEY, "
+                + SOCKET_MSG_CHANNEL_ID  + " INTEGER, "
+                + SOCKET_MSG_TIMESTAMP  + " INTEGER, "
+                + SOCKET_MSG_OPCODE  + " INTEGER, " 
+                + SOCKET_MSG_PAYLOAD_UTF8  + " BLOB, "
+                + SOCKET_MSG_PAYLOAD_BYTES  + " BLOB, "
+                + SOCKET_MSG_PAYLOAD_LENGTH  + " INTEGER, "
+                + SOCKET_MSG_IS_OUTGOING  + " INTEGER "
+                + ");");
+    }
+    
+    private static void upgradeDatabase() {
+        int oldVersion = mDatabase.getVersion();
+        if (oldVersion < 2) {
+            Log.i(LOGTAG, "Upgrading database from version "
+                    + oldVersion + " to "
+                    + DATABASE_VERSION + ", which will destroy old data");
+            createWebSocketsTables();
+        }
+        if (oldVersion < 1){
+            createHtmlTables();
+        }
         mDatabase.setVersion(DATABASE_VERSION);
     }
 
@@ -418,6 +478,50 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
     }
     
+    
+    public void insertMessage(WebSocketMessageDTO message) throws Exception {
+        ContentValues msgVal = new ContentValues();
+        msgVal.put(SOCKET_MSG_CHANNEL_ID, message.channel.id);
+        msgVal.put(SOCKET_MSG_IS_OUTGOING, message.isOutgoing);
+        msgVal.put(SOCKET_MSG_OPCODE, message.opcode);
+        msgVal.put(SOCKET_MSG_TIMESTAMP, message.timestamp);
+        if (message.payload instanceof String){
+            msgVal.put(SOCKET_MSG_PAYLOAD_UTF8, message.getReadablePayload());
+        }else{
+            msgVal.put(SOCKET_MSG_PAYLOAD_UTF8, (byte[])message.payload);
+        }
+        msgVal.put(SOCKET_MSG_PAYLOAD_LENGTH, message.payloadLength);
+        mDatabase.insertOrThrow(mTableNames[TABLE_SOCKET_MESSAGE], null, msgVal);
+    }
+    
+    
+    private List<Long> channelsIds = new ArrayList<Long>();
+    
+    public void insertOrUpdateChannel(WebSocketChannelDTO channel) throws SQLException {
+        ContentValues msgVal = new ContentValues();
+        msgVal.put(SOCKET_CHANNEL_ID, channel.id);
+        msgVal.put(SOCKET_CHANNEL_END_TIMESTAMP, channel.endTimestamp);
+        msgVal.put(SOCKET_CHANNEL_START_TIMESTAMP, channel.startTimestamp);
+        msgVal.put(SOCKET_CHANNEL_HOST, channel.host);
+        msgVal.put(SOCKET_CHANNEL_PORT, channel.port);
+        msgVal.put(SOCKET_CHANNEL_URL, channel.url);
+        
+        synchronized (this) {
+            // TODO fill chanellIds from existing in database;
+            if (channelsIds.contains(channel.id)){
+                mDatabase.update(mTableNames[TABLE_SOCKET_CHANNEL], msgVal, " id = ?", new String[]{ String.valueOf(channel.id) });
+            }else{
+                channelsIds.add(channel.id);
+                mDatabase.insertOrThrow(mTableNames[TABLE_SOCKET_CHANNEL], null, msgVal);
+            }
+        }
+    }
+    
+    public void purgeChannel(Long channelId) throws SQLException {
+        // TODO 
+        if (LOGD) Log.d(LOGTAG, "purge websocket channels");
+    }
+    
     private final Object mConversationLock = new Object();
     
     private void addHeaders(long id, Message message, int headersParentType){
@@ -444,6 +548,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             mDatabase.delete(mTableNames[TABLE_REQUEST_ID], where, null);
             mDatabase.delete(mTableNames[TABLE_RESPONSE_ID], where, null);
             mDatabase.delete(mTableNames[TABLE_CONTENT_ID], where, null);
+            mDatabase.delete(mTableNames[TABLE_SOCKET_CHANNEL], where, null);
+            mDatabase.delete(mTableNames[TABLE_SOCKET_MESSAGE], where, null);
         }
     }
     

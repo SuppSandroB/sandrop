@@ -65,6 +65,8 @@ import org.sandrop.webscarab.plugin.Hook;
 import org.sandrop.webscarab.plugin.Plugin;
 import org.sandroproxy.constants.Constants;
 import org.sandroproxy.utils.PreferenceUtils;
+import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
+import org.sandroproxy.websockets.ExtensionWebSocket;
 
 import android.database.sqlite.SQLiteStatement;
 
@@ -118,6 +120,8 @@ public class Proxy implements Plugin {
             "Called when the request has been submitted to the server, and the response "
                     + "has been recieved.\n"
                     + "use connection.getResponse() and connection.setResponse(response) to perform changes");
+    
+    private static ExtensionWebSocket _webSocketManager;
 
     /**
      * Creates a Proxy Object with a reference to the Framework. Creates (but
@@ -159,6 +163,8 @@ public class Proxy implements Plugin {
             }else{
                 _logger.fine("Error getting custom CA certificate: Invalid file path");
             }
+            
+            _webSocketManager = new ExtensionWebSocket(SqlLiteStore.getInstance(_framework.GetAndroidContext(), dataStorageDir.getAbsolutePath()));
         } catch (NoClassDefFoundError e) {
             _certGenerator = null;
         } catch (Exception e) {
@@ -169,6 +175,10 @@ public class Proxy implements Plugin {
     public Hook[] getScriptingHooks() {
         return new Hook[] { _allowConnection, _interceptRequest,
                 _interceptResponse };
+    }
+    
+    public ExtensionWebSocket getWebSocketManager(){
+        return _webSocketManager;
     }
 
     public Object getScriptableObject() {
@@ -406,6 +416,7 @@ public class Proxy implements Plugin {
         if (_ui != null)
             _ui.setEnabled(_running);
         _status = "Stopped";
+        _webSocketManager.unload();
         return !_running;
     }
 

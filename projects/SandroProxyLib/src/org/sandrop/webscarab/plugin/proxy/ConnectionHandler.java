@@ -52,6 +52,7 @@ import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.util.HtmlEncoder;
+import org.sandroproxy.websockets.ExtensionWebSocket;
 
 public class ConnectionHandler implements Runnable {
 
@@ -66,7 +67,7 @@ public class ConnectionHandler implements Runnable {
     private HTTPClient _httpClient = null;
 
     private Logger _logger = Logger.getLogger(getClass().getName());
-
+    
     private InputStream _clientIn = null;
     private OutputStream _clientOut = null;
 
@@ -103,6 +104,7 @@ public class ConnectionHandler implements Runnable {
         }
         long conversationId = -1;
         boolean httpDataModified = false;
+        boolean switchProtocol = false;
         try {
             Request request = null;
             // if we do not already have a base URL (i.e. we operate as a normal
@@ -163,9 +165,20 @@ public class ConnectionHandler implements Runnable {
                     if (hostName == null || hostName.trim().length() == 0){
                         hostName = host;
                     }
-                    _sock = negotiateSSL(_sock, hostName);
-                    _clientIn = _sock.getInputStream();
-                    _clientOut = _sock.getOutputStream();
+                    
+                    // this will fail on ws:// protocol
+                    // but it should work on wss:// 
+                    try{
+                        _sock = negotiateSSL(_sock, hostName);
+                        _clientIn = _sock.getInputStream();
+                        _clientOut = _sock.getOutputStream();
+                    }catch(Exception ex){
+                        ex.printStackTrace();
+                        if (request != null){
+                            request.setURL(new HttpUrl("http://" + request.getURL().getHost() + "/"));
+                            _base = request.getURL();
+                        }
+                    }
                 }
             }
 
@@ -282,7 +295,16 @@ public class ConnectionHandler implements Runnable {
                 try {
                     if (_clientOut != null) {
                         _logger.fine("Writing the response to the browser");
-                        response.write(_clientOut);
+                        if (response.getStatus().equalsIgnoreCase("101")){
+                            switchProtocol = true;
+                            _logger.fine("Switching protocols on 101 code");
+                            _proxy.getWebSocketManager().addWebSocketsChannel(response, _sock, response.getSocket(), response.getSocket().getInputStream());
+                            response.writeSwitchProtocol(_clientOut);
+                            _logger.fine("Finished writing headers to client");
+                        }else{
+                            response.write(_clientOut);
+                        }
+                        
                         _logger.fine("Finished writing the response to the browser");
                     }
                 } catch (IOException ioe) {
@@ -290,8 +312,10 @@ public class ConnectionHandler implements Runnable {
                             .severe("Error writing back to the browser : "
                                     + ioe);
                 } finally {
-                    response.flushContentStream(); // this simply flushes the
-                                                    // content from the server
+                    if (!switchProtocol){
+                        response.flushContentStream(); // this simply flushes the
+                        // content from the server
+                    }
                 }
                 // this should not happen, but might if a proxy plugin is
                 // careless
@@ -310,10 +334,10 @@ public class ConnectionHandler implements Runnable {
 
                 _logger.fine("Version: " + version + " Connection: "
                         + connection);
-            } while ((version.equals("HTTP/1.0") && "keep-alive"
-                    .equalsIgnoreCase(keepAlive))
-                    || (version.equals("HTTP/1.1") && !"close"
-                            .equalsIgnoreCase(keepAlive)));
+            } while (!switchProtocol && 
+                    ((version.equals("HTTP/1.0") && "keep-alive".equalsIgnoreCase(keepAlive)) 
+                    || (version.equals("HTTP/1.1") && !"close".equalsIgnoreCase(keepAlive)))
+                    );
             _logger.fine("Finished handling connection");
         } catch (Exception e) {
             if (conversationId != -1)
@@ -322,13 +346,16 @@ public class ConnectionHandler implements Runnable {
             e.printStackTrace();
         } finally {
             try {
-                if (_clientIn != null)
-                    _clientIn.close();
-                if (_clientOut != null)
-                    _clientOut.close();
-                if (_sock != null && !_sock.isClosed()) {
-                    _sock.close();
+                if (!switchProtocol){
+                    if (_clientIn != null)
+                        _clientIn.close();
+                    if (_clientOut != null)
+                        _clientOut.close();
+                    if (_sock != null && !_sock.isClosed()) {
+                        _sock.close();
+                    }
                 }
+                
             } catch (IOException ioe) {
                 _logger.warning("Error closing client socket : " + ioe);
             }
@@ -344,8 +371,6 @@ public class ConnectionHandler implements Runnable {
         SSLSocket sslsock;
         try {
             int sockPort = sock.getPort();
-            
-            
             sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
             sslsock.setUseClientMode(false);
             _logger.info("Finished negotiating SSL - algorithm is "

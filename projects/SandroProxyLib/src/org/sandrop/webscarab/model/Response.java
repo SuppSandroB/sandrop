@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.net.Socket;
 
 import java.text.ParseException;
 
@@ -48,6 +49,7 @@ public class Response extends Message {
     private String status = null;
     private String message = null;
     private Request _request = null;
+    private Socket _socket = null;
     
     /** Creates a new instance of Response */
     public Response() {
@@ -63,6 +65,14 @@ public class Response extends Message {
         this.message = resp.getMessage();
         setHeaders(resp.getHeaders());
         setContent(resp.getContent());
+    }
+    
+    public void setSocket(Socket socket){
+        _socket = socket;
+    }
+    
+    public Socket getSocket(){
+        return _socket;
     }
     
     /**
@@ -126,6 +136,29 @@ public class Response extends Message {
             // These messages MUST NOT include a body
             setNoBody();
         }
+    }
+    
+    /**
+     * Writes the Response out to the supplied OutputStream, using the HTTP RFC CRLF
+     * value of "\r\n"
+     * @param os
+     * @throws IOException
+     */    
+    public void writeSwitchProtocol(OutputStream os) throws Exception {
+        writeSwitchProtocol(os, "\r\n");
+    }
+    
+    /**
+     * Writes the Response to the supplied OutputStream, using the provided CRLF value.
+     * @param os
+     * @param crlf
+     * @throws IOException
+     */    
+    public void writeSwitchProtocol(OutputStream os, String crlf) throws IOException {
+        os = new BufferedOutputStream(os);
+        os.write(new String(version + " " + getStatusLine() + crlf).getBytes());
+        super.writeHeaders(os,crlf);
+        os.flush();
     }
     
     /**
