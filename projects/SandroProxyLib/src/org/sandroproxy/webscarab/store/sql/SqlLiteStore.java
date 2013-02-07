@@ -2,7 +2,9 @@ package org.sandroproxy.webscarab.store.sql;
 
 import java.io.File;
 import java.net.MalformedURLException;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -21,6 +23,7 @@ import org.sandrop.webscarab.plugin.fragments.FragmentsStore;
 import org.sandrop.webscarab.plugin.spider.Link;
 import org.sandrop.webscarab.plugin.spider.SpiderStore;
 import org.sandroproxy.websockets.WebSocketChannelDTO;
+import org.sandroproxy.websockets.WebSocketMessage;
 import org.sandroproxy.websockets.WebSocketMessageDTO;
 
 import android.content.ContentValues;
@@ -161,6 +164,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     // socket message
     public static final String SOCKET_MSG_UNIQUE_ID = ID_COL;
+    public static final String SOCKET_MSG_ID = "id";
     public static final String SOCKET_MSG_TIMESTAMP = "timestamp";
     public static final String SOCKET_MSG_OPCODE = "opcode";
     public static final String SOCKET_MSG_PAYLOAD_UTF8 = "payload_utf8";
@@ -424,6 +428,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
 
         mDatabase.execSQL("CREATE TABLE " + mTableNames[TABLE_SOCKET_MESSAGE]
                 + " (" + SOCKET_MSG_UNIQUE_ID + " INTEGER PRIMARY KEY, "
+                + SOCKET_MSG_ID  + " INTEGER, "
                 + SOCKET_MSG_CHANNEL_ID  + " INTEGER, "
                 + SOCKET_MSG_TIMESTAMP  + " INTEGER, "
                 + SOCKET_MSG_OPCODE  + " INTEGER, " 
@@ -478,10 +483,85 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
     }
     
+    private List<WebSocketChannelDTO> buildChannelDTOs(Cursor cs){
+        ArrayList<WebSocketChannelDTO> channels = new ArrayList<WebSocketChannelDTO>();
+        while (cs.moveToNext()) {
+            WebSocketChannelDTO channel = new WebSocketChannelDTO();
+            channel.id = cs.getLong(cs.getColumnIndex(SOCKET_CHANNEL_ID));
+            channel.host = cs.getString(cs.getColumnIndex(SOCKET_CHANNEL_HOST));
+            channel.port = cs.getInt(cs.getColumnIndex(SOCKET_CHANNEL_PORT));
+            channel.url = cs.getString(cs.getColumnIndex(SOCKET_CHANNEL_URL));
+            channel.startTimestamp = cs.getLong(cs.getColumnIndex(SOCKET_CHANNEL_START_TIMESTAMP));
+            channel.endTimestamp = cs.getLong(cs.getColumnIndex(SOCKET_CHANNEL_END_TIMESTAMP));
+            
+            channel.historyId = cs.getInt(cs.getColumnIndex(SOCKET_CHANNEL_CONV_ID));
+            
+            channels.add(channel);
+        }
+        return channels;
+    }
+    
+    public List<WebSocketChannelDTO> getSocketChannels(){
+        List<WebSocketChannelDTO> channelList = new ArrayList<WebSocketChannelDTO>();
+        Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_CHANNEL], null, null, null, null, null, null);
+        if (cs != null){
+            try{
+                return buildChannelDTOs(cs);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                cs.close();
+            }
+            
+        }
+        return channelList;
+    }
+    
+    private List<WebSocketMessageDTO> buildChannelMessagesDTOs(Cursor cs){
+        ArrayList<WebSocketMessageDTO> messages = new ArrayList<WebSocketMessageDTO>();
+        while (cs.moveToNext()) {
+            WebSocketMessageDTO message = new WebSocketMessageDTO();
+            message.id = cs.getInt(cs.getColumnIndex(SOCKET_MSG_ID));
+            message.opcode = cs.getInt(cs.getColumnIndex(SOCKET_MSG_OPCODE));
+            message.payloadLength = cs.getInt(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_LENGTH));
+            
+            if (message.opcode == WebSocketMessage.OPCODE_TEXT){
+                byte[] payloadAsString = cs.getBlob(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_UTF8)); 
+                message.payload = new String(payloadAsString);
+            }else{
+                message.payload = cs.getBlob(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_BYTES)); 
+            }
+            message.isOutgoing = cs.getInt(cs.getColumnIndex(SOCKET_MSG_IS_OUTGOING)) == 1 ? true : false;
+            message.timestamp = cs.getLong(cs.getColumnIndex(SOCKET_MSG_TIMESTAMP)); 
+            message.readableOpcode = WebSocketMessage.opcode2string(message.opcode);
+            messages.add(message);
+        }
+        return messages;
+    }
+    
+    public List<WebSocketMessageDTO> getSocketChannelMessages(long channelId){
+        List<WebSocketMessageDTO> listMessages = new ArrayList<WebSocketMessageDTO>();
+        String selection = SOCKET_MSG_CHANNEL_ID + " = ? ";
+        String [] args = new String[]{ String.valueOf(channelId)};
+        Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selection, args, null, null, null);
+        if (cs != null){
+            try{
+                return buildChannelMessagesDTOs(cs);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                cs.close();
+            }
+            
+        }
+        return listMessages;
+    }
+    
     
     public void insertMessage(WebSocketMessageDTO message) throws Exception {
         ContentValues msgVal = new ContentValues();
         msgVal.put(SOCKET_MSG_CHANNEL_ID, message.channel.id);
+        msgVal.put(SOCKET_MSG_ID, message.id);
         msgVal.put(SOCKET_MSG_IS_OUTGOING, message.isOutgoing);
         msgVal.put(SOCKET_MSG_OPCODE, message.opcode);
         msgVal.put(SOCKET_MSG_TIMESTAMP, message.timestamp);
