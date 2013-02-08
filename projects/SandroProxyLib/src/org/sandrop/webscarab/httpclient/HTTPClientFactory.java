@@ -212,6 +212,19 @@ public class HTTPClientFactory {
         return uf;
     }
     
+    public HTTPClient getHTTPClient(int connectTimeout, int readTimeout) {
+        URLFetcher uf = new URLFetcher();
+        uf.setHttpProxy(_httpProxy, _httpProxyPort);
+        uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
+        uf.setNoProxy(_noProxy);
+        uf.setSSLContextManager(_sslContextManager);
+        int connectTime = connectTimeout > -1 ? connectTimeout : _connectTimeout;
+        int readTime = readTimeout > -1 ? readTimeout : _readTimeout;
+        uf.setTimeouts(connectTime, readTime);
+        uf.setAuthenticator(_authenticator);
+        return uf;
+    }
+    
     public Response fetchResponse(Request request) throws IOException {
         HTTPClient hc = null;
         synchronized (_availableClients) {

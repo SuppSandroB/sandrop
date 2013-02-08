@@ -182,7 +182,8 @@ public class ConnectionHandler implements Runnable {
                     // 2. trying to connect to server to see if ssl works 
                     if (checkForSSL){
                         try{
-                            HTTPClient hc =  HTTPClientFactory.getValidInstance().getHTTPClient();
+                            int testReadTimeout = 2000;
+                            HTTPClient hc =  HTTPClientFactory.getValidInstance().getHTTPClient(-1, testReadTimeout);
                             Request testRequest = new Request();
                             testRequest.setURL(_base);
                             testRequest.setMethod("GET");
