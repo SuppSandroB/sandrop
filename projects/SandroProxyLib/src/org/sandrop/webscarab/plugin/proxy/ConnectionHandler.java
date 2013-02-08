@@ -42,9 +42,11 @@ import java.net.SocketException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
+import org.apache.http.client.HttpClient;
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
 import org.sandrop.webscarab.model.ConversationID;
@@ -166,18 +168,55 @@ public class ConnectionHandler implements Runnable {
                         hostName = host;
                     }
                     
-                    // this will fail on ws:// protocol
-                    // but it should work on wss:// 
-                    try{
-                        _sock = negotiateSSL(_sock, hostName);
-                        _clientIn = _sock.getInputStream();
-                        _clientOut = _sock.getOutputStream();
-                    }catch(Exception ex){
-                        ex.printStackTrace();
-                        if (request != null){
-                            request.setURL(new HttpUrl("http://" + request.getURL().getHost() + "/"));
-                            _base = request.getURL();
+                    boolean isSSLPort = false;
+                    boolean checkForSSL = true;
+                    // 433 port should be ssl, 80 without
+                    if (_base.getPort() == 443){
+                        isSSLPort = true;
+                        checkForSSL = false;
+                    }else if (_base.getPort() == 80){
+                        isSSLPort = false;
+                        checkForSSL = false;
+                    }
+                    
+                    // 2. trying to connect to server to see if ssl works 
+                    if (checkForSSL){
+                        try{
+                            HTTPClient hc =  HTTPClientFactory.getValidInstance().getHTTPClient();
+                            Request testRequest = new Request();
+                            testRequest.setURL(_base);
+                            testRequest.setMethod("GET");
+                            testRequest.setNoBody();
+                            hc.fetchResponse(testRequest);
+                            isSSLPort = true;
+                        }catch (Exception ex){
+                            ex.printStackTrace();
                         }
+                    }
+                    
+                    // should ssl be used to connect to client 
+                    if (isSSLPort){
+                        SSLSocket sslSocket = null;
+                        try{
+                            _sock = negotiateSSL(_sock, hostName);
+                            sslSocket = (SSLSocket)_sock;
+                        }catch (Exception ex){
+                            ex.printStackTrace();
+                        }
+                        // we have no exception but ssl chiper is null-> switch to http
+                        if (sslSocket == null || sslSocket.getSession() == null){
+                            _logger.finest("!!Please check if client trust SandroProxy CA certificate or ignore on ws:// protocol");
+                            String oldHost = _base.getHost();
+                            int oldPort = _base.getPort();
+                            _base = new HttpUrl("http://" + oldHost + ":"+ oldPort);
+                        }else{
+                            _clientIn = _sock.getInputStream();
+                            _clientOut = _sock.getOutputStream();
+                        }
+                    }else{
+                        String oldHost = _base.getHost();
+                        int oldPort = _base.getPort();
+                        _base = new HttpUrl("http://" + oldHost + ":"+ oldPort);
                     }
                 }
             }
