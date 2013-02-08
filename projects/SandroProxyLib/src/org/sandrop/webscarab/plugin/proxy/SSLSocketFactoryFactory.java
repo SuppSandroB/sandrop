@@ -235,8 +235,8 @@ public class SSLSocketFactoryFactory {
      */
     public synchronized SSLSocketFactory getSocketFactory(String host)
             throws IOException, GeneralSecurityException {
-        SSLContext sslcontext = (SSLContext) contextCache.get(host);
-        if (sslcontext == null) {
+        SSLContext sslContext = (SSLContext) contextCache.get(host);
+        if (sslContext == null) {
             X509KeyManager km;
             if (!keystoreCert.containsAlias(host)) {
                 km = createKeyMaterial(host);
@@ -274,12 +274,12 @@ public class SSLSocketFactoryFactory {
             };
             
             
-            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext = SSLContext.getInstance("TLS");
             sslContext.init(new KeyManager[] { km }, trustManagers, null);
             // sslcontext.init(new KeyManager[] { km }, null, null);
             contextCache.put(host, sslContext);
         }
-        return sslcontext.getSocketFactory();
+        return sslContext.getSocketFactory();
     }
 
     private X509Certificate[] cast(Certificate[] chain) {
