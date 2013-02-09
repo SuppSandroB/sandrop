@@ -50,6 +50,7 @@ public class Response extends Message {
     private String message = null;
     private Request _request = null;
     private Socket _socket = null;
+    private boolean _protocolswitch = false;
     
     /** Creates a new instance of Response */
     public Response() {
@@ -138,6 +139,10 @@ public class Response extends Message {
         }
     }
     
+    public boolean haveProtocolSwitch(){
+        return _protocolswitch;
+    }
+    
     /**
      * Writes the Response out to the supplied OutputStream, using the HTTP RFC CRLF
      * value of "\r\n"
@@ -146,6 +151,7 @@ public class Response extends Message {
      */    
     public void writeSwitchProtocol(OutputStream os) throws Exception {
         writeSwitchProtocol(os, "\r\n");
+        _protocolswitch = true;
     }
     
     /**

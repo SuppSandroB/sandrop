@@ -338,7 +338,7 @@ public class ConnectionHandler implements Runnable {
                         if (response.getStatus().equalsIgnoreCase("101")){
                             switchProtocol = true;
                             _logger.fine("Switching protocols on 101 code");
-                            _proxy.getWebSocketManager().addWebSocketsChannel(response, _sock, response.getSocket(), response.getSocket().getInputStream());
+                            _proxy.getWebSocketManager().addWebSocketsChannel(conversationId, response, _sock, response.getSocket(), response.getSocket().getInputStream());
                             response.writeSwitchProtocol(_clientOut);
                             _logger.fine("Finished writing headers to client");
                         }else{

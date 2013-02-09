@@ -172,6 +172,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String SOCKET_MSG_PAYLOAD_LENGTH = "payload_length";
     public static final String SOCKET_MSG_IS_OUTGOING = "is_outgoing";
     public static final String SOCKET_MSG_CHANNEL_ID = "channel_id";
+    public static final String SOCKET_MSG_HANDSHAKE_ID = "handshake_id";
     
     
     public static final int CONTENT_PARENT_TYPE_REQUEST = 0;
@@ -435,6 +436,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 + SOCKET_MSG_PAYLOAD_UTF8  + " BLOB, "
                 + SOCKET_MSG_PAYLOAD_BYTES  + " BLOB, "
                 + SOCKET_MSG_PAYLOAD_LENGTH  + " INTEGER, "
+                + SOCKET_MSG_HANDSHAKE_ID  + " INTEGER, "
                 + SOCKET_MSG_IS_OUTGOING  + " INTEGER "
                 + ");");
     }
@@ -470,15 +472,31 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
     }
     
-    private void eventUpdateConversation(long conversationId,  int status){
+    private void eventUpdateConversation(long conversationId,  int status, boolean haveProtocolSwitch){
         if (listOfEventListeners != null){
             for (IStoreEventListener storeEventListener : listOfEventListeners) {
                 if (status == FrameworkModel.CONVERSATION_STATUS_REQ_SEND){
                     storeEventListener.startConversation(conversationId);
                 }
                 if (status == FrameworkModel.CONVERSATION_STATUS_RESP_RECEIVED || status == FrameworkModel.CONVERSATION_STATUS_ABORTED){
-                    storeEventListener.endConversation(conversationId);
+                        storeEventListener.endConversation(conversationId, haveProtocolSwitch);
                 }
+            }
+        }
+    }
+    
+    private void eventSocketFrameSend(long conversationId,  long messageId){
+        if (listOfEventListeners != null){
+            for (IStoreEventListener storeEventListener : listOfEventListeners) {
+                storeEventListener.socketFrameSend(conversationId, messageId);
+            }
+        }
+    }
+    
+    private void eventSocketFrameReceived(long conversationId,  long messageId){
+        if (listOfEventListeners != null){
+            for (IStoreEventListener storeEventListener : listOfEventListeners) {
+                storeEventListener.socketFrameReceived(conversationId, messageId);
             }
         }
     }
@@ -517,23 +535,28 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return channelList;
     }
     
+    private WebSocketMessageDTO buildChannelMessagesDTO(Cursor cs){
+        WebSocketMessageDTO message = new WebSocketMessageDTO();
+        message.id = cs.getInt(cs.getColumnIndex(SOCKET_MSG_ID));
+        message.opcode = cs.getInt(cs.getColumnIndex(SOCKET_MSG_OPCODE));
+        message.payloadLength = cs.getInt(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_LENGTH));
+        
+        if (message.opcode == WebSocketMessage.OPCODE_TEXT){
+            byte[] payloadAsString = cs.getBlob(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_UTF8)); 
+            message.payload = new String(payloadAsString);
+        }else{
+            message.payload = cs.getBlob(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_BYTES)); 
+        }
+        message.isOutgoing = cs.getInt(cs.getColumnIndex(SOCKET_MSG_IS_OUTGOING)) == 1 ? true : false;
+        message.timestamp = cs.getLong(cs.getColumnIndex(SOCKET_MSG_TIMESTAMP)); 
+        message.readableOpcode = WebSocketMessage.opcode2string(message.opcode);
+        return message;
+    }
+    
     private List<WebSocketMessageDTO> buildChannelMessagesDTOs(Cursor cs){
         ArrayList<WebSocketMessageDTO> messages = new ArrayList<WebSocketMessageDTO>();
         while (cs.moveToNext()) {
-            WebSocketMessageDTO message = new WebSocketMessageDTO();
-            message.id = cs.getInt(cs.getColumnIndex(SOCKET_MSG_ID));
-            message.opcode = cs.getInt(cs.getColumnIndex(SOCKET_MSG_OPCODE));
-            message.payloadLength = cs.getInt(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_LENGTH));
-            
-            if (message.opcode == WebSocketMessage.OPCODE_TEXT){
-                byte[] payloadAsString = cs.getBlob(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_UTF8)); 
-                message.payload = new String(payloadAsString);
-            }else{
-                message.payload = cs.getBlob(cs.getColumnIndex(SOCKET_MSG_PAYLOAD_BYTES)); 
-            }
-            message.isOutgoing = cs.getInt(cs.getColumnIndex(SOCKET_MSG_IS_OUTGOING)) == 1 ? true : false;
-            message.timestamp = cs.getLong(cs.getColumnIndex(SOCKET_MSG_TIMESTAMP)); 
-            message.readableOpcode = WebSocketMessage.opcode2string(message.opcode);
+            WebSocketMessageDTO message = buildChannelMessagesDTO(cs);
             messages.add(message);
         }
         return messages;
@@ -557,6 +580,24 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return listMessages;
     }
     
+    public WebSocketMessageDTO getSocketChannelMessage(long conversationId, long messageId){
+        WebSocketMessageDTO messages = new WebSocketMessageDTO();
+        String selection = SOCKET_MSG_HANDSHAKE_ID + " = ? AND " + SOCKET_MSG_ID + " = ? ";
+        String [] args = new String[]{ String.valueOf(conversationId), String.valueOf(messageId)};
+        Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selection, args, null, null, null);
+        if (cs != null && cs.moveToNext()){
+            try{
+                messages = buildChannelMessagesDTO(cs);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                cs.close();
+            }
+            
+        }
+        return messages;
+    }
+    
     
     public void insertMessage(WebSocketMessageDTO message) throws Exception {
         ContentValues msgVal = new ContentValues();
@@ -565,6 +606,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         msgVal.put(SOCKET_MSG_IS_OUTGOING, message.isOutgoing);
         msgVal.put(SOCKET_MSG_OPCODE, message.opcode);
         msgVal.put(SOCKET_MSG_TIMESTAMP, message.timestamp);
+        msgVal.put(SOCKET_MSG_HANDSHAKE_ID, message.channel.historyId);
         if (message.payload instanceof String){
             msgVal.put(SOCKET_MSG_PAYLOAD_UTF8, message.getReadablePayload());
         }else{
@@ -572,6 +614,11 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
         msgVal.put(SOCKET_MSG_PAYLOAD_LENGTH, message.payloadLength);
         mDatabase.insertOrThrow(mTableNames[TABLE_SOCKET_MESSAGE], null, msgVal);
+        if (message.isOutgoing){
+            eventSocketFrameSend(message.channel.historyId, message.id);
+        }else{
+            eventSocketFrameReceived(message.channel.historyId, message.id);
+        }
     }
     
     
@@ -585,6 +632,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         msgVal.put(SOCKET_CHANNEL_HOST, channel.host);
         msgVal.put(SOCKET_CHANNEL_PORT, channel.port);
         msgVal.put(SOCKET_CHANNEL_URL, channel.url);
+        msgVal.put(SOCKET_CHANNEL_CONV_ID, channel.historyId);
+        
         
         synchronized (this) {
             // TODO fill chanellIds from existing in database;
@@ -619,7 +668,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
     }
     
-    public void clearDatabase(){
+    public void clearHttpDatabase(){
         // clear all tables
         synchronized (mConversationLock) {
             String where = "1";
@@ -628,6 +677,13 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             mDatabase.delete(mTableNames[TABLE_REQUEST_ID], where, null);
             mDatabase.delete(mTableNames[TABLE_RESPONSE_ID], where, null);
             mDatabase.delete(mTableNames[TABLE_CONTENT_ID], where, null);
+        }
+    }
+    
+    public void clearSocketDatabase(){
+        // clear all tables
+        synchronized (mConversationLock) {
+            String where = "1";
             mDatabase.delete(mTableNames[TABLE_SOCKET_CHANNEL], where, null);
             mDatabase.delete(mTableNames[TABLE_SOCKET_MESSAGE], where, null);
         }
@@ -701,7 +757,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         } finally {
             mDatabase.endTransaction();
             if (haveValidData){
-                eventUpdateConversation(conversationId, conversationStatus);
+                eventUpdateConversation(conversationId, conversationStatus, false);
             }
         }
         return -1;
@@ -737,7 +793,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         } finally {
             mDatabase.endTransaction();
             if (haveValidData){
-                eventUpdateConversation(conversationId, conversationStatus);
+                eventUpdateConversation(conversationId, conversationStatus, false);
             }
         }
         return -1;
@@ -802,7 +858,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         } finally {
             mDatabase.endTransaction();
             if (haveValidData){
-                eventUpdateConversation(conversationId, conversationStatus);
+                eventUpdateConversation(conversationId, conversationStatus, response.haveProtocolSwitch());
             }
         }
         return -1;

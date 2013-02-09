@@ -146,11 +146,11 @@ public abstract class WebSocketProxy {
      */
     private Vector<WebSocketObserver> observerList;
 
-// sandrop
-//    /**
-//     * Contains link to handshake message.
-//     */
-//    private HistoryReference handshakeReference;
+
+    /**
+     * Contains link to handshake message.
+     */
+    private long handshakeReference;
 
     /**
      * Host of remote socket.
@@ -687,14 +687,13 @@ public abstract class WebSocketProxy {
         return messageIdGenerator.incrementAndGet();
     }
     
-    // TODO sandrop 
-//    public HistoryReference getHandshakeReference() {
-//        return handshakeReference;
-//    }
-//    
-//    public void setHandshakeReference(HistoryReference handshakeReference) {
-//        this.handshakeReference = handshakeReference;
-//    }
+    public long getHandshakeReference() {
+        return handshakeReference;
+    }
+    
+    public void setHandshakeReference(long handshakeReference) {
+        this.handshakeReference = handshakeReference;
+    }
 
     public WebSocketChannelDTO getDTO() {
         WebSocketChannelDTO dto = new WebSocketChannelDTO();
@@ -704,23 +703,7 @@ public abstract class WebSocketProxy {
         dto.startTimestamp = (start != null) ? start.getTime() : null;
         dto.endTimestamp = (end != null) ? end.getTime() : null;
         
-        // TODO sandrop
-//        HistoryReference handshakeRef = getHandshakeReference();
-//        if (handshakeRef != null) {
-//            try {
-//                dto.url = handshakeRef.getHttpMessage().getRequestHeader().getURI().toString();
-//            } catch (HttpMalformedHeaderException e) {
-//                dto.url = "";
-//                logger.error("HttpMessage for WebSockets-handshake not found!");
-//            } catch (SQLException e) {
-//                dto.url = "";
-//                logger.error("HttpMessage for WebSockets-handshake not found!");
-//            }
-//            dto.historyId = handshakeRef.getHistoryId();
-//        } else {
-//            dto.url = "";
-//            dto.historyId = null;
-//        }
+        dto.historyId = getHandshakeReference();
         
         return dto;
     }
