@@ -131,7 +131,7 @@ public class ExtensionWebSocket {
 
 
 
-	public boolean onHandshakeResponse(Response httpResponse, Socket inSocket, Socket outWebSocket, InputStream outWebInputStream) {
+	public boolean onHandshakeResponse(long handshakeReference, Response httpResponse, Socket inSocket, Socket outWebSocket, InputStream outWebInputStream) {
 
 	    boolean keepSocketOpen = false;
 		
@@ -139,7 +139,7 @@ public class ExtensionWebSocket {
 		
 		Socket outSocket = outWebSocket;
 		InputStream outReader = outWebInputStream;
-		addWebSocketsChannel(httpResponse, inSocket, outSocket, outReader);
+		addWebSocketsChannel(handshakeReference, httpResponse, inSocket, outSocket, outReader);
 		
 		return keepSocketOpen;
 	}
@@ -153,7 +153,7 @@ public class ExtensionWebSocket {
 	 * @param remoteSocket Current connection channel from ZAP to the server.
 	 * @param remoteReader Current {@link InputStream} of remote connection.
 	 */
-	public void addWebSocketsChannel(Response httpResponse, Socket localSocket, Socket remoteSocket, InputStream remoteReader) {
+	public void addWebSocketsChannel(long historyId, Response httpResponse, Socket localSocket, Socket remoteSocket, InputStream remoteReader) {
 		try {			
 
 		    String source = (localSocket != null) ? localSocket.getInetAddress().toString() + ":" + localSocket.getPort() : "SandroProxy";
@@ -174,17 +174,7 @@ public class ExtensionWebSocket {
 				wsProxy.addObserver(observer);
 			}
 			
-			// TODO sandrop
-//			// wait until HistoryReference is saved to database
-//			while (handshakeMessage.getHistoryRef() == null) {
-//				try {
-//					Thread.sleep(5);
-//				} catch (InterruptedException e) {
-//					logger.info(e.getMessage());
-//				}
-//			}
-			// TODO sandrop set there conversation ID
-			// wsProxy.setHandshakeReference(handshakeMessage.getHistoryRef());
+			wsProxy.setHandshakeReference(historyId);
 			
 			// TODO sandrop some regular expression what to have in ignore list 
 			// wsProxy.setForwardOnly(isChannelIgnored(wsProxy.getDTO()));

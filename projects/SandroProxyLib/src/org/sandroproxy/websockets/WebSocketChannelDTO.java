@@ -88,7 +88,7 @@ public class WebSocketChannelDTO implements Comparable<WebSocketChannelDTO> {
 	/**
 	 * Id of handshake message.
 	 */
-	public Integer historyId;
+	public long historyId;
 
 	public WebSocketChannelDTO() {
 		
@@ -110,26 +110,6 @@ public class WebSocketChannelDTO implements Comparable<WebSocketChannelDTO> {
 		return false;
 	}
 	
-//	/**
-//	 * @return Null or HTTP message containing handshake.
-//	 */
-//	public HistoryReference getHandshakeReference() {
-//		if (historyId == null) {
-//			return null;
-//		}
-//		
-//		try {
-//			return new HistoryReference(historyId);
-//		} catch (HttpMalformedHeaderException e) {
-//			return null;
-//		} catch (SQLException e) {
-//			return null;
-//		}
-//	}
-//
-//	public boolean isInScope() {
-//		return Model.getSingleton().getSession().isInScope(getContextUrl());
-//	}
 
 	/**
 	 * Returns URL without trailing slash and without parameters. This
