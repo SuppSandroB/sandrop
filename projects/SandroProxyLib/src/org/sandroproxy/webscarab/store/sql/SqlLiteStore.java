@@ -2,9 +2,7 @@ package org.sandroproxy.webscarab.store.sql;
 
 import java.io.File;
 import java.net.MalformedURLException;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -44,7 +42,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     // log tag
     protected static final String LOGTAG = "database";
     
-    protected static final boolean LOGD = true;
+    protected static final boolean LOGD = false;
     
     private static final int DATABASE_VERSION = 2;
     
