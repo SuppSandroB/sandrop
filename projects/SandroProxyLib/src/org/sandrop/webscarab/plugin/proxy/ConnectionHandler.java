@@ -275,7 +275,7 @@ public class ConnectionHandler implements Runnable {
                     return;
                 }
                 if (from != null) {
-                    request.addHeader("X-Forwarded-For", from);
+//                    request.addHeader("X-Forwarded-For", from);
                 }
                 
                 _logger.fine("Browser requested : " + request.getMethod() + " "+ request.getURL().toString());
