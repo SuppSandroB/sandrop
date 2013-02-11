@@ -560,11 +560,15 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return messages;
     }
     
-    public List<WebSocketMessageDTO> getSocketChannelMessages(long channelId){
+    public List<WebSocketMessageDTO> getSocketChannelMessages(long channelId, boolean orderDescending){
         List<WebSocketMessageDTO> listMessages = new ArrayList<WebSocketMessageDTO>();
         String selection = SOCKET_MSG_CHANNEL_ID + " = ? ";
         String [] args = new String[]{ String.valueOf(channelId)};
-        Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selection, args, null, null, null);
+        String orderBy = SOCKET_MSG_TIMESTAMP;
+        if (orderDescending){
+            orderBy += " " + " DESC";
+        }
+        Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selection, args, null, null, orderBy);
         if (cs != null){
             try{
                 return buildChannelMessagesDTOs(cs);
