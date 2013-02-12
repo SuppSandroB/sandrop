@@ -36,10 +36,10 @@
 WebInspector.ResourceScriptMapping = function(workspace)
 {
     this._workspace = workspace;
-    this._workspace.addEventListener(WebInspector.Workspace.Events.ProjectWillReset, this._reset, this);
     this._workspace.addEventListener(WebInspector.UISourceCodeProvider.Events.UISourceCodeAdded, this._uiSourceCodeAddedToWorkspace, this);
 
-    this._reset();
+    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this._debuggerReset, this);
+    this._initialize();
 }
 
 WebInspector.ResourceScriptMapping.prototype = {
@@ -93,7 +93,8 @@ WebInspector.ResourceScriptMapping.prototype = {
     _uiSourceCodeAddedToWorkspace: function(event)
     {
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
-        console.assert(!!uiSourceCode.url);
+        if (!uiSourceCode.url)
+            return;
 
         var scripts = this._scriptsForUISourceCode(uiSourceCode);
         if (!scripts.length)
@@ -137,7 +138,8 @@ WebInspector.ResourceScriptMapping.prototype = {
         // FIXME: workaround for script.isDynamicScript() being unreliable.
         if (!script.isInlineScript() && this._inlineScriptsForSourceURL[script.sourceURL])
             return null;
-        return this._workspace.uiSourceCodeForURL(script.sourceURL);
+        var uri = WebInspector.fileMapping.uriForURL(script.sourceURL);
+        return this._workspace.uiSourceCodeForURI(uri);
     },
 
     /**
@@ -157,6 +159,8 @@ WebInspector.ResourceScriptMapping.prototype = {
         default:
             return [];
         }
+        if (!uiSourceCode.url)
+            return [];
         var scriptsForSourceURL = isInlineScript ? this._inlineScriptsForSourceURL : this._nonInlineScriptsForSourceURL;
         return scriptsForSourceURL[uiSourceCode.url] || [];
     },
@@ -175,12 +179,48 @@ WebInspector.ResourceScriptMapping.prototype = {
         uiSourceCode.setSourceMapping(this);
     },
 
-    _reset: function()
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {Array.<WebInspector.Script>} scripts
+     */
+    _unbindUISourceCodeFromScripts: function(uiSourceCode, scripts)
+    {
+        console.assert(scripts.length);
+        var scriptFile = /** @type {WebInspector.ResourceScriptFile} */ (uiSourceCode.scriptFile());
+        scriptFile.dispose();
+        uiSourceCode.setScriptFile(null);
+        uiSourceCode.setSourceMapping(null);
+    },
+
+    _initialize: function()
     {
         /** @type {!Object.<string, !Array.<!WebInspector.UISourceCode>>} */
         this._inlineScriptsForSourceURL = {};
         /** @type {!Object.<string, !Array.<!WebInspector.UISourceCode>>} */
         this._nonInlineScriptsForSourceURL = {};
+    },
+
+    _debuggerReset: function()
+    {
+        /**
+         * @param {!Object.<string, !Array.<!WebInspector.UISourceCode>>} scriptsForSourceURL
+         */
+        function unbindUISourceCodes(scriptsForSourceURL)
+        {
+            for (var sourceURL in scriptsForSourceURL) {
+                var scripts = scriptsForSourceURL[sourceURL];
+                if (!scripts.length)
+                    continue;
+                var uiSourceCode = this._workspaceUISourceCodeForScript(scripts[0]);
+                if (!uiSourceCode)
+                    continue;
+                this._unbindUISourceCodeFromScripts(uiSourceCode, scripts);
+            }
+        }
+
+        unbindUISourceCodes.call(this, this._inlineScriptsForSourceURL);
+        unbindUISourceCodes.call(this, this._nonInlineScriptsForSourceURL);
+        this._initialize();
     },
 }
 
@@ -297,6 +337,12 @@ WebInspector.ResourceScriptFile.prototype = {
     isDivergingFromVM: function()
     {
         return this._isDivergingFromVM;
+    },
+
+    dispose: function()
+    {
+        this._uiSourceCode.removeEventListener(WebInspector.UISourceCode.Events.WorkingCopyCommitted, this._workingCopyCommitted, this);
+        this._uiSourceCode.removeEventListener(WebInspector.UISourceCode.Events.WorkingCopyChanged, this._workingCopyChanged, this);
     },
 
     __proto__: WebInspector.Object.prototype

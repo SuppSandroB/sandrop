@@ -65,6 +65,8 @@ WebInspector.StatusBarItem.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.StatusBarItem}
+ * @param {string} title
+ * @param {string} className
  * @param {number=} states
  */
 WebInspector.StatusBarButton = function(title, className, states)
@@ -134,17 +136,12 @@ WebInspector.StatusBarButton.prototype = {
         if (this._state === x)
             return;
 
-        if (this.states === 2) {
-            if (x)
-                this.element.addStyleClass("toggled-on");
-            else
-                this.element.removeStyleClass("toggled-on");
-        } else {
-            if (x !== 0) {
-                this.element.removeStyleClass("toggled-" + this._state);
+        if (this.states === 2)
+            this.element.enableStyleClass("toggled-on", x);
+        else {
+            this.element.removeStyleClass("toggled-" + this._state);
+            if (x !== 0)
                 this.element.addStyleClass("toggled-" + x);
-            } else
-                this.element.removeStyleClass("toggled-" + this._state);
         }
         this._state = x;
     },
@@ -173,10 +170,7 @@ WebInspector.StatusBarButton.prototype = {
         if (this._visible === x)
             return;
 
-        if (x)
-            this.element.removeStyleClass("hidden");
-        else
-            this.element.addStyleClass("hidden");
+        this.element.enableStyleClass("hidden", !x);
         this._visible = x;
     },
 
@@ -295,11 +289,36 @@ WebInspector.StatusBarComboBox = function(changeHandler, className)
 
 WebInspector.StatusBarComboBox.prototype = {
     /**
+     * @return {number}
+     */
+    size: function()
+    {
+        return this._selectElement.childElementCount;
+    },
+
+    /**
      * @param {!Element} option
      */
     addOption: function(option)
     {
         this._selectElement.appendChild(option);
+    },
+
+    /**
+     * @param {string} label
+     * @param {string=} title
+     * @param {string=} value
+     * @return {!Element}
+     */
+    createOption: function(label, title, value)
+    {
+        var option = this._selectElement.createChild("option");
+        option.text = label;
+        if (title)
+            option.title = title;
+        if (typeof value !== "undefined")
+            option.value = value;
+        return option;
     },
 
     /**

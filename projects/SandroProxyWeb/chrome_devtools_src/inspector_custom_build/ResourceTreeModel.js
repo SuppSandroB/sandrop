@@ -57,6 +57,7 @@ WebInspector.ResourceTreeModel.EventTypes = {
     FrameNavigated: "FrameNavigated",
     FrameDetached: "FrameDetached",
     MainFrameNavigated: "MainFrameNavigated",
+    MainFrameCreatedOrNavigated: "MainFrameCreatedOrNavigated",
     ResourceAdded: "ResourceAdded",
     WillLoadCachedResources: "WillLoadCachedResources",
     CachedResourcesLoaded: "CachedResourcesLoaded",
@@ -108,6 +109,8 @@ WebInspector.ResourceTreeModel.prototype = {
         if (frame.isMainFrame())
             this.mainFrame = frame;
         this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.FrameAdded, frame);
+        if (frame.isMainFrame())
+            this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.MainFrameCreatedOrNavigated, frame);
     },
 
     /**
@@ -137,8 +140,10 @@ WebInspector.ResourceTreeModel.prototype = {
             WebInspector.inspectedPageURL = frame.url;
 
         this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.FrameNavigated, frame);
-        if (frame.isMainFrame())
+        if (frame.isMainFrame()) {
             this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.MainFrameNavigated, frame);
+            this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.MainFrameCreatedOrNavigated, frame);
+        }
 
         // Fill frame with retained resources (the ones loaded using new loader).
         var resources = frame.resources();
@@ -596,6 +601,30 @@ WebInspector.PageDispatcher.prototype = {
     frameDetached: function(frameId)
     {
         this._resourceTreeModel._frameDetached(frameId);
+    },
+
+    frameStartedLoading: function(frameId)
+    {
+    },
+
+    frameStoppedLoading: function(frameId)
+    {
+    },
+
+    frameScheduledNavigation: function(frameId, delay)
+    {
+    },
+
+    frameClearedScheduledNavigation: function(frameId)
+    {
+    },
+
+    javascriptDialogOpening: function(message)
+    {
+    },
+
+    javascriptDialogClosed: function()
+    {
     }
 }
 

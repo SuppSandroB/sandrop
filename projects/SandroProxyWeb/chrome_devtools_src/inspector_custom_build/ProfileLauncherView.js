@@ -42,9 +42,7 @@ WebInspector.ProfileLauncherView = function(profilesPanel)
     this.element.addStyleClass("profile-launcher-view");
     this.element.addStyleClass("panel-enabler-view");
 
-    this._contentElement = document.createElement("div");
-    this._contentElement.className = "profile-launcher-view-content";
-    this.element.appendChild(this._contentElement);
+    this._contentElement = this.element.createChild("div", "profile-launcher-view-content");
 
     var header = this._contentElement.createChild("h1");
     header.textContent = WebInspector.UIString("Select profiling type");
@@ -52,8 +50,7 @@ WebInspector.ProfileLauncherView = function(profilesPanel)
     this._profileTypeSelectorForm = this._contentElement.createChild("form");
 
     if (WebInspector.experimentsSettings.liveNativeMemoryChart.isEnabled()) {
-        this._nativeMemoryElement = document.createElement("div");
-        this._contentElement.appendChild(this._nativeMemoryElement);
+        this._nativeMemoryElement = this._contentElement.createChild("div");
         this._nativeMemoryLiveChart = new WebInspector.NativeMemoryBarChart();
         this._nativeMemoryLiveChart.show(this._nativeMemoryElement);
     }
@@ -89,6 +86,9 @@ WebInspector.ProfileLauncherView.prototype = {
         optionElement.addEventListener("change", this._profileTypeChanged.bind(this, profileType), false);
         var descriptionElement = labelElement.createChild("p");
         descriptionElement.textContent = profileType.description;
+        var decorationElement = profileType.decorationElement();
+        if (decorationElement)
+            labelElement.appendChild(decorationElement);
     },
 
     _controlButtonClicked: function()

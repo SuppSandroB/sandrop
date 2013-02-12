@@ -195,6 +195,28 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         return loadXHR(url);
     },
 
+    supportsFileSystems: function()
+    {
+        return false;
+    },
+
+    requestFileSystems: function()
+    {
+    },
+
+    addFileSystem: function()
+    {
+    },
+
+    removeFileSystem: function(fileSystemPath)
+    {
+    },
+
+    isolatedFileSystem: function(fileSystemId, registeredName)
+    {
+        return null;
+    },
+
     setZoomFactor: function(zoom)
     {
     },
@@ -202,6 +224,11 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     canInspectWorkers: function()
     {
         return true;
+    },
+
+    isUnderTest: function()
+    {
+        return false;
     }
 }
 

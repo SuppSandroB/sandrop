@@ -49,7 +49,7 @@
     display: none;
 }
 
-#network-views.small #network-close-button  {
+#network-views.small #network-close-button {
     top: 4px;
 }
 
@@ -144,6 +144,10 @@
 .resource-headers-view .outline-disclosure .parent {
     -webkit-user-select: none;
     font-weight: bold;
+}
+
+.resource-headers-view .outline-disclosure .parent .section * {
+    font-weight: normal;
 }
 
 .resource-headers-view .outline-disclosure .children li {

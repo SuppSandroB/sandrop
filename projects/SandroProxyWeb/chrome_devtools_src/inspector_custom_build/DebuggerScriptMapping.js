@@ -31,12 +31,11 @@
 /**
  * @constructor
  * @param {WebInspector.Workspace} workspace
- * @param {WebInspector.DebuggerWorkspaceProvider} debuggerWorkspaceProvider
- * @param {WebInspector.NetworkWorkspaceProvider} networkWorkspaceProvider
+ * @param {WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
  */
-WebInspector.DebuggerScriptMapping = function(workspace, debuggerWorkspaceProvider, networkWorkspaceProvider)
+WebInspector.DebuggerScriptMapping = function(workspace, networkWorkspaceProvider)
 {
-    this._defaultMapping = new WebInspector.DefaultScriptMapping(workspace, debuggerWorkspaceProvider);
+    this._defaultMapping = new WebInspector.DefaultScriptMapping(workspace);
     this._resourceMapping = new WebInspector.ResourceScriptMapping(workspace);
     this._compilerMapping = new WebInspector.CompilerScriptMapping(workspace, networkWorkspaceProvider);
     this._snippetMapping = WebInspector.scriptSnippetModel.scriptMapping;
@@ -61,9 +60,7 @@ WebInspector.DebuggerScriptMapping.prototype = {
 
         this._resourceMapping.addScript(script);
 
-        if (WebInspector.settings.sourceMapsEnabled.get() && script.sourceMapURL) {
-            if (this._compilerMapping.loadSourceMapForScript(script))
-                this._compilerMapping.addScript(script);
-        }
+        if (WebInspector.settings.sourceMapsEnabled.get())
+            this._compilerMapping.addScript(script);
     }
 }
