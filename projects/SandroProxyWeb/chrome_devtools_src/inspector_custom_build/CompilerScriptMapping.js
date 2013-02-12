@@ -32,11 +32,12 @@
  * @constructor
  * @implements {WebInspector.ScriptSourceMapping}
  * @param {WebInspector.Workspace} workspace
- * @param {WebInspector.NetworkWorkspaceProvider} networkWorkspaceProvider
+ * @param {WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
  */
 WebInspector.CompilerScriptMapping = function(workspace, networkWorkspaceProvider)
 {
     this._workspace = workspace;
+    this._workspace.addEventListener(WebInspector.UISourceCodeProvider.Events.UISourceCodeAdded, this._uiSourceCodeAddedToWorkspace, this);
     this._networkWorkspaceProvider = networkWorkspaceProvider;
     /** @type {Object.<string, WebInspector.PositionBasedSourceMap>} */
     this._sourceMapForSourceMapURL = {};
@@ -45,7 +46,7 @@ WebInspector.CompilerScriptMapping = function(workspace, networkWorkspaceProvide
     this._scriptForSourceMap = new Map();
     /** @type {Object.<string, WebInspector.PositionBasedSourceMap>} */
     this._sourceMapForURL = {};
-    this._workspace.addEventListener(WebInspector.Workspace.Events.ProjectWillReset, this._reset, this);
+    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this._debuggerReset, this);
 }
 
 WebInspector.CompilerScriptMapping.prototype = {
@@ -62,7 +63,11 @@ WebInspector.CompilerScriptMapping.prototype = {
         var entry = sourceMap.findEntry(lineNumber, columnNumber);
         if (entry.length === 2)
             return null;
-        var uiSourceCode = this._workspace.uiSourceCodeForURL(entry[2]);
+        var url = entry[2];
+        var uri = WebInspector.fileMapping.uriForURL(url);
+        var uiSourceCode = this._workspace.uiSourceCodeForURI(uri);
+        if (!uiSourceCode)
+            return null;
         return new WebInspector.UILocation(uiSourceCode, entry[3], entry[4]);
     },
 
@@ -74,7 +79,11 @@ WebInspector.CompilerScriptMapping.prototype = {
      */
     uiLocationToRawLocation: function(uiSourceCode, lineNumber, columnNumber)
     {
+        if (!uiSourceCode.url)
+            return null;
         var sourceMap = this._sourceMapForURL[uiSourceCode.url];
+        if (!sourceMap)
+            return null;
         var entry = sourceMap.findEntryReversed(uiSourceCode.url, lineNumber);
         return WebInspector.debuggerModel.createRawLocation(this._scriptForSourceMap.get(sourceMap), entry[0], entry[1]);
     },
@@ -85,6 +94,8 @@ WebInspector.CompilerScriptMapping.prototype = {
     addScript: function(script)
     {
         var sourceMap = this.loadSourceMapForScript(script);
+        if (!sourceMap)
+            return;
 
         if (this._scriptForSourceMap.get(sourceMap)) {
             this._sourceMapForScriptId[script.scriptId] = sourceMap;
@@ -92,36 +103,70 @@ WebInspector.CompilerScriptMapping.prototype = {
             return;
         }
 
+        this._sourceMapForScriptId[script.scriptId] = sourceMap;
+        this._scriptForSourceMap.put(sourceMap, script);
+
         var sourceURLs = sourceMap.sources();
         for (var i = 0; i < sourceURLs.length; ++i) {
             var sourceURL = sourceURLs[i];
-            if (this._workspace.uiSourceCodeForURL(sourceURL))
+            var uri = WebInspector.fileMapping.uriForURL(sourceURL);
+            if (this._sourceMapForURL[sourceURL])
                 continue;
             this._sourceMapForURL[sourceURL] = sourceMap;
-            var sourceContent = sourceMap.sourceContent(sourceURL);
-            var contentProvider;
-            if (sourceContent)
-                contentProvider = new WebInspector.StaticContentProvider(WebInspector.resourceTypes.Script, sourceContent);
-            else
-                contentProvider = new WebInspector.CompilerSourceMappingContentProvider(sourceURL);
-            this._networkWorkspaceProvider.addNetworkFile(sourceURL, contentProvider, true);
-            var uiSourceCode = this._workspace.uiSourceCodeForURL(sourceURL);
-            uiSourceCode.setSourceMapping(this);
-            uiSourceCode.isContentScript = script.isContentScript;
+            if (!WebInspector.fileMapping.hasMappingForURL(sourceURL) && !this._workspace.uiSourceCodeForURI(uri)) {
+                var sourceContent = sourceMap.sourceContent(sourceURL);
+                var contentProvider;
+                if (sourceContent)
+                    contentProvider = new WebInspector.StaticContentProvider(WebInspector.resourceTypes.Script, sourceContent);
+                else
+                    contentProvider = new WebInspector.CompilerSourceMappingContentProvider(sourceURL);
+                this._networkWorkspaceProvider.addFileForURL(sourceURL, contentProvider, true);
+            }
+            var uiSourceCode = this._workspace.uiSourceCodeForURI(uri);
+            if (uiSourceCode) {
+                this._bindUISourceCode(this._workspace.uiSourceCodeForURI(uri));
+                uiSourceCode.isContentScript = script.isContentScript;
+            }
         }
-
-        this._sourceMapForScriptId[script.scriptId] = sourceMap;
-        this._scriptForSourceMap.put(sourceMap, script);
         script.pushSourceMapping(this);
     },
 
     /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _bindUISourceCode: function(uiSourceCode)
+    {
+        uiSourceCode.setSourceMapping(this);
+    },
+
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _uiSourceCodeAddedToWorkspace: function(event)
+    {
+        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
+        if (!uiSourceCode.url || !this._sourceMapForURL[uiSourceCode.url])
+            return;
+        this._bindUISourceCode(uiSourceCode);
+    },
+
+    /**
      * @param {WebInspector.Script} script
-     * @return {WebInspector.PositionBasedSourceMap}
+     * @return {?WebInspector.PositionBasedSourceMap}
      */
     loadSourceMapForScript: function(script)
     {
-        var sourceMapURL = WebInspector.PositionBasedSourceMap.prototype._canonicalizeURL(script.sourceMapURL, script.sourceURL);
+        // script.sourceURL can be a random string, but is generally an absolute path -> complete it to inspected page url for
+        // relative links.
+        if (!script.sourceMapURL)
+            return null;
+        var scriptURL = WebInspector.ParsedURL.completeURL(WebInspector.inspectedPageURL, script.sourceURL);
+        if (!scriptURL)
+            return null;
+        var sourceMapURL = WebInspector.ParsedURL.completeURL(scriptURL, script.sourceMapURL);
+        if (!sourceMapURL)
+            return null;
+
         var sourceMap = this._sourceMapForSourceMapURL[sourceMapURL];
         if (sourceMap)
             return sourceMap;
@@ -132,7 +177,8 @@ WebInspector.CompilerScriptMapping.prototype = {
             if (response.slice(0, 3) === ")]}")
                 response = response.substring(response.indexOf('\n'));
             var payload = /** @type {SourceMapV3} */ (JSON.parse(response));
-            sourceMap = new WebInspector.PositionBasedSourceMap(sourceMapURL, payload);
+            var baseURL = sourceMapURL.startsWith("data:") ? scriptURL : sourceMapURL;
+            sourceMap = new WebInspector.PositionBasedSourceMap(baseURL, payload);
         } catch(e) {
             console.error(e.message);
             return null;
@@ -141,7 +187,7 @@ WebInspector.CompilerScriptMapping.prototype = {
         return sourceMap;
     },
 
-    _reset: function()
+    _debuggerReset: function()
     {
         this._sourceMapForSourceMapURL = {};
         this._sourceMapForScriptId = {};

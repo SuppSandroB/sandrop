@@ -34,40 +34,33 @@
 WebInspector.WorkspaceController = function(workspace)
 {
     this._workspace = workspace;
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.MainFrameNavigated, this._mainFrameNavigated, this);
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameAdded, this._frameAdded, this);
+    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.InspectedURLChanged, this._inspectedURLChanged, this);
 }
 
 WebInspector.WorkspaceController.prototype = {
-    _mainFrameNavigated: function()
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _inspectedURLChanged: function(event)
     {
         WebInspector.Revision.filterOutStaleRevisions();
-        this._workspace.dispatchEventToListeners(WebInspector.Workspace.Events.ProjectWillReset, this._workspace.project());
-        this._workspace.project().reset();
-        this._workspace.reset();
-        this._workspace.dispatchEventToListeners(WebInspector.Workspace.Events.ProjectDidReset, this._workspace.project());
-    },
-
-    _frameAdded: function(event)
-    {
-        var frame = /** @type {WebInspector.ResourceTreeFrame} */ (event.data);
-        if (frame.isMainFrame())
-            WebInspector.Revision.filterOutStaleRevisions();
     }
 }
 
 /**
  * @constructor
  * @param {string} uri
+ * @param {string} originURL
  * @param {string} url
  * @param {WebInspector.ResourceType} contentType
  * @param {boolean} isEditable
  * @param {boolean=} isContentScript
  * @param {boolean=} isSnippet
  */
-WebInspector.FileDescriptor = function(uri, url, contentType, isEditable, isContentScript, isSnippet)
+WebInspector.FileDescriptor = function(uri, originURL, url, contentType, isEditable, isContentScript, isSnippet)
 {
     this.uri = uri;
+    this.originURL = originURL;
     this.url = url;
     this.contentType = contentType;
     this.isEditable = isEditable;
@@ -82,7 +75,8 @@ WebInspector.WorkspaceProvider = function() { }
 
 WebInspector.WorkspaceProvider.Events = {
     FileAdded: "FileAdded",
-    FileRemoved: "FileRemoved"
+    FileRemoved: "FileRemoved",
+    Reset: "Reset",
 }
 
 WebInspector.WorkspaceProvider.prototype = {
@@ -130,23 +124,37 @@ WebInspector.workspaceController = null;
 
 /**
  * @param {WebInspector.Workspace} workspace
+ * @param {string} name
  * @param {WebInspector.WorkspaceProvider} workspaceProvider
  * @constructor
  */
-WebInspector.Project = function(workspace, workspaceProvider)
+WebInspector.Project = function(workspace, name, workspaceProvider)
 {
-    this._uiSourceCodes = [];
+    this._name = name;
+    /** @type {Object.<string, WebInspector.UISourceCode>} */
+    this._uiSourceCodesForURI = {};
     this._workspace = workspace;
     this._workspaceProvider = workspaceProvider;
     this._workspaceProvider.addEventListener(WebInspector.WorkspaceProvider.Events.FileAdded, this._fileAdded, this);
     this._workspaceProvider.addEventListener(WebInspector.WorkspaceProvider.Events.FileRemoved, this._fileRemoved, this);
+    this._workspaceProvider.addEventListener(WebInspector.WorkspaceProvider.Events.Reset, this._reset, this);
 }
 
 WebInspector.Project.prototype = {
-    reset: function()
+    /**
+     * @return {string}
+     */
+    name: function()
     {
-        this._workspaceProvider.reset();
-        this._uiSourceCodes = [];
+        return this._name;
+    },
+
+    /**
+     * @return {boolean}
+     */
+    isServiceProject: function()
+    {
+        return this._name === WebInspector.projectNames.Debugger || this._name === WebInspector.projectNames.LiveEdit;
     },
 
     _fileAdded: function(event)
@@ -157,10 +165,10 @@ WebInspector.Project.prototype = {
             // FIXME: Implement
             return;
         }
-        uiSourceCode = new WebInspector.UISourceCode(this._workspace, fileDescriptor.uri, fileDescriptor.url, fileDescriptor.contentType, fileDescriptor.isEditable);
+        uiSourceCode = new WebInspector.UISourceCode(this._workspace, fileDescriptor.uri, fileDescriptor.originURL, fileDescriptor.url, fileDescriptor.contentType, fileDescriptor.isEditable);
         uiSourceCode.isContentScript = fileDescriptor.isContentScript;
         uiSourceCode.isSnippet = fileDescriptor.isSnippet;
-        this._uiSourceCodes.push(uiSourceCode);
+        this._uiSourceCodesForURI[uiSourceCode.uri()] = uiSourceCode;
         this._workspace.dispatchEventToListeners(WebInspector.UISourceCodeProvider.Events.UISourceCodeAdded, uiSourceCode);
     },
 
@@ -170,19 +178,26 @@ WebInspector.Project.prototype = {
         var uiSourceCode = this.uiSourceCodeForURI(uri);
         if (!uiSourceCode)
             return;
-        this._uiSourceCodes.splice(this._uiSourceCodes.indexOf(uiSourceCode), 1);
+        delete this._uiSourceCodesForURI[uiSourceCode.uri()];
         this._workspace.dispatchEventToListeners(WebInspector.UISourceCodeProvider.Events.UISourceCodeRemoved, uiSourceCode);
     },
 
+    _reset: function()
+    {
+        this._workspace.dispatchEventToListeners(WebInspector.Workspace.Events.ProjectWillReset, this);
+        this._uiSourceCodesForURI = {};
+    },
+
     /**
-     * @param {string} url
+     * @param {string} originURL
      * @return {?WebInspector.UISourceCode}
      */
-    uiSourceCodeForURL: function(url)
+    uiSourceCodeForOriginURL: function(originURL)
     {
-        for (var i = 0; i < this._uiSourceCodes.length; ++i) {
-            if (this._uiSourceCodes[i].url === url)
-                return this._uiSourceCodes[i];
+        for (var uri in this._uiSourceCodesForURI) {
+            var uiSourceCode = this._uiSourceCodesForURI[uri];
+            if (uiSourceCode.originURL() === originURL)
+                return uiSourceCode;
         }
         return null;
     },
@@ -193,11 +208,7 @@ WebInspector.Project.prototype = {
      */
     uiSourceCodeForURI: function(uri)
     {
-        for (var i = 0; i < this._uiSourceCodes.length; ++i) {
-            if (this._uiSourceCodes[i].uri() === uri)
-                return this._uiSourceCodes[i];
-        }
-        return null;
+        return this._uiSourceCodesForURI[uri];
     },
 
     /**
@@ -205,7 +216,7 @@ WebInspector.Project.prototype = {
      */
     uiSourceCodes: function()
     {
-        return this._uiSourceCodes;
+        return Object.values(this._uiSourceCodesForURI);
     },
 
     /**
@@ -240,6 +251,15 @@ WebInspector.Project.prototype = {
     }
 }
 
+WebInspector.projectNames = {
+    Debugger: "debugger",
+    LiveEdit: "liveedit",
+    Compiler: "compiler",
+    Network: "network",
+    Snippets: "snippets",
+    FileSystem: "filesystem"
+}
+
 /**
  * @constructor
  * @implements {WebInspector.UISourceCodeProvider}
@@ -247,26 +267,23 @@ WebInspector.Project.prototype = {
  */
 WebInspector.Workspace = function()
 {
-    /** @type {Object.<string, WebInspector.ContentProvider>} */
-    this._temporaryContentProviders = {};
-    /** @type {Object.<string, WebInspector.UISourceCode>} */
-    this._temporaryUISourceCodes = {};
+    /** @type {!Object.<string, WebInspector.Project>} */
+    this._projects = {};
 }
 
 WebInspector.Workspace.Events = {
     UISourceCodeContentCommitted: "UISourceCodeContentCommitted",
-    ProjectWillReset: "ProjectWillReset",
-    ProjectDidReset: "ProjectDidReset"
+    ProjectWillReset: "ProjectWillReset"
 }
 
 WebInspector.Workspace.prototype = {
     /**
-     * @param {string} url
+     * @param {string} originURL
      * @return {?WebInspector.UISourceCode}
      */
-    uiSourceCodeForURL: function(url)
+    uiSourceCodeForOriginURL: function(originURL)
     {
-        return this._project.uiSourceCodeForURL(url);
+        return this._projects[WebInspector.projectNames.Network].uiSourceCodeForOriginURL(originURL);
     },
 
     /**
@@ -275,25 +292,41 @@ WebInspector.Workspace.prototype = {
      */
     uiSourceCodeForURI: function(uri)
     {
-        return this._temporaryUISourceCodes[uri] || this._project.uiSourceCodeForURI(uri);
+        for (var projectName in this._projects) {
+            var project = this._projects[projectName];
+            var uiSourceCode = project.uiSourceCodeForURI(uri);
+            if (uiSourceCode)
+                return uiSourceCode;
+        }
+        return null;
     },
 
     /**
      * @param {string} projectName
      * @param {WebInspector.WorkspaceProvider} workspaceProvider
+     * @return {WebInspector.Project}
      */
     addProject: function(projectName, workspaceProvider)
     {
-        // FIXME: support multiple projects identified by project name.
-        this._project = new WebInspector.Project(this, workspaceProvider);
+        this._projects[projectName] = new WebInspector.Project(this, projectName, workspaceProvider);
+        return this._projects[projectName];
     },
 
     /**
+     * @param {string} projectName
      * @return {WebInspector.Project}
      */
-    project: function()
+    project: function(projectName)
     {
-        return this._project;
+        return this._projects[projectName];
+    },
+
+    /**
+     * @return {Array.<WebInspector.Project>}
+     */
+    projects: function()
+    {
+        return Object.values(this._projects);
     },
 
     /**
@@ -301,35 +334,25 @@ WebInspector.Workspace.prototype = {
      */
     uiSourceCodes: function()
     {
-        return this._project.uiSourceCodes();
+        var result = [];
+        for (var projectName in this._projects) {
+            var project = this._projects[projectName];
+            result = result.concat(project.uiSourceCodes());
+        }
+        return result;
     },
 
     /**
-     * @param {string} uri
-     * @param {string} url
-     * @param {WebInspector.ContentProvider} contentProvider
-     * @param {boolean} isEditable
-     * @param {boolean=} isContentScript
+     * @return {?WebInspector.Project}
      */
-    addTemporaryUISourceCode: function(uri, url, contentProvider, isEditable, isContentScript)
+    projectForUISourceCode: function(uiSourceCode)
     {
-        var uiSourceCode = new WebInspector.UISourceCode(this, uri, url, contentProvider.contentType(), isEditable);
-        this._temporaryContentProviders[uri] = contentProvider;
-        this._temporaryUISourceCodes[uri] = uiSourceCode;
-        uiSourceCode.isContentScript = isContentScript;
-        uiSourceCode.isTemporary = true;
-        this.dispatchEventToListeners(WebInspector.UISourceCodeProvider.Events.TemporaryUISourceCodeAdded, uiSourceCode);
-        return uiSourceCode;
-    },
-
-    /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
-     */
-    removeTemporaryUISourceCode: function(uiSourceCode)
-    {
-        delete this._temporaryContentProviders[uiSourceCode.uri()];
-        delete this._temporaryUISourceCodes[uiSourceCode.uri()];
-        this.dispatchEventToListeners(WebInspector.UISourceCodeProvider.Events.TemporaryUISourceCodeRemoved, uiSourceCode);
+        for (var projectName in this._projects) {
+            var project = this._projects[projectName];
+            if (project.uiSourceCodeForURI(uiSourceCode.uri()))
+                return project;
+        }
+        return null;
     },
 
     /**
@@ -338,12 +361,8 @@ WebInspector.Workspace.prototype = {
      */
     requestFileContent: function(uiSourceCode, callback)
     {
-        var temporaryContentProvider = this._temporaryContentProviders[uiSourceCode.uri()];
-        if (temporaryContentProvider) {
-            temporaryContentProvider.requestContent(callback);
-            return;
-        }
-        this._project.requestFileContent(uiSourceCode.uri(), callback);
+        var project = this.projectForUISourceCode(uiSourceCode);
+        project.requestFileContent(uiSourceCode.uri(), callback);
     },
 
     /**
@@ -353,9 +372,8 @@ WebInspector.Workspace.prototype = {
      */
     setFileContent: function(uiSourceCode, newContent, callback)
     {
-        if (this._temporaryContentProviders[uiSourceCode.uri()])
-            return;
-        this._project.setFileContent(uiSourceCode.url, newContent, callback);
+        var project = this.projectForUISourceCode(uiSourceCode);
+        project.setFileContent(uiSourceCode.uri(), newContent, callback);
     },
 
     /**
@@ -367,18 +385,8 @@ WebInspector.Workspace.prototype = {
      */
     searchInFileContent: function(uiSourceCode, query, caseSensitive, isRegex, callback)
     {
-        var temporaryContentProvider = this._temporaryContentProviders[uiSourceCode.uri()];
-        if (temporaryContentProvider) {
-            temporaryContentProvider.searchInContent(query, caseSensitive, isRegex, callback);
-            return;
-        }
-        this._project.searchInFileContent(uiSourceCode.uri(), query, caseSensitive, isRegex, callback);
-    },
-
-    reset: function()
-    {
-        this._temporaryContentProviders = {};
-        this._temporaryUISourceCodes = {};
+        var project = this.projectForUISourceCode(uiSourceCode);
+        project.searchInFileContent(uiSourceCode.uri(), query, caseSensitive, isRegex, callback);
     },
 
     __proto__: WebInspector.Object.prototype

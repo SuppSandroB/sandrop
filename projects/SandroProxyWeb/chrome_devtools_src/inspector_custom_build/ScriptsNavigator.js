@@ -170,13 +170,6 @@ WebInspector.ScriptsNavigator.prototype = {
         this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.SnippetCreationRequested, event.data);
     },
 
-    reset: function()
-    {
-        this._scriptsView.reset();
-        this._contentScriptsView.reset();
-        this._snippetsView.reset();
-    },
-
     __proto__: WebInspector.Object.prototype
 }
 
@@ -223,9 +216,8 @@ WebInspector.SnippetsNavigatorView.prototype = {
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {Event} event
      */
-    _handleEvaluateSnippet: function(uiSourceCode, event)
+    _handleEvaluateSnippet: function(uiSourceCode)
     {
         if (!uiSourceCode.isSnippet)
             return;
@@ -234,28 +226,23 @@ WebInspector.SnippetsNavigatorView.prototype = {
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {Event} event
      */
-    _handleRenameSnippet: function(uiSourceCode, event)
+    _handleRenameSnippet: function(uiSourceCode)
     {
         this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ItemRenamingRequested, uiSourceCode);
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {Event} event
      */
-    _handleRemoveSnippet: function(uiSourceCode, event)
+    _handleRemoveSnippet: function(uiSourceCode)
     {
         if (!uiSourceCode.isSnippet)
             return;
         WebInspector.scriptSnippetModel.deleteScriptSnippet(uiSourceCode);
     },
 
-    /**
-     * @param {Event} event
-     */
-    _handleCreateSnippet: function(event)
+    _handleCreateSnippet: function()
     {
         this._snippetCreationRequested();
     },

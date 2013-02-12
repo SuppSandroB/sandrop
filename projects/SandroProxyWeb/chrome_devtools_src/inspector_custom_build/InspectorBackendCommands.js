@@ -24,6 +24,12 @@ InspectorBackend.registerEvent("Page.domContentEventFired", ["timestamp"]);
 InspectorBackend.registerEvent("Page.loadEventFired", ["timestamp"]);
 InspectorBackend.registerEvent("Page.frameNavigated", ["frame"]);
 InspectorBackend.registerEvent("Page.frameDetached", ["frameId"]);
+InspectorBackend.registerEvent("Page.frameStartedLoading", ["frameId"]);
+InspectorBackend.registerEvent("Page.frameStoppedLoading", ["frameId"]);
+InspectorBackend.registerEvent("Page.frameScheduledNavigation", ["frameId", "delay"]);
+InspectorBackend.registerEvent("Page.frameClearedScheduledNavigation", ["frameId"]);
+InspectorBackend.registerEvent("Page.javascriptDialogOpening", ["message"]);
+InspectorBackend.registerEvent("Page.javascriptDialogClosed", []);
 InspectorBackend.registerCommand("Page.enable", [], []);
 InspectorBackend.registerCommand("Page.disable", [], []);
 InspectorBackend.registerCommand("Page.addScriptToEvaluateOnLoad", [{"name": "scriptSource", "type": "string", "optional": false}], ["identifier"]);
@@ -31,7 +37,7 @@ InspectorBackend.registerCommand("Page.removeScriptToEvaluateOnLoad", [{"name": 
 InspectorBackend.registerCommand("Page.reload", [{"name": "ignoreCache", "type": "boolean", "optional": true}, {"name": "scriptToEvaluateOnLoad", "type": "string", "optional": true}, {"name": "scriptPreprocessor", "type": "string", "optional": true}], []);
 InspectorBackend.registerCommand("Page.navigate", [{"name": "url", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Page.getCookies", [], ["cookies", "cookiesString"]);
-InspectorBackend.registerCommand("Page.deleteCookie", [{"name": "cookieName", "type": "string", "optional": false}, {"name": "domain", "type": "string", "optional": false}], []);
+InspectorBackend.registerCommand("Page.deleteCookie", [{"name": "cookieName", "type": "string", "optional": false}, {"name": "url", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Page.getResourceTree", [], ["frameTree"]);
 InspectorBackend.registerCommand("Page.getResourceContent", [{"name": "frameId", "type": "string", "optional": false}, {"name": "url", "type": "string", "optional": false}, {"name": "resourceId", "type": "string", "optional": true}], ["content", "base64Encoded"]);
 InspectorBackend.registerCommand("Page.searchInResource", [{"name": "frameId", "type": "string", "optional": false}, {"name": "url", "type": "string", "optional": false}, {"name": "query", "type": "string", "optional": false}, {"name": "caseSensitive", "type": "boolean", "optional": true}, {"name": "isRegex", "type": "boolean", "optional": true}], ["result"]);
@@ -42,6 +48,8 @@ InspectorBackend.registerCommand("Page.setDeviceMetricsOverride", [{"name": "wid
 InspectorBackend.registerCommand("Page.setShowPaintRects", [{"name": "result", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.canShowFPSCounter", [], ["show"]);
 InspectorBackend.registerCommand("Page.setShowFPSCounter", [{"name": "show", "type": "boolean", "optional": false}], []);
+InspectorBackend.registerCommand("Page.canContinuouslyPaint", [], ["value"]);
+InspectorBackend.registerCommand("Page.setContinuousPaintingEnabled", [{"name": "enabled", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.getScriptExecutionStatus", [], ["result"]);
 InspectorBackend.registerCommand("Page.setScriptExecutionDisabled", [{"name": "value", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.setGeolocationOverride", [{"name": "latitude", "type": "number", "optional": true}, {"name": "longitude", "type": "number", "optional": true}, {"name": "accuracy", "type": "number", "optional": true}], []);
@@ -55,6 +63,7 @@ InspectorBackend.registerCommand("Page.setEmulatedMedia", [{"name": "media", "ty
 InspectorBackend.registerCommand("Page.getCompositingBordersVisible", [], ["result"]);
 InspectorBackend.registerCommand("Page.setCompositingBordersVisible", [{"name": "visible", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.captureScreenshot", [], ["data"]);
+InspectorBackend.registerCommand("Page.handleJavaScriptDialog", [{"name": "accept", "type": "boolean", "optional": false}], []);
 
 // Runtime.
 InspectorBackend.registerRuntimeDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Runtime");
@@ -167,7 +176,7 @@ InspectorBackend.registerEvent("DOM.childNodeRemoved", ["parentNodeId", "nodeId"
 InspectorBackend.registerEvent("DOM.shadowRootPushed", ["hostId", "root"]);
 InspectorBackend.registerEvent("DOM.shadowRootPopped", ["hostId", "rootId"]);
 InspectorBackend.registerCommand("DOM.getDocument", [], ["root"]);
-InspectorBackend.registerCommand("DOM.requestChildNodes", [{"name": "nodeId", "type": "number", "optional": false}], []);
+InspectorBackend.registerCommand("DOM.requestChildNodes", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "depth", "type": "number", "optional": true}], []);
 InspectorBackend.registerCommand("DOM.querySelector", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "selector", "type": "string", "optional": false}], ["nodeId"]);
 InspectorBackend.registerCommand("DOM.querySelectorAll", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "selector", "type": "string", "optional": false}], ["nodeIds"]);
 InspectorBackend.registerCommand("DOM.setNodeName", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "name", "type": "string", "optional": false}], ["nodeId"]);
@@ -292,10 +301,11 @@ InspectorBackend.registerCommand("Profiler.disable", [], []);
 InspectorBackend.registerCommand("Profiler.start", [], []);
 InspectorBackend.registerCommand("Profiler.stop", [], []);
 InspectorBackend.registerCommand("Profiler.getProfileHeaders", [], ["headers"]);
-InspectorBackend.registerCommand("Profiler.getProfile", [{"name": "type", "type": "string", "optional": false}, {"name": "uid", "type": "number", "optional": false}], ["profile"]);
+InspectorBackend.registerCommand("Profiler.getCPUProfile", [{"name": "uid", "type": "number", "optional": false}], ["profile"]);
+InspectorBackend.registerCommand("Profiler.getHeapSnapshot", [{"name": "uid", "type": "number", "optional": false}], []);
 InspectorBackend.registerCommand("Profiler.removeProfile", [{"name": "type", "type": "string", "optional": false}, {"name": "uid", "type": "number", "optional": false}], []);
 InspectorBackend.registerCommand("Profiler.clearProfiles", [], []);
-InspectorBackend.registerCommand("Profiler.takeHeapSnapshot", [], []);
+InspectorBackend.registerCommand("Profiler.takeHeapSnapshot", [{"name": "reportProgress", "type": "boolean", "optional": true}], []);
 InspectorBackend.registerCommand("Profiler.collectGarbage", [], []);
 InspectorBackend.registerCommand("Profiler.getObjectByHeapObjectId", [{"name": "objectId", "type": "string", "optional": false}, {"name": "objectGroup", "type": "string", "optional": true}], ["result"]);
 InspectorBackend.registerCommand("Profiler.getHeapObjectId", [{"name": "objectId", "type": "string", "optional": false}], ["heapSnapshotObjectId"]);
@@ -315,15 +325,19 @@ InspectorBackend.registerCommand("Worker.setAutoconnectToWorkers", [{"name": "va
 
 // Canvas.
 InspectorBackend.registerCanvasDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Canvas");
+InspectorBackend.registerEvent("Canvas.contextCreated", ["frameId"]);
+InspectorBackend.registerEvent("Canvas.traceLogsRemoved", ["frameId", "traceLogId"]);
 InspectorBackend.registerCommand("Canvas.enable", [], []);
 InspectorBackend.registerCommand("Canvas.disable", [], []);
 InspectorBackend.registerCommand("Canvas.dropTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Canvas.hasUninstrumentedCanvases", [], ["result"]);
-InspectorBackend.registerCommand("Canvas.captureFrame", [], ["traceLogId"]);
-InspectorBackend.registerCommand("Canvas.startCapturing", [], ["traceLogId"]);
+InspectorBackend.registerCommand("Canvas.captureFrame", [{"name": "frameId", "type": "string", "optional": true}], ["traceLogId"]);
+InspectorBackend.registerCommand("Canvas.startCapturing", [{"name": "frameId", "type": "string", "optional": true}], ["traceLogId"]);
 InspectorBackend.registerCommand("Canvas.stopCapturing", [{"name": "traceLogId", "type": "string", "optional": false}], []);
-InspectorBackend.registerCommand("Canvas.getTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "startOffset", "type": "number", "optional": true}], ["traceLog"]);
-InspectorBackend.registerCommand("Canvas.replayTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "stepNo", "type": "number", "optional": false}], ["screenshotDataUrl"]);
+InspectorBackend.registerCommand("Canvas.getTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "startOffset", "type": "number", "optional": true}, {"name": "maxLength", "type": "number", "optional": true}], ["traceLog"]);
+InspectorBackend.registerCommand("Canvas.replayTraceLog", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "stepNo", "type": "number", "optional": false}], ["resourceState"]);
+InspectorBackend.registerCommand("Canvas.getResourceInfo", [{"name": "resourceId", "type": "string", "optional": false}], ["resourceInfo"]);
+InspectorBackend.registerCommand("Canvas.getResourceState", [{"name": "traceLogId", "type": "string", "optional": false}, {"name": "resourceId", "type": "string", "optional": false}], ["resourceState"]);
 
 // Input.
 InspectorBackend.registerInputDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Input");
