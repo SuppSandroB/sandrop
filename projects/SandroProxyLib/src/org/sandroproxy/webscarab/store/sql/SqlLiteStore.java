@@ -5,7 +5,10 @@ import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.Cookie;
@@ -50,7 +53,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     private static SQLiteDatabase mDatabase = null;
     
-    private List<IStoreEventListener> listOfEventListeners;
+    private Map<String, IStoreEventListener> listOfEventListeners = new LinkedHashMap<String, IStoreEventListener>();
     
     public static final String mTableNames[] = {
         "conversation", "request", "response", "content", "headers", "cookies", "urls", "websocket_channel", "websocket_message"
@@ -458,43 +461,56 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         mRootDirName = rootDirName;
     }
     
-    public void setEventListeners(List<IStoreEventListener> listOfEventListeners){
-        this.listOfEventListeners = listOfEventListeners;
+    public void addEventListeners(String id, IStoreEventListener eventListener){
+        if (this.listOfEventListeners.containsKey(id)){
+            this.listOfEventListeners.remove(id);
+        }
+        this.listOfEventListeners.put(id, eventListener);
     }
     
-    private void eventNewConversation(long conversationId, int type){
+    public void removeEventListeners(String id){
+        if (this.listOfEventListeners != null && this.listOfEventListeners.containsValue(id)){
+            this.listOfEventListeners.remove(id);
+        }
+    }
+    
+    private void eventNewConversation(long conversationId, int type, long timestamp){
         if (listOfEventListeners != null){
-            for (IStoreEventListener storeEventListener : listOfEventListeners) {
-                storeEventListener.newConversation(conversationId, type);
+            for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
+                IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
+                storeEventListener.newConversation(conversationId, type, timestamp);
             }
         }
     }
     
-    private void eventUpdateConversation(long conversationId,  int status, boolean haveProtocolSwitch){
+    private void eventUpdateConversation(long conversationId,  int status, boolean haveProtocolSwitch, long timestamp){
         if (listOfEventListeners != null){
-            for (IStoreEventListener storeEventListener : listOfEventListeners) {
+            for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
+                IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
                 if (status == FrameworkModel.CONVERSATION_STATUS_REQ_SEND){
-                    storeEventListener.startConversation(conversationId);
+                    storeEventListener.startConversation(conversationId, timestamp);
                 }
                 if (status == FrameworkModel.CONVERSATION_STATUS_RESP_RECEIVED || status == FrameworkModel.CONVERSATION_STATUS_ABORTED){
-                        storeEventListener.endConversation(conversationId, haveProtocolSwitch);
+                        storeEventListener.endConversation(conversationId, haveProtocolSwitch, timestamp);
                 }
             }
         }
     }
     
-    private void eventSocketFrameSend(long conversationId,  long messageId){
+    private void eventSocketFrameSend(long conversationId,  long messageId, long timestamp){
         if (listOfEventListeners != null){
-            for (IStoreEventListener storeEventListener : listOfEventListeners) {
-                storeEventListener.socketFrameSend(conversationId, messageId);
+            for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
+                IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
+                storeEventListener.socketFrameSend(conversationId, messageId, timestamp);
             }
         }
     }
     
-    private void eventSocketFrameReceived(long conversationId,  long messageId){
+    private void eventSocketFrameReceived(long conversationId,  long messageId, long timestamp){
         if (listOfEventListeners != null){
-            for (IStoreEventListener storeEventListener : listOfEventListeners) {
-                storeEventListener.socketFrameReceived(conversationId, messageId);
+            for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
+                IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
+                storeEventListener.socketFrameReceived(conversationId, messageId, timestamp);
             }
         }
     }
@@ -515,6 +531,25 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             channels.add(channel);
         }
         return channels;
+    }
+    
+    
+    public List<WebSocketChannelDTO> getSocketChannels(long dateFrom, long dateTo, String url, String port, String orderBy){
+        List<WebSocketChannelDTO> list = new ArrayList<WebSocketChannelDTO>();
+        Cursor cs = null;
+        WebSocketChannelFilter filter = WebSocketChannelFilter.createTransFilter(dateFrom, dateTo, url, port, orderBy);
+       cs = mDatabase.query(mTableNames[TABLE_SOCKET_CHANNEL], null, filter.whereClause, filter.getArgs(), null, null, filter.orderBy);
+       if (cs != null){
+           try{
+               return buildChannelDTOs(cs);
+           } catch (Exception ex){
+               ex.printStackTrace();
+           } finally{
+               cs.close();
+           }
+           
+       }
+       return list;
     }
     
     public List<WebSocketChannelDTO> getSocketChannels(){
@@ -641,9 +676,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         msgVal.put(SOCKET_MSG_PAYLOAD_LENGTH, message.payloadLength);
         mDatabase.insertOrThrow(mTableNames[TABLE_SOCKET_MESSAGE], null, msgVal);
         if (message.isOutgoing){
-            eventSocketFrameSend(message.channel.historyId, message.id);
+            eventSocketFrameSend(message.channel.historyId, message.id, message.timestamp);
         }else{
-            eventSocketFrameReceived(message.channel.historyId, message.id);
+            eventSocketFrameReceived(message.channel.historyId, message.id, message.timestamp);
         }
     }
     
@@ -739,13 +774,14 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     @Override
     public long createNewConversation(Date when, int type, String clientAddress){
         ContentValues convCV = new ContentValues();
+        long timestamp = when.getTime();
         convCV.put(CONVERSATION_STATUS, FrameworkModel.CONVERSATION_STATUS_NEW);
         convCV.put(CONVERSATION_TYPE, type);
-        convCV.put(CONVERSATION_TS_START, when.getTime());
+        convCV.put(CONVERSATION_TS_START, timestamp);
         convCV.put(CONVERSATION_CLIENT_ADDRESS, clientAddress);
         long conversationId = mDatabase.insertOrThrow(mTableNames[TABLE_COVERSATION_ID], 
                 null, convCV);
-        eventNewConversation(conversationId, type);
+        eventNewConversation(conversationId, type, timestamp);
         return conversationId;
     }
     
@@ -754,6 +790,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public long updateFailedConversation(long  conversationId, Date when, Request request, String reason){
         int conversationStatus = FrameworkModel.CONVERSATION_STATUS_ABORTED;
         boolean haveValidData = false;
+        long timestamp = when.getTime();
         try{
             mDatabase.beginTransaction();
             ContentValues convCV = new ContentValues();
@@ -770,7 +807,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             
             convCV.put(CONVERSATION_STATUS, conversationStatus);
             convCV.put(CONVERSATION_STATUS_DESCRIPTION, reason);
-            convCV.put(CONVERSATION_TS_END, when.getTime());
+            convCV.put(CONVERSATION_TS_END, timestamp);
 
             String where = CONVERSATION_UNIQUE_ID  + " = ?";
             String[] args = new String[]{ String.valueOf(conversationId)};
@@ -783,7 +820,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         } finally {
             mDatabase.endTransaction();
             if (haveValidData){
-                eventUpdateConversation(conversationId, conversationStatus, false);
+                eventUpdateConversation(conversationId, conversationStatus, false, timestamp);
             }
         }
         return -1;
@@ -794,6 +831,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         long requestId = -1;
         boolean haveValidData = false;
         int conversationStatus = FrameworkModel.CONVERSATION_STATUS_REQ_SEND;
+        long timestamp = when.getTime();
         try{
             mDatabase.beginTransaction();
             ContentValues convCV = new ContentValues();
@@ -819,7 +857,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         } finally {
             mDatabase.endTransaction();
             if (haveValidData){
-                eventUpdateConversation(conversationId, conversationStatus, false);
+                eventUpdateConversation(conversationId, conversationStatus, false, timestamp);
             }
         }
         return -1;
@@ -832,6 +870,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         long responseId = -1;
         boolean haveValidData = false;
         int conversationStatus = FrameworkModel.CONVERSATION_STATUS_ABORTED;
+        long timestamp = when.getTime();
         try{
             mDatabase.beginTransaction();
             ContentValues convCV = new ContentValues();
@@ -868,7 +907,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 convCV.put(CONVERSATION_RESPONSE_ID, responseId);
                 convCV.put(CONVERSATION_RESP_STATUS_CODE, response.getStatus());
                 convCV.put(CONVERSATION_RESP_CONTENT_TYPE, response.getHeader("Content-Type"));
-                convCV.put(CONVERSATION_TS_END, when.getTime());
+                convCV.put(CONVERSATION_TS_END, timestamp);
                 conversationStatus = FrameworkModel.CONVERSATION_STATUS_RESP_RECEIVED;
             }
             convCV.put(CONVERSATION_STATUS, conversationStatus);
@@ -884,7 +923,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         } finally {
             mDatabase.endTransaction();
             if (haveValidData){
-                eventUpdateConversation(conversationId, conversationStatus, response.haveProtocolSwitch());
+                eventUpdateConversation(conversationId, conversationStatus, response.haveProtocolSwitch(), timestamp);
             }
         }
         return -1;
