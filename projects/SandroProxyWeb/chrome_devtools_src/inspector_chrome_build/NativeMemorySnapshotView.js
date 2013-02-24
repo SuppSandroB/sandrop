@@ -232,9 +232,6 @@ WebInspector.NativeSnapshotNode.prototype = {
     __proto__: WebInspector.DataGridNode.prototype
 }
 
-
-
-
 /**
  * @constructor
  * @extends {WebInspector.ProfileType}
@@ -264,18 +261,58 @@ WebInspector.NativeSnapshotProfileType.prototype = {
         ++this._nextProfileUid;
         profileHeader.isTemporary = true;
         profilesPanel.addProfileHeader(profileHeader);
+        profileHeader.load(function() { });
+
         /**
          * @param {?string} error
          * @param {?MemoryAgent.MemoryBlock} memoryBlock
-         * @param {?Object=} graph
+         * @param {Object=} graphMetaInformation
          */
-        function didReceiveMemorySnapshot(error, memoryBlock, graph)
+        function didReceiveMemorySnapshot(error, memoryBlock, graphMetaInformation)
         {
-            profileHeader._graph = graph;
-            profileHeader.isTemporary = false;
-            profileHeader.sidebarElement.subtitle = Number.bytesToString(/** @type{number} */(memoryBlock.size));
+            var metaInformation = /** @type{HeapSnapshotMetainfo} */(graphMetaInformation);
+            this.isTemporary = false;
+            this.sidebarElement.subtitle = Number.bytesToString(/** @type{number} */(memoryBlock.size));
+
+            var edgeFieldCount = metaInformation.edge_fields.length;
+            var nodeFieldCount = metaInformation.node_fields.length;
+            var nodeIdFieldOffset = metaInformation.node_fields.indexOf("id");
+            var toNodeIdFieldOffset = metaInformation.edge_fields.indexOf("to_node");
+
+            var baseToRealNodeIdMap = {};
+            for (var i = 0; i < this._baseToRealNodeId.length; i += 2)
+                baseToRealNodeIdMap[this._baseToRealNodeId[i]] = this._baseToRealNodeId[i + 1];
+
+            var nodeId2NodeIndex = {};
+            for (var i = nodeIdFieldOffset; i < this._nodes.length; i += nodeFieldCount)
+                nodeId2NodeIndex[this._nodes[i]] = i - nodeIdFieldOffset;
+
+            // Translate nodeId to nodeIndex.
+            var edges = this._edges;
+            for (var i = toNodeIdFieldOffset; i < edges.length; i += edgeFieldCount) {
+                if (edges[i] in baseToRealNodeIdMap)
+                    edges[i] = baseToRealNodeIdMap[edges[i]];
+                edges[i] = nodeId2NodeIndex[edges[i]];
+            }
+
+            var heapSnapshot = {
+                "snapshot": {
+                    "meta": metaInformation,
+                    node_count: this._nodes.length / nodeFieldCount,
+                    edge_count: this._edges.length / edgeFieldCount,
+                    root_index: this._nodes.length - nodeFieldCount
+                },
+                nodes: this._nodes,
+                edges: this._edges,
+                strings: this._strings
+            };
+
+            var chunk = JSON.stringify(heapSnapshot);
+            this.transferChunk(chunk);
+            this.finishHeapSnapshot();
         }
-        MemoryAgent.getProcessMemoryDistribution(true, didReceiveMemorySnapshot.bind(this));
+
+        MemoryAgent.getProcessMemoryDistribution(true, didReceiveMemorySnapshot.bind(profileHeader));
         return false;
     },
 
@@ -324,6 +361,10 @@ WebInspector.NativeSnapshotProfileType.prototype = {
 WebInspector.NativeSnapshotProfileHeader = function(type, title, uid)
 {
     WebInspector.HeapProfileHeader.call(this, type, title, uid, 0);
+    this._strings = [];
+    this._nodes = [];
+    this._edges = [];
+    this._baseToRealNodeId = [];
 }
 
 WebInspector.NativeSnapshotProfileHeader.prototype = {
@@ -338,74 +379,19 @@ WebInspector.NativeSnapshotProfileHeader.prototype = {
 
     startSnapshotTransfer: function()
     {
-        var meta = {
-          "node_fields": [
-            "type",
-            "name",
-            "id",
-            "self_size",
-            "edge_count"
-          ],
-          "node_types": [
-            [
-              "hidden",
-              "array",
-              "string",
-              "object",
-              "code",
-              "closure",
-              "regexp",
-              "number",
-              "native",
-              "synthetic"
-            ],
-            "string",
-            "number",
-            "number",
-            "number",
-            "number",
-            "number"
-          ],
-          "edge_fields": [
-            "type",
-            "name_or_index",
-            "to_node"
-          ],
-          "edge_types": [
-            [
-              "context",
-              "element",
-              "property",
-              "internal",
-              "hidden",
-              "shortcut",
-              "weak"
-            ],
-            "string_or_number",
-            "node"
-          ]
-        };
-        var graph = this._graph;
-        var heapSnapshot = {
-            "snapshot": {
-                "meta": meta,
-                node_count: graph.nodes.length / 5,
-                edge_count: graph.edges.length / 3,
-                root_index: graph.nodes.length - 5
-            },
-            nodes: graph.nodes,
-            edges: graph.edges,
-            strings: graph.strings
-        };
-
-        var chunk = JSON.stringify(heapSnapshot);
-        this.transferChunk(chunk);
-        this.finishHeapSnapshot();
     },
 
     snapshotConstructorName: function()
     {
         return "NativeHeapSnapshot";
+    },
+
+    addNativeSnapshotChunk: function(chunk)
+    {
+        this._strings = this._strings.concat(chunk.strings);
+        this._nodes = this._nodes.concat(chunk.nodes);
+        this._edges = this._edges.concat(chunk.edges);
+        this._baseToRealNodeId = this._baseToRealNodeId.concat(chunk.baseToRealNodeId);
     },
 
     __proto__: WebInspector.HeapProfileHeader.prototype
@@ -465,9 +451,8 @@ WebInspector.NativeMemoryProfileType.prototype = {
         /**
          * @param {?string} error
          * @param {?MemoryAgent.MemoryBlock} memoryBlock
-         * @param {?Object=} graph
          */
-        function didReceiveMemorySnapshot(error, memoryBlock, graph)
+        function didReceiveMemorySnapshot(error, memoryBlock)
         {
             if (memoryBlock.size && memoryBlock.children) {
                 var knownSize = 0;
@@ -595,13 +580,13 @@ WebInspector.MemoryBlockViewProperties._initialize = function()
     addBlock("hsl(  0,  0%,  60%)", "ProcessPrivateMemory", "Total");
     addBlock("hsl(  0,  0%,  80%)", "OwnersTypePlaceholder", "OwnersTypePlaceholder");
     addBlock("hsl(  0,  0%,  60%)", "Other", "Other");
-    addBlock("hsl(220, 80%,  70%)", "Page", "Page structures");
+    addBlock("hsl(220, 80%,  70%)", "Image", "Images");
     addBlock("hsl(100, 60%,  50%)", "JSHeap", "JavaScript heap");
     addBlock("hsl( 90, 40%,  80%)", "JSExternalResources", "JavaScript external resources");
-    addBlock("hsl( 90, 60%,  80%)", "JSExternalArrays", "JavaScript external arrays");
-    addBlock("hsl( 90, 60%,  80%)", "JSExternalStrings", "JavaScript external strings");
+    addBlock("hsl( 90, 60%,  80%)", "CSS", "CSS");
+    addBlock("hsl(  0, 50%,  60%)", "DOM", "DOM");
     addBlock("hsl(  0, 80%,  60%)", "WebInspector", "Inspector data");
-    addBlock("hsl( 36, 90%,  50%)", "MemoryCache", "Memory cache resources");
+    addBlock("hsl( 36, 90%,  50%)", "Resources", "Resources");
     addBlock("hsl( 40, 80%,  80%)", "GlyphCache", "Glyph cache resources");
     addBlock("hsl( 35, 80%,  80%)", "DOMStorageCache", "DOM storage cache");
     addBlock("hsl( 60, 80%,  60%)", "RenderTree", "Render tree");
@@ -643,9 +628,8 @@ WebInspector.NativeMemoryBarChart.prototype = {
         /**
          * @param {?string} error
          * @param {?MemoryAgent.MemoryBlock} memoryBlock
-         * @param {?Object=} graph
          */
-        function didReceiveMemorySnapshot(error, memoryBlock, graph)
+        function didReceiveMemorySnapshot(error, memoryBlock)
         {
             if (memoryBlock.size && memoryBlock.children) {
                 var knownSize = 0;
