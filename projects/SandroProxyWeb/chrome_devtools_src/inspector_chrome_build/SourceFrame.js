@@ -63,7 +63,7 @@ WebInspector.SourceFrame = function(contentProvider)
     this.element.addEventListener("keydown", this._handleKeyDown.bind(this), false);
 
     this._sourcePositionElement = document.createElement("div");
-    this._sourcePositionElement.className = "source-frame-position";
+    this._sourcePositionElement.className = "source-frame-cursor-position";
 }
 
 /**
@@ -112,11 +112,19 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
+     * @return {?Element}
+     */
+    statusBarText: function()
+    {
+        return this._sourcePositionElement;
+    },
+
+    /**
      * @return {Array.<Element>}
      */
     statusBarItems: function()
     {
-        return [this._sourcePositionElement];
+        return [];
     },
 
     defaultFocusedElement: function()
