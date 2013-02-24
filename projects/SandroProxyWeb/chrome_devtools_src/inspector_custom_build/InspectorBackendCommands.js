@@ -15,8 +15,9 @@ InspectorBackend.registerCommand("Inspector.disable", [], []);
 
 // Memory.
 InspectorBackend.registerMemoryDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Memory");
-InspectorBackend.registerCommand("Memory.getDOMNodeCount", [], ["domGroups", "strings"]);
-InspectorBackend.registerCommand("Memory.getProcessMemoryDistribution", [{"name": "reportGraph", "type": "boolean", "optional": true}], ["distribution", "graph"]);
+InspectorBackend.registerEvent("Memory.addNativeSnapshotChunk", ["chunk"]);
+InspectorBackend.registerCommand("Memory.getDOMCounters", [], ["documents", "nodes", "jsEventListeners"]);
+InspectorBackend.registerCommand("Memory.getProcessMemoryDistribution", [{"name": "reportGraph", "type": "boolean", "optional": true}], ["distribution", "graphMetaInformation"]);
 
 // Page.
 InspectorBackend.registerPageDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Page");
@@ -30,6 +31,7 @@ InspectorBackend.registerEvent("Page.frameScheduledNavigation", ["frameId", "del
 InspectorBackend.registerEvent("Page.frameClearedScheduledNavigation", ["frameId"]);
 InspectorBackend.registerEvent("Page.javascriptDialogOpening", ["message"]);
 InspectorBackend.registerEvent("Page.javascriptDialogClosed", []);
+InspectorBackend.registerEvent("Page.scriptsEnabled", ["isEnabled"]);
 InspectorBackend.registerCommand("Page.enable", [], []);
 InspectorBackend.registerCommand("Page.disable", [], []);
 InspectorBackend.registerCommand("Page.addScriptToEvaluateOnLoad", [{"name": "scriptSource", "type": "string", "optional": false}], ["identifier"]);
@@ -46,6 +48,8 @@ InspectorBackend.registerCommand("Page.setDocumentContent", [{"name": "frameId",
 InspectorBackend.registerCommand("Page.canOverrideDeviceMetrics", [], ["result"]);
 InspectorBackend.registerCommand("Page.setDeviceMetricsOverride", [{"name": "width", "type": "number", "optional": false}, {"name": "height", "type": "number", "optional": false}, {"name": "fontScaleFactor", "type": "number", "optional": false}, {"name": "fitWindow", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.setShowPaintRects", [{"name": "result", "type": "boolean", "optional": false}], []);
+InspectorBackend.registerCommand("Page.canShowDebugBorders", [], ["show"]);
+InspectorBackend.registerCommand("Page.setShowDebugBorders", [{"name": "show", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.canShowFPSCounter", [], ["show"]);
 InspectorBackend.registerCommand("Page.setShowFPSCounter", [{"name": "show", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Page.canContinuouslyPaint", [], ["value"]);
@@ -135,13 +139,15 @@ InspectorBackend.registerCommand("IndexedDB.requestData", [{"name": "frameId", "
 
 // DOMStorage.
 InspectorBackend.registerDOMStorageDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "DOMStorage");
-InspectorBackend.registerEvent("DOMStorage.addDOMStorage", ["storage"]);
-InspectorBackend.registerEvent("DOMStorage.domStorageUpdated", ["storageId"]);
+InspectorBackend.registerEvent("DOMStorage.domStorageItemsCleared", ["storageId"]);
+InspectorBackend.registerEvent("DOMStorage.domStorageItemRemoved", ["storageId", "key"]);
+InspectorBackend.registerEvent("DOMStorage.domStorageItemAdded", ["storageId", "key", "newValue"]);
+InspectorBackend.registerEvent("DOMStorage.domStorageItemUpdated", ["storageId", "key", "oldValue", "newValue"]);
 InspectorBackend.registerCommand("DOMStorage.enable", [], []);
 InspectorBackend.registerCommand("DOMStorage.disable", [], []);
-InspectorBackend.registerCommand("DOMStorage.getDOMStorageEntries", [{"name": "storageId", "type": "string", "optional": false}], ["entries"]);
-InspectorBackend.registerCommand("DOMStorage.setDOMStorageItem", [{"name": "storageId", "type": "string", "optional": false}, {"name": "key", "type": "string", "optional": false}, {"name": "value", "type": "string", "optional": false}], ["success"]);
-InspectorBackend.registerCommand("DOMStorage.removeDOMStorageItem", [{"name": "storageId", "type": "string", "optional": false}, {"name": "key", "type": "string", "optional": false}], ["success"]);
+InspectorBackend.registerCommand("DOMStorage.getDOMStorageItems", [{"name": "storageId", "type": "object", "optional": false}], ["entries"]);
+InspectorBackend.registerCommand("DOMStorage.setDOMStorageItem", [{"name": "storageId", "type": "object", "optional": false}, {"name": "key", "type": "string", "optional": false}, {"name": "value", "type": "string", "optional": false}], []);
+InspectorBackend.registerCommand("DOMStorage.removeDOMStorageItem", [{"name": "storageId", "type": "object", "optional": false}, {"name": "key", "type": "string", "optional": false}], []);
 
 // ApplicationCache.
 InspectorBackend.registerApplicationCacheDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "ApplicationCache");
@@ -185,7 +191,7 @@ InspectorBackend.registerCommand("DOM.removeNode", [{"name": "nodeId", "type": "
 InspectorBackend.registerCommand("DOM.setAttributeValue", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "name", "type": "string", "optional": false}, {"name": "value", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("DOM.setAttributesAsText", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "text", "type": "string", "optional": false}, {"name": "name", "type": "string", "optional": true}], []);
 InspectorBackend.registerCommand("DOM.removeAttribute", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "name", "type": "string", "optional": false}], []);
-InspectorBackend.registerCommand("DOM.getEventListenersForNode", [{"name": "nodeId", "type": "number", "optional": false}], ["listeners"]);
+InspectorBackend.registerCommand("DOM.getEventListenersForNode", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "objectGroup", "type": "string", "optional": true}], ["listeners"]);
 InspectorBackend.registerCommand("DOM.getOuterHTML", [{"name": "nodeId", "type": "number", "optional": false}], ["outerHTML"]);
 InspectorBackend.registerCommand("DOM.setOuterHTML", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "outerHTML", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("DOM.performSearch", [{"name": "query", "type": "string", "optional": false}], ["searchId", "resultCount"]);
@@ -205,6 +211,7 @@ InspectorBackend.registerCommand("DOM.undo", [], []);
 InspectorBackend.registerCommand("DOM.redo", [], []);
 InspectorBackend.registerCommand("DOM.markUndoableState", [], []);
 InspectorBackend.registerCommand("DOM.focus", [{"name": "nodeId", "type": "number", "optional": false}], []);
+InspectorBackend.registerCommand("DOM.setFileInputFiles", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "files", "type": "object", "optional": false}], []);
 
 // CSS.
 InspectorBackend.registerCSSDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "CSS");
@@ -237,7 +244,8 @@ InspectorBackend.registerTimelineDispatcher = InspectorBackend.registerDomainDis
 InspectorBackend.registerEvent("Timeline.eventRecorded", ["record"]);
 InspectorBackend.registerCommand("Timeline.start", [{"name": "maxCallStackDepth", "type": "number", "optional": true}], []);
 InspectorBackend.registerCommand("Timeline.stop", [], []);
-InspectorBackend.registerCommand("Timeline.setIncludeMemoryDetails", [{"name": "enabled", "type": "boolean", "optional": false}], []);
+InspectorBackend.registerCommand("Timeline.setIncludeDomCounters", [{"name": "enabled", "type": "boolean", "optional": false}], []);
+InspectorBackend.registerCommand("Timeline.setIncludeNativeMemoryStatistics", [{"name": "enabled", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Timeline.supportsFrameInstrumentation", [], ["result"]);
 InspectorBackend.registerCommand("Timeline.canMonitorMainThread", [], ["result"]);
 
@@ -274,6 +282,7 @@ InspectorBackend.registerCommand("Debugger.evaluateOnCallFrame", [{"name": "call
 InspectorBackend.registerCommand("Debugger.compileScript", [{"name": "expression", "type": "string", "optional": false}, {"name": "sourceURL", "type": "string", "optional": false}], ["scriptId", "syntaxErrorMessage"]);
 InspectorBackend.registerCommand("Debugger.runScript", [{"name": "scriptId", "type": "string", "optional": false}, {"name": "contextId", "type": "number", "optional": true}, {"name": "objectGroup", "type": "string", "optional": true}, {"name": "doNotPauseOnExceptionsAndMuteConsole", "type": "boolean", "optional": true}], ["result", "wasThrown"]);
 InspectorBackend.registerCommand("Debugger.setOverlayMessage", [{"name": "message", "type": "string", "optional": true}], []);
+InspectorBackend.registerCommand("Debugger.setVariableValue", [{"name": "scopeNumber", "type": "number", "optional": false}, {"name": "variableName", "type": "string", "optional": false}, {"name": "newValue", "type": "object", "optional": false}, {"name": "callFrameId", "type": "string", "optional": true}, {"name": "functionObjectId", "type": "string", "optional": true}], []);
 
 // DOMDebugger.
 InspectorBackend.registerCommand("DOMDebugger.setDOMBreakpoint", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "type", "type": "string", "optional": false}], []);
@@ -309,6 +318,21 @@ InspectorBackend.registerCommand("Profiler.takeHeapSnapshot", [{"name": "reportP
 InspectorBackend.registerCommand("Profiler.collectGarbage", [], []);
 InspectorBackend.registerCommand("Profiler.getObjectByHeapObjectId", [{"name": "objectId", "type": "string", "optional": false}, {"name": "objectGroup", "type": "string", "optional": true}], ["result"]);
 InspectorBackend.registerCommand("Profiler.getHeapObjectId", [{"name": "objectId", "type": "string", "optional": false}], ["heapSnapshotObjectId"]);
+InspectorBackend.registerHeapProfilerDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "HeapProfiler");
+InspectorBackend.registerEvent("HeapProfiler.addProfileHeader", ["header"]);
+InspectorBackend.registerEvent("HeapProfiler.addHeapSnapshotChunk", ["uid", "chunk"]);
+InspectorBackend.registerEvent("HeapProfiler.finishHeapSnapshot", ["uid"]);
+InspectorBackend.registerEvent("HeapProfiler.resetProfiles", []);
+InspectorBackend.registerEvent("HeapProfiler.reportHeapSnapshotProgress", ["done", "total"]);
+InspectorBackend.registerCommand("HeapProfiler.hasHeapProfiler", [], ["result"]);
+InspectorBackend.registerCommand("HeapProfiler.getProfileHeaders", [], ["headers"]);
+InspectorBackend.registerCommand("HeapProfiler.getHeapSnapshot", [{"name": "uid", "type": "number", "optional": false}], []);
+InspectorBackend.registerCommand("HeapProfiler.removeProfile", [{"name": "uid", "type": "number", "optional": false}], []);
+InspectorBackend.registerCommand("HeapProfiler.clearProfiles", [], []);
+InspectorBackend.registerCommand("HeapProfiler.takeHeapSnapshot", [{"name": "reportProgress", "type": "boolean", "optional": true}], []);
+InspectorBackend.registerCommand("HeapProfiler.collectGarbage", [], []);
+InspectorBackend.registerCommand("HeapProfiler.getObjectByHeapObjectId", [{"name": "objectId", "type": "string", "optional": false}, {"name": "objectGroup", "type": "string", "optional": true}], ["result"]);
+InspectorBackend.registerCommand("HeapProfiler.getHeapObjectId", [{"name": "objectId", "type": "string", "optional": false}], ["heapSnapshotObjectId"]);
 
 // Worker.
 InspectorBackend.registerWorkerDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Worker");
