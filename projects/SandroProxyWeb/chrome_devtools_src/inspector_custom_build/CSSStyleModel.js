@@ -31,9 +31,11 @@
 /**
  * @constructor
  * @extends {WebInspector.Object}
+ * @param {WebInspector.Workspace} workspace
  */
-WebInspector.CSSStyleModel = function()
+WebInspector.CSSStyleModel = function(workspace)
 {
+    this._workspace = workspace;
     this._pendingCommandsMajorState = [];
     /** @type {Array.<WebInspector.CSSStyleModel.LiveLocation>} */
     this._locations = [];
@@ -58,7 +60,7 @@ WebInspector.CSSStyleModel.parseRuleArrayPayload = function(ruleArray)
         result.push(WebInspector.CSSRule.parsePayload(ruleArray[i]));
     return result;
 }
-
+    
 /**
  * @param {Array.<CSSAgent.RuleMatch>} matchArray
  */
@@ -494,7 +496,10 @@ WebInspector.CSSStyleModel.prototype = {
      */
     setSourceMapping: function(url, sourceMapping)
     {
-        this._sourceMappings[url] = sourceMapping;
+        if (sourceMapping)
+            this._sourceMappings[url] = sourceMapping;
+        else
+            delete this._sourceMappings[url];
         this._updateLocations();
     },
 
@@ -515,6 +520,7 @@ WebInspector.CSSStyleModel.prototype = {
     },
 
     /**
+     * @param {WebInspector.CSSRule} cssRule
      * @param {function(WebInspector.UILocation):(boolean|undefined)} updateDelegate
      * @return {?WebInspector.LiveLocation}
      */
@@ -534,10 +540,18 @@ WebInspector.CSSStyleModel.prototype = {
      * @param {WebInspector.CSSLocation} rawLocation
      * @return {?WebInspector.UILocation}
      */
-    _rawLocationToUILocation: function(rawLocation)
+    rawLocationToUILocation: function(rawLocation)
     {
         var sourceMapping = this._sourceMappings[rawLocation.url];
-        return sourceMapping ? sourceMapping.rawLocationToUILocation(rawLocation) : null;
+        if (sourceMapping) {
+            var uiLocation = sourceMapping.rawLocationToUILocation(rawLocation);
+            if (uiLocation)
+                return uiLocation;
+        }
+        var uiSourceCode = this._workspace.uiSourceCodeForURL(rawLocation.url);
+        if (!uiSourceCode)
+            return null;
+        return new WebInspector.UILocation(uiSourceCode, rawLocation.lineNumber, rawLocation.columnNumber);
     },
 
     /**
@@ -584,7 +598,7 @@ WebInspector.CSSStyleModel.LiveLocation.prototype = {
     uiLocation: function()
     {
         var cssLocation = /** @type WebInspector.CSSLocation */ (this.rawLocation());
-        return WebInspector.cssModel._rawLocationToUILocation(cssLocation);
+        return WebInspector.cssModel.rawLocationToUILocation(cssLocation);
     },
 
     dispose: function()
@@ -603,11 +617,13 @@ WebInspector.CSSStyleModel.LiveLocation.prototype = {
  * @implements {WebInspector.RawLocation}
  * @param {string} url
  * @param {number} lineNumber
+ * @param {number=} columnNumber
  */
-WebInspector.CSSLocation = function(url, lineNumber)
+WebInspector.CSSLocation = function(url, lineNumber, columnNumber)
 {
     this.url = url;
     this.lineNumber = lineNumber;
+    this.columnNumber = columnNumber || 0;
 }
 
 /**
@@ -890,8 +906,9 @@ WebInspector.CSSRule.prototype = {
  * @param {boolean} parsedOk
  * @param {boolean} implicit
  * @param {?string=} text
+ * @param {CSSAgent.SourceRange=} range
  */
-WebInspector.CSSProperty = function(ownerStyle, index, name, value, priority, status, parsedOk, implicit, text)
+WebInspector.CSSProperty = function(ownerStyle, index, name, value, priority, status, parsedOk, implicit, text, range)
 {
     this.ownerStyle = ownerStyle;
     this.index = index;
@@ -902,6 +919,7 @@ WebInspector.CSSProperty = function(ownerStyle, index, name, value, priority, st
     this.parsedOk = parsedOk;
     this.implicit = implicit;
     this.text = text;
+    this.range = range;
 }
 
 /**
@@ -918,7 +936,7 @@ WebInspector.CSSProperty.parsePayload = function(ownerStyle, index, payload)
     // implicit: false
     // status: "style"
     var result = new WebInspector.CSSProperty(
-        ownerStyle, index, payload.name, payload.value, payload.priority || "", payload.status || "style", ("parsedOk" in payload) ? !!payload.parsedOk : true, !!payload.implicit, payload.text);
+        ownerStyle, index, payload.name, payload.value, payload.priority || "", payload.status || "style", ("parsedOk" in payload) ? !!payload.parsedOk : true, !!payload.implicit, payload.text, payload.range);
     return result;
 }
 

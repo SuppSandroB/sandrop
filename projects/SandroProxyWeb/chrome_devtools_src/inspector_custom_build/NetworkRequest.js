@@ -67,6 +67,11 @@ WebInspector.NetworkRequest.Events = {
     ResponseHeadersChanged: "ResponseHeadersChanged",
 }
 
+WebInspector.NetworkRequest.InitiatorType = {
+    Parser: "parser",
+    Script: "script",
+    Other: "other",
+}
 WebInspector.NetworkRequest.prototype = {
     /**
      * @return {NetworkAgent.RequestId}
