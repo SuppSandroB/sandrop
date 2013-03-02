@@ -568,7 +568,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return channelList;
     }
     
-    private WebSocketMessageDTO buildChannelMessagesDTO(Cursor cs){
+    private WebSocketMessageDTO buildChannelMessagesDTO(Cursor cs, WebSocketChannelDTO channel){
         WebSocketMessageDTO message = new WebSocketMessageDTO();
         message.id = cs.getInt(cs.getColumnIndex(SOCKET_MSG_ID));
         message.opcode = cs.getInt(cs.getColumnIndex(SOCKET_MSG_OPCODE));
@@ -583,13 +583,14 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         message.isOutgoing = cs.getInt(cs.getColumnIndex(SOCKET_MSG_IS_OUTGOING)) == 1 ? true : false;
         message.timestamp = cs.getLong(cs.getColumnIndex(SOCKET_MSG_TIMESTAMP)); 
         message.readableOpcode = WebSocketMessage.opcode2string(message.opcode);
+        message.channel = channel;
         return message;
     }
     
-    private List<WebSocketMessageDTO> buildChannelMessagesDTOs(Cursor cs){
+    private List<WebSocketMessageDTO> buildChannelMessagesDTOs(Cursor cs, WebSocketChannelDTO channel){
         ArrayList<WebSocketMessageDTO> messages = new ArrayList<WebSocketMessageDTO>();
         while (cs.moveToNext()) {
-            WebSocketMessageDTO message = buildChannelMessagesDTO(cs);
+            WebSocketMessageDTO message = buildChannelMessagesDTO(cs, channel);
             messages.add(message);
         }
         return messages;
@@ -597,20 +598,37 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     public List<WebSocketMessageDTO> getSocketChannelMessages(long channelId, boolean orderDescending){
         List<WebSocketMessageDTO> listMessages = new ArrayList<WebSocketMessageDTO>();
-        String selection = SOCKET_MSG_CHANNEL_ID + " = ? ";
-        String [] args = new String[]{ String.valueOf(channelId)};
+        List<WebSocketChannelDTO> channels = null;
+        
+        String selectionChannel = SOCKET_CHANNEL_ID + " = ? ";
+        String [] argsChannel = new String[]{ String.valueOf(channelId)};
+        
+        String selectionMessages = SOCKET_MSG_CHANNEL_ID + " = ? ";
+        String [] argsMessages = new String[]{ String.valueOf(channelId)};
         String orderBy = SOCKET_MSG_TIMESTAMP;
         if (orderDescending){
             orderBy += " " + " DESC";
         }
-        Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selection, args, null, null, orderBy);
-        if (cs != null){
+        Cursor csChannel = mDatabase.query(mTableNames[TABLE_SOCKET_CHANNEL], null, selectionChannel, argsChannel, null, null, null);
+        Cursor csMessages = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selectionMessages, argsMessages, null, null, orderBy);
+        if (csChannel != null){
             try{
-                return buildChannelMessagesDTOs(cs);
+                channels =  buildChannelDTOs(csChannel);
             } catch (Exception ex){
                 ex.printStackTrace();
             } finally{
-                cs.close();
+                csChannel.close();
+            }
+            
+        }
+        if (csMessages != null){
+            try{
+                WebSocketChannelDTO channel = channels != null && channels.size() > 0 ? channels.get(0) : null;
+                return buildChannelMessagesDTOs(csMessages, channel);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                csMessages.close();
             }
             
         }
@@ -641,14 +659,42 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return listMessageIds;
     }
     
-    public WebSocketMessageDTO getSocketChannelMessage(long conversationId, long messageId){
+    public WebSocketMessageDTO getSocketChannelMessage(String idName, long conversationId, long messageId){
         WebSocketMessageDTO messages = new WebSocketMessageDTO();
-        String selection = SOCKET_MSG_HANDSHAKE_ID + " = ? AND " + SOCKET_MSG_ID + " = ? ";
+        
+        List<WebSocketChannelDTO> channels = null;
+        
+        String selectionChannel = idName + " = ? ";
+        String [] argsChannel = new String[]{ String.valueOf(conversationId)};
+        
+        String parentIdName = null;
+        if (idName.equals(SOCKET_CHANNEL_ID)){
+            parentIdName = SOCKET_MSG_CHANNEL_ID;
+        }else{
+            parentIdName = SOCKET_MSG_HANDSHAKE_ID;
+        }
+        
+        String selection = parentIdName + " = ? AND " + SOCKET_MSG_ID + " = ? ";
         String [] args = new String[]{ String.valueOf(conversationId), String.valueOf(messageId)};
+        
+        Cursor csChannel = mDatabase.query(mTableNames[TABLE_SOCKET_CHANNEL], null, selectionChannel, argsChannel, null, null, null);
         Cursor cs = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, selection, args, null, null, null);
+        
+        if (csChannel != null){
+            try{
+                channels =  buildChannelDTOs(csChannel);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                csChannel.close();
+            }
+            
+        }
+        
         if (cs != null && cs.moveToNext()){
             try{
-                messages = buildChannelMessagesDTO(cs);
+                WebSocketChannelDTO channel = channels != null && channels.size() > 0 ? channels.get(0) : null;
+                messages = buildChannelMessagesDTO(cs, channel);
             } catch (Exception ex){
                 ex.printStackTrace();
             } finally{
@@ -657,6 +703,15 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             
         }
         return messages;
+    }
+    
+    
+    public WebSocketMessageDTO getSocketChannelMessageByConvId(long conversationId, long messageId){
+        return getSocketChannelMessage(SOCKET_CHANNEL_CONV_ID, conversationId, messageId);
+    }
+    
+    public WebSocketMessageDTO getSocketChannelMessageByChannelId(long conversationId, long messageId){
+        return getSocketChannelMessage(SOCKET_CHANNEL_ID, conversationId, messageId);
     }
     
     
