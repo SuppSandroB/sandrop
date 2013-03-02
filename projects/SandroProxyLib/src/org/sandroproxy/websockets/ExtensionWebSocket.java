@@ -72,175 +72,174 @@ import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
  */
 public class ExtensionWebSocket {
     
-	private static final Logger logger = Logger.getLogger(ExtensionWebSocket.class.getName());
-	
-	public static final int HANDSHAKE_LISTENER = 10;
-	
-	/**
-	 * Name of this extension.
-	 */
-	public static final String NAME = "ExtensionWebSocket";
+    private static final Logger logger = Logger.getLogger(ExtensionWebSocket.class.getName());
+    
+    public static final int HANDSHAKE_LISTENER = 10;
+    
+    /**
+     * Name of this extension.
+     */
+    public static final String NAME = "ExtensionWebSocket";
 
-	/**
-	 * Used to shorten the time, a listener is started on a WebSocket channel.
-	 */
-	private ExecutorService listenerThreadPool;
+    /**
+     * Used to shorten the time, a listener is started on a WebSocket channel.
+     */
+    private ExecutorService listenerThreadPool;
 
-	/**
-	 * List of observers where each element is informed on all channel's
-	 * messages.
-	 */
-	private Vector<WebSocketObserver> allChannelObservers;
+    /**
+     * List of observers where each element is informed on all channel's
+     * messages.
+     */
+    private Vector<WebSocketObserver> allChannelObservers;
 
-	/**
-	 * Contains all proxies with their corresponding handshake message.
-	 */
-	private Map<Long, WebSocketProxy> wsProxies;
+    /**
+     * Contains all proxies with their corresponding handshake message.
+     */
+    private Map<Long, WebSocketProxy> wsProxies;
 
 
 
-	
-	public ExtensionWebSocket(SqlLiteStore store) {
-	    allChannelObservers = new Vector<WebSocketObserver>();
+    
+    public ExtensionWebSocket(SqlLiteStore store) {
+        allChannelObservers = new Vector<WebSocketObserver>();
         wsProxies = new HashMap<Long, WebSocketProxy>();
-        
         allChannelObservers.add(new WebSocketStorage(store));
     }
     
-	
+    
 
-	
-	public void unload() {
-		
-		// close all existing connections
-		for (Entry<Long, WebSocketProxy> wsEntry : wsProxies.entrySet()) {
-			WebSocketProxy wsProxy = wsEntry.getValue();
-			wsProxy.shutdown();
-		}
-	}
+    
+    public void unload() {
+        
+        // close all existing connections
+        for (Entry<Long, WebSocketProxy> wsEntry : wsProxies.entrySet()) {
+            WebSocketProxy wsProxy = wsEntry.getValue();
+            wsProxy.shutdown();
+        }
+    }
 
-	
-	/**
-	 * Add an observer that is attached to every channel connected in future.
-	 * 
-	 * @param observer
-	 */
-	public void addAllChannelObserver(WebSocketObserver observer) {
-		allChannelObservers.add(observer);
-	}
+    
+    /**
+     * Add an observer that is attached to every channel connected in future.
+     * 
+     * @param observer
+     */
+    public void addAllChannelObserver(WebSocketObserver observer) {
+        allChannelObservers.add(observer);
+    }
 
 
 
-	public boolean onHandshakeResponse(long handshakeReference, Response httpResponse, Socket inSocket, Socket outWebSocket, InputStream outWebInputStream) {
+    public boolean onHandshakeResponse(long handshakeReference, Response httpResponse, Socket inSocket, Socket outWebSocket, InputStream outWebInputStream) {
 
-	    boolean keepSocketOpen = false;
-		
-		logger.info("Got WebSockets upgrade request. Handle socket connection over to WebSockets extension.");
-		
-		Socket outSocket = outWebSocket;
-		InputStream outReader = outWebInputStream;
-		addWebSocketsChannel(handshakeReference, httpResponse, inSocket, outSocket, outReader);
-		
-		return keepSocketOpen;
-	}
+        boolean keepSocketOpen = false;
+        
+        logger.info("Got WebSockets upgrade request. Handle socket connection over to WebSockets extension.");
+        
+        Socket outSocket = outWebSocket;
+        InputStream outReader = outWebInputStream;
+        addWebSocketsChannel(handshakeReference, httpResponse, inSocket, outSocket, outReader);
+        
+        return keepSocketOpen;
+    }
 
-	/**
-	 * Add an open channel to this extension after
-	 * HTTP handshake has been completed.
-	 * 
-	 * @param handshakeMessage HTTP-based handshake.
-	 * @param localSocket Current connection channel from the browser to ZAP.
-	 * @param remoteSocket Current connection channel from ZAP to the server.
-	 * @param remoteReader Current {@link InputStream} of remote connection.
-	 */
-	public void addWebSocketsChannel(long historyId, Response httpResponse, Socket localSocket, Socket remoteSocket, InputStream remoteReader) {
-		try {			
+    /**
+     * Add an open channel to this extension after
+     * HTTP handshake has been completed.
+     * 
+     * @param handshakeMessage HTTP-based handshake.
+     * @param localSocket Current connection channel from the browser to ZAP.
+     * @param remoteSocket Current connection channel from ZAP to the server.
+     * @param remoteReader Current {@link InputStream} of remote connection.
+     */
+    public void addWebSocketsChannel(long historyId, Response httpResponse, Socket localSocket, Socket remoteSocket, InputStream remoteReader) {
+        try {            
 
-		    String source = (localSocket != null) ? localSocket.getInetAddress().toString() + ":" + localSocket.getPort() : "SandroProxy";
-			String destination = remoteSocket.getInetAddress() + ":" + remoteSocket.getPort();
-			
-			logger.info("Got WebSockets channel from " + source + " to " + destination);
-			
-			// parse HTTP handshake
-			Map<String, String> wsExtensions = parseWebSocketExtensions(httpResponse);
-			String wsProtocol = parseWebSocketSubProtocol(httpResponse);
-			String wsVersion = parseWebSocketVersion(httpResponse);
-	
-			WebSocketProxy wsProxy = null;
-			wsProxy = WebSocketProxy.create(wsVersion, localSocket, remoteSocket, wsProtocol, wsExtensions);
-			
-			// set other observers and handshake reference, before starting listeners
-			for (WebSocketObserver observer : allChannelObservers) {
-				wsProxy.addObserver(observer);
-			}
-			
-			wsProxy.setHandshakeReference(historyId);
-			
-			// TODO sandrop some regular expression what to have in ignore list 
-			// wsProxy.setForwardOnly(isChannelIgnored(wsProxy.getDTO()));
-			wsProxy.startListeners(getListenerThreadPool(), remoteReader);
-			
-			synchronized (wsProxies) {
-				wsProxies.put(wsProxy.getChannelId(), wsProxy);
-			}
-		} catch (Exception e) {
-			// defensive measure to catch all possible exceptions
-			// cleanly close resources
-			if (localSocket != null && !localSocket.isClosed()) {
-				try {
-					localSocket.close();
-				} catch (IOException e1) {
-					logger.info(e.getMessage());
-				}
-			}
-			
-			if (remoteReader != null) {
-				try {
-					remoteReader.close();
-				} catch (IOException e1) {
-					logger.info(e.getMessage());
-				}
-			}
-			
-			if (remoteSocket != null && !remoteSocket.isClosed()) {
-				try {
-					remoteSocket.close();
-				} catch (IOException e1) {
-					logger.info(e.getMessage());
-				}
-			}
-			logger.info("Adding WebSockets channel failed due to: '" + e.getClass() + "' " + e.getMessage());
-			return;
-		}
-	}
+            String source = (localSocket != null) ? localSocket.getInetAddress().toString() + ":" + localSocket.getPort() : "SandroProxy";
+            String destination = remoteSocket.getInetAddress() + ":" + remoteSocket.getPort();
+            
+            logger.info("Got WebSockets channel from " + source + " to " + destination);
+            
+            // parse HTTP handshake
+            Map<String, String> wsExtensions = parseWebSocketExtensions(httpResponse);
+            String wsProtocol = parseWebSocketSubProtocol(httpResponse);
+            String wsVersion = parseWebSocketVersion(httpResponse);
+    
+            WebSocketProxy wsProxy = null;
+            wsProxy = WebSocketProxy.create(wsVersion, localSocket, remoteSocket, wsProtocol, wsExtensions);
+            
+            // set other observers and handshake reference, before starting listeners
+            for (WebSocketObserver observer : allChannelObservers) {
+                wsProxy.addObserver(observer);
+            }
+            
+            wsProxy.setHandshakeReference(historyId);
+            
+            // TODO sandrop some regular expression what to have in ignore list 
+            // wsProxy.setForwardOnly(isChannelIgnored(wsProxy.getDTO()));
+            wsProxy.startListeners(getListenerThreadPool(), remoteReader);
+            
+            synchronized (wsProxies) {
+                wsProxies.put(wsProxy.getChannelId(), wsProxy);
+            }
+        } catch (Exception e) {
+            // defensive measure to catch all possible exceptions
+            // cleanly close resources
+            if (localSocket != null && !localSocket.isClosed()) {
+                try {
+                    localSocket.close();
+                } catch (IOException e1) {
+                    logger.info(e.getMessage());
+                }
+            }
+            
+            if (remoteReader != null) {
+                try {
+                    remoteReader.close();
+                } catch (IOException e1) {
+                    logger.info(e.getMessage());
+                }
+            }
+            
+            if (remoteSocket != null && !remoteSocket.isClosed()) {
+                try {
+                    remoteSocket.close();
+                } catch (IOException e1) {
+                    logger.info(e.getMessage());
+                }
+            }
+            logger.info("Adding WebSockets channel failed due to: '" + e.getClass() + "' " + e.getMessage());
+            return;
+        }
+    }
 
-	/**
-	 * Parses the negotiated WebSockets extensions. It splits them up into name
-	 * and params of the extension. In future we want to look up if given
-	 * extension is available as ZAP extension and then use their knowledge to
-	 * process frames.
-	 * <p>
-	 * If multiple extensions are to be used, they can all be listed in a single
-	 * {@link WebSocketProtocol#HEADER_EXTENSION} field or split between multiple
-	 * instances of the {@link WebSocketProtocol#HEADER_EXTENSION} header field.
-	 * 
-	 * @param msg
-	 * @return Map with extension name and parameter string.
-	 */
-	private Map<String, String> parseWebSocketExtensions(Response msg) {
-	    Vector<String> extensionHeaders = null;
-	    // TODO sandrop this is not used so can be null currently
-//	    Vector<String> extensionHeaders = msg.getHeader(
-//				WebSocketProtocol.HEADER_EXTENSION);
+    /**
+     * Parses the negotiated WebSockets extensions. It splits them up into name
+     * and params of the extension. In future we want to look up if given
+     * extension is available as ZAP extension and then use their knowledge to
+     * process frames.
+     * <p>
+     * If multiple extensions are to be used, they can all be listed in a single
+     * {@link WebSocketProtocol#HEADER_EXTENSION} field or split between multiple
+     * instances of the {@link WebSocketProtocol#HEADER_EXTENSION} header field.
+     * 
+     * @param msg
+     * @return Map with extension name and parameter string.
+     */
+    private Map<String, String> parseWebSocketExtensions(Response msg) {
+        Vector<String> extensionHeaders = null;
+        // TODO sandrop this is not used so can be null currently
+//        Vector<String> extensionHeaders = msg.getHeader(
+//                WebSocketProtocol.HEADER_EXTENSION);
 
-		if (extensionHeaders == null) {
-			return null;
-		}
-		
-		/*
-		 * From http://tools.ietf.org/html/rfc6455#section-4.3:
-		 *   extension-list = 1#extension
-      	 *   extension = extension-token *( ";" extension-param )
+        if (extensionHeaders == null) {
+            return null;
+        }
+        
+        /*
+         * From http://tools.ietf.org/html/rfc6455#section-4.3:
+         *   extension-list = 1#extension
+           *   extension = extension-token *( ";" extension-param )
          *   extension-token = registered-token
          *   registered-token = token
          *   extension-param = token [ "=" (token | quoted-string) ]
@@ -248,112 +247,145 @@ public class ExtensionWebSocket {
          *    ; after quoted-string unescaping MUST conform to the
          *    ; 'token' ABNF.
          *    
-         * e.g.:  	Sec-WebSocket-Extensions: foo
-         * 			Sec-WebSocket-Extensions: bar; baz=2
-		 *      is exactly equivalent to:
-		 * 			Sec-WebSocket-Extensions: foo, bar; baz=2
-		 * 
-		 * e.g.:	Sec-WebSocket-Extensions: deflate-stream
-		 * 			Sec-WebSocket-Extensions: mux; max-channels=4; flow-control, deflate-stream
-		 * 			Sec-WebSocket-Extensions: private-extension
-		 */
-		Map<String, String> wsExtensions = new LinkedHashMap<String, String>();
-		for (String extensionHeader : extensionHeaders) {
-			for (String extension : extensionHeader.split(",")) {
-				String key = extension.trim();
-				String params = "";
-				
-				int paramsIndex = key.indexOf(";");
-				if (paramsIndex != -1) {
-					key = extension.substring(0, paramsIndex).trim();
-					params = extension.substring(paramsIndex + 1).trim();
-				}
-				
-				wsExtensions.put(key, params);
-			}
-		}
-		
-		/*
-		 * The interpretation of any extension parameters, and what constitutes
-		 * a valid response by a server to a requested set of parameters by a
-		 * client, will be defined by each such extension.
-		 * 
-		 * Note that the order of extensions is significant!
-		 */
-		
-		return wsExtensions;
-	}
+         * e.g.:      Sec-WebSocket-Extensions: foo
+         *             Sec-WebSocket-Extensions: bar; baz=2
+         *      is exactly equivalent to:
+         *             Sec-WebSocket-Extensions: foo, bar; baz=2
+         * 
+         * e.g.:    Sec-WebSocket-Extensions: deflate-stream
+         *             Sec-WebSocket-Extensions: mux; max-channels=4; flow-control, deflate-stream
+         *             Sec-WebSocket-Extensions: private-extension
+         */
+        Map<String, String> wsExtensions = new LinkedHashMap<String, String>();
+        for (String extensionHeader : extensionHeaders) {
+            for (String extension : extensionHeader.split(",")) {
+                String key = extension.trim();
+                String params = "";
+                
+                int paramsIndex = key.indexOf(";");
+                if (paramsIndex != -1) {
+                    key = extension.substring(0, paramsIndex).trim();
+                    params = extension.substring(paramsIndex + 1).trim();
+                }
+                
+                wsExtensions.put(key, params);
+            }
+        }
+        
+        /*
+         * The interpretation of any extension parameters, and what constitutes
+         * a valid response by a server to a requested set of parameters by a
+         * client, will be defined by each such extension.
+         * 
+         * Note that the order of extensions is significant!
+         */
+        
+        return wsExtensions;
+    }
 
-	/**
-	 * Parses negotiated protocols out of the response header.
-	 * <p>
-	 * The {@link WebSocketProtocol#HEADER_PROTOCOL} header is only allowed to
-	 * appear once in the HTTP response (but several times in the HTTP request).
-	 * 
-	 * A server that speaks multiple sub-protocols has to make sure it selects
-	 * one based on the client's handshake and specifies it in its handshake.
-	 * 
-	 * @param msg
-	 * @return Name of negotiated sub-protocol or null.
-	 */
-	private String parseWebSocketSubProtocol(Response msg) {
-		String subProtocol = msg.getHeader(
-				WebSocketProtocol.HEADER_PROTOCOL);
-		return subProtocol;
-	}
+    /**
+     * Parses negotiated protocols out of the response header.
+     * <p>
+     * The {@link WebSocketProtocol#HEADER_PROTOCOL} header is only allowed to
+     * appear once in the HTTP response (but several times in the HTTP request).
+     * 
+     * A server that speaks multiple sub-protocols has to make sure it selects
+     * one based on the client's handshake and specifies it in its handshake.
+     * 
+     * @param msg
+     * @return Name of negotiated sub-protocol or null.
+     */
+    private String parseWebSocketSubProtocol(Response msg) {
+        String subProtocol = msg.getHeader(
+                WebSocketProtocol.HEADER_PROTOCOL);
+        return subProtocol;
+    }
 
-	/**
-	 * The {@link WebSocketProtocol#HEADER_VERSION} header might not always
-	 * contain a number. Therefore I return a string. Use the version to choose
-	 * the appropriate processing class.
-	 * 
-	 * @param msg
-	 * @return Version of the WebSockets channel, defining the protocol.
-	 */
-	private String parseWebSocketVersion(Response msg) {
-		String version = msg.getHeader(
-				WebSocketProtocol.HEADER_VERSION);
-		
-		if (version == null) {
-			// check for requested WebSockets version
-			version = msg.getHeader(WebSocketProtocol.HEADER_VERSION);
-			
-			if (version == null) {
-				// default to version 13 if non is given, for whatever reason
-				logger.info("No " + WebSocketProtocol.HEADER_VERSION + " header was provided - try version 13");
-				version = "13";
-			}
-		}
-		
-		return version;
-	}
+    /**
+     * The {@link WebSocketProtocol#HEADER_VERSION} header might not always
+     * contain a number. Therefore I return a string. Use the version to choose
+     * the appropriate processing class.
+     * 
+     * @param msg
+     * @return Version of the WebSockets channel, defining the protocol.
+     */
+    private String parseWebSocketVersion(Response msg) {
+        String version = msg.getHeader(
+                WebSocketProtocol.HEADER_VERSION);
+        
+        if (version == null) {
+            // check for requested WebSockets version
+            version = msg.getHeader(WebSocketProtocol.HEADER_VERSION);
+            
+            if (version == null) {
+                // default to version 13 if non is given, for whatever reason
+                logger.info("No " + WebSocketProtocol.HEADER_VERSION + " header was provided - try version 13");
+                version = "13";
+            }
+        }
+        
+        return version;
+    }
 
-	/**
-	 * Creates and returns a cached thread pool that should speed up
-	 * {@link WebSocketListener}.
-	 * 
-	 * @return
-	 */
-	private ExecutorService getListenerThreadPool() {
-		if (listenerThreadPool == null) {
-			listenerThreadPool = Executors.newCachedThreadPool();
-		}
-		return listenerThreadPool;
-	}
+    /**
+     * Creates and returns a cached thread pool that should speed up
+     * {@link WebSocketListener}.
+     * 
+     * @return
+     */
+    private ExecutorService getListenerThreadPool() {
+        if (listenerThreadPool == null) {
+            listenerThreadPool = Executors.newCachedThreadPool();
+        }
+        return listenerThreadPool;
+    }
 
 
-	/**
-	 * Returns true if given channel id is connected.
-	 * 
-	 * @param channelId
-	 * @return True if connection is still alive.
-	 */
-	public boolean isConnected(Integer channelId) {
-		synchronized (wsProxies) {
-			if (wsProxies.containsKey(channelId)) {
-				return wsProxies.get(channelId).isConnected();
-			}
-		}
-		return false;
-	}
+    /**
+     * Returns true if given channel id is connected.
+     * 
+     * @param channelId
+     * @return True if connection is still alive.
+     */
+    public boolean isConnected(long channelId) {
+        synchronized (wsProxies) {
+            if (wsProxies.containsKey(channelId)) {
+                return wsProxies.get(channelId).isConnected();
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * send message with proxy with channelId
+     * @param channelId
+     * @param message
+     * @return true if sucessfull, false if proxy not connected
+     * @throws IOException
+     */
+    public boolean sendMessage(long channelId, WebSocketMessageDTO message) throws IOException{
+        if (isConnected(channelId)){
+            WebSocketProxy proxy =  wsProxies.get(channelId);
+            if (proxy != null){
+                proxy.sendAndNotify(message);
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * retruns list of connected proxies
+     * @return ap<Long, String> channelId, description
+     */
+    public Map<Long, String> getConnectedProxies(){
+        Map<Long, String> proxies = new LinkedHashMap<Long, String>();
+        for(WebSocketProxy proxy : wsProxies.values()){
+            if (proxy.isConnected()){
+                proxies.put(proxy.getChannelId(), proxy.toString());
+            }
+        }
+        return proxies;
+    }
+    
 }
