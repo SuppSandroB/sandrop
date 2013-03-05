@@ -6,6 +6,9 @@ public interface IStoreEventListener {
     void startConversation(long conversationId, long timestamp);
     void endConversation(long conversationId, boolean protocolSwitch, long timestamp);
     
-    void socketFrameSend(long conversationId, long messageId, long timestamp);
-    void socketFrameReceived(long conversationId, long messageId, long timestamp);
+    void socketFrameSend(long conversationId, long channelId, long messageId, long timestamp);
+    void socketFrameReceived(long conversationId, long channelId, long messageId, long timestamp);
+    
+    void socketChannelChanged(long conversationId, long channelId, long timestamp);
+    
 }
