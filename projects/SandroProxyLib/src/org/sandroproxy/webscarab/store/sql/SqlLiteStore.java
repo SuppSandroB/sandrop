@@ -497,20 +497,29 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
     }
     
-    private void eventSocketFrameSend(long conversationId,  long messageId, long timestamp){
+    private void eventSocketChannelChangedStatus(long conversationId,  long channelId, long timestamp){
         if (listOfEventListeners != null){
             for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
                 IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
-                storeEventListener.socketFrameSend(conversationId, messageId, timestamp);
+                storeEventListener.socketChannelChanged(conversationId, channelId, timestamp);
             }
         }
     }
     
-    private void eventSocketFrameReceived(long conversationId,  long messageId, long timestamp){
+    private void eventSocketFrameSend(long conversationId, long channelId, long messageId, long timestamp){
         if (listOfEventListeners != null){
             for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
                 IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
-                storeEventListener.socketFrameReceived(conversationId, messageId, timestamp);
+                storeEventListener.socketFrameSend(conversationId, channelId, messageId, timestamp);
+            }
+        }
+    }
+    
+    private void eventSocketFrameReceived(long conversationId, long channelId, long messageId, long timestamp){
+        if (listOfEventListeners != null){
+            for (Iterator<IStoreEventListener> iterator = listOfEventListeners.values().iterator(); iterator.hasNext();) {
+                IStoreEventListener storeEventListener = (IStoreEventListener) iterator.next();
+                storeEventListener.socketFrameReceived(conversationId, channelId, messageId, timestamp);
             }
         }
     }
@@ -524,8 +533,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             channel.port = cs.getInt(cs.getColumnIndex(SOCKET_CHANNEL_PORT));
             channel.url = cs.getString(cs.getColumnIndex(SOCKET_CHANNEL_URL));
             channel.startTimestamp = cs.getLong(cs.getColumnIndex(SOCKET_CHANNEL_START_TIMESTAMP));
-            channel.endTimestamp = cs.getLong(cs.getColumnIndex(SOCKET_CHANNEL_END_TIMESTAMP));
-            
+            Long endTimestamp = cs.getLong(cs.getColumnIndex(SOCKET_CHANNEL_END_TIMESTAMP));
+            channel.endTimestamp = endTimestamp == 0 ?  null : endTimestamp;
             channel.historyId = cs.getInt(cs.getColumnIndex(SOCKET_CHANNEL_CONV_ID));
             
             channels.add(channel);
@@ -534,7 +543,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     }
     
     
-    public List<WebSocketChannelDTO> getSocketChannels(long dateFrom, long dateTo, String url, String port, String orderBy){
+    public List<WebSocketChannelDTO> getSocketChannels(Long dateFrom, Long dateTo, String url, String port, String orderBy){
         List<WebSocketChannelDTO> list = new ArrayList<WebSocketChannelDTO>();
         Cursor cs = null;
         WebSocketChannelFilter filter = WebSocketChannelFilter.createTransFilter(dateFrom, dateTo, url, port, orderBy);
@@ -594,6 +603,48 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             messages.add(message);
         }
         return messages;
+    }
+    
+    public List<WebSocketMessageDTO> getSocketChannelMessagesByFilter(Long dateFrom, Long dateTo, Long channelId, Long historyId, boolean orderDescending){
+        List<WebSocketMessageDTO> listMessages = new ArrayList<WebSocketMessageDTO>();
+        List<WebSocketChannelDTO> channels = null;
+        
+        
+        String orderBy = SOCKET_MSG_TIMESTAMP;
+        if (orderDescending){
+            orderBy += " " + " DESC";
+        }
+        Cursor csChannel = null;
+        if (channelId != null){
+            String selectionChannel = SOCKET_CHANNEL_ID + " = ? ";
+            String [] argsChannel = new String[]{ String.valueOf(channelId)};
+            csChannel = mDatabase.query(mTableNames[TABLE_SOCKET_CHANNEL], null, selectionChannel, argsChannel, null, null, null);
+            
+        }
+        WebSocketMessagesFilter filter = WebSocketMessagesFilter.createTransFilter(dateFrom, dateTo, channelId, historyId, orderBy);
+        Cursor csMessages = mDatabase.query(mTableNames[TABLE_SOCKET_MESSAGE], null, filter.whereClause, filter.getArgs(), null, null, orderBy);
+        if (csChannel != null){
+            try{
+                channels =  buildChannelDTOs(csChannel);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                csChannel.close();
+            }
+            
+        }
+        if (csMessages != null){
+            try{
+                WebSocketChannelDTO channel = channels != null && channels.size() > 0 ? channels.get(0) : null;
+                return buildChannelMessagesDTOs(csMessages, channel);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                csMessages.close();
+            }
+            
+        }
+        return listMessages;
     }
     
     public List<WebSocketMessageDTO> getSocketChannelMessages(long channelId, boolean orderDescending){
@@ -731,9 +782,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         msgVal.put(SOCKET_MSG_PAYLOAD_LENGTH, message.payloadLength);
         mDatabase.insertOrThrow(mTableNames[TABLE_SOCKET_MESSAGE], null, msgVal);
         if (message.isOutgoing){
-            eventSocketFrameSend(message.channel.historyId, message.id, message.timestamp);
+            eventSocketFrameSend(message.channel.historyId, message.channel.id, message.id, message.timestamp);
         }else{
-            eventSocketFrameReceived(message.channel.historyId, message.id, message.timestamp);
+            eventSocketFrameReceived(message.channel.historyId, message.channel.id, message.id, message.timestamp);
         }
     }
     
@@ -750,7 +801,6 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         msgVal.put(SOCKET_CHANNEL_URL, channel.url);
         msgVal.put(SOCKET_CHANNEL_CONV_ID, channel.historyId);
         
-        
         synchronized (this) {
             // TODO fill chanellIds from existing in database;
             if (channelsIds.contains(channel.id)){
@@ -759,6 +809,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 channelsIds.add(channel.id);
                 mDatabase.insertOrThrow(mTableNames[TABLE_SOCKET_CHANNEL], null, msgVal);
             }
+            eventSocketChannelChangedStatus(channel.historyId, channel.id, channel.startTimestamp);
         }
     }
     

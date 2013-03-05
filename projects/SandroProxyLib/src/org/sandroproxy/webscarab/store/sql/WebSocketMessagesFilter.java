@@ -1,16 +1,15 @@
 package org.sandroproxy.webscarab.store.sql;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 
-public class WebSocketChannelFilter{
+public class WebSocketMessagesFilter{
     public String whereClause;
     public Map<String, String> arg;
     public String orderBy;
     
-    public WebSocketChannelFilter(){
+    public WebSocketMessagesFilter(){
         whereClause = "1 = 1";
         arg = new HashMap<String, String>();
         orderBy = null;
@@ -29,29 +28,31 @@ public class WebSocketChannelFilter{
         return arrArgs;
     }
     
-    public static WebSocketChannelFilter createTransFilter(Long dateFrom, Long dateTo, String url, String port, String orderBy)
+    public static WebSocketMessagesFilter createTransFilter(Long dateFrom, Long dateTo, Long channelId, Long historyId, String orderBy)
     {
-        WebSocketChannelFilter filter = new WebSocketChannelFilter();
-        filter.whereClause = SqlLiteStore.SOCKET_CHANNEL_UNIQUE_ID +" > -1";
+        WebSocketMessagesFilter filter = new WebSocketMessagesFilter();
+        filter.whereClause = SqlLiteStore.SOCKET_MSG_UNIQUE_ID +" > -1";
         if (dateFrom != null){
             long tsFrom = dateFrom;
             String strTsFrom = Long.toString(tsFrom);
-            filter.whereClause += " AND " + SqlLiteStore.SOCKET_CHANNEL_START_TIMESTAMP + " >= ?";
+            filter.whereClause += " AND " + SqlLiteStore.SOCKET_MSG_TIMESTAMP + " >= ?";
             filter.arg.put("dateFrom", strTsFrom);
         }
         if (dateTo != null){
             long tsTo = dateTo;
             String strTsTo = Long.toString(tsTo);
-            filter.whereClause += " AND " + SqlLiteStore.SOCKET_CHANNEL_START_TIMESTAMP + " <= ?";
+            filter.whereClause += " AND " + SqlLiteStore.SOCKET_MSG_TIMESTAMP + " <= ?";
             filter.arg.put("dateTo", strTsTo);
         }
-        if (url != null){
-            filter.whereClause += " AND " + SqlLiteStore.SOCKET_CHANNEL_URL + " = ?";
-            filter.arg.put("url", url);
+        if (channelId != null){
+            filter.whereClause += " AND " + SqlLiteStore.SOCKET_MSG_CHANNEL_ID + " = ?";
+            String strChannelId = Long.toString(channelId);
+            filter.arg.put("channelId", strChannelId);
         }
-        if (port != null){
-            filter.whereClause += " AND " + SqlLiteStore.SOCKET_CHANNEL_PORT + " = ?";
-            filter.arg.put("port", port);
+        if (historyId != null){
+            filter.whereClause += " AND " + SqlLiteStore.SOCKET_MSG_HANDSHAKE_ID + " = ?";
+            String strHistoryId = Long.toString(historyId);
+            filter.arg.put("historyId", strHistoryId);
         }
         filter.orderBy = orderBy;
         return filter;
