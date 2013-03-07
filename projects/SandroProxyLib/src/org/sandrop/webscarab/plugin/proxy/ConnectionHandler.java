@@ -35,26 +35,20 @@ package org.sandrop.webscarab.plugin.proxy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
-import org.apache.http.client.HttpClient;
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
-import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.util.HtmlEncoder;
-import org.sandroproxy.websockets.ExtensionWebSocket;
 
 public class ConnectionHandler implements Runnable {
 
