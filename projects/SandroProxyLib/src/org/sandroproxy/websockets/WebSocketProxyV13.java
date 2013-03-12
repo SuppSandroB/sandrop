@@ -362,7 +362,7 @@ public class WebSocketProxyV13 extends WebSocketProxy {
 			payload = ByteBuffer.allocate(0);
 			if (message.payload instanceof byte[]) {
 				setPayload((byte[])message.payload);
-			} else {
+			} else if (message.payload instanceof String && message.payload != null){
 				setReadablePayload((String)message.payload);
 			}
 		}

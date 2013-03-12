@@ -71,6 +71,17 @@ public class WebSocketStorage implements WebSocketObserver {
 	public WebSocketStorage(SqlLiteStore store) {
 		this.store = store;
 	}
+	
+	public boolean insertMessage(WebSocketMessageDTO message){
+	    try {
+            store.insertMessage(message);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.info(e.getMessage());
+        }
+	    return false;
+	}
 
 	@Override
 	public int getObservingOrder() {
@@ -85,6 +96,7 @@ public class WebSocketStorage implements WebSocketObserver {
 			try {
 			    store.insertMessage(message);
 			} catch (Exception e) {
+			    e.printStackTrace();
 				logger.info(e.getMessage());
 			}
 		}
