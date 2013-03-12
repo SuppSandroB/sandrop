@@ -720,7 +720,7 @@ public abstract class WebSocketProxy {
      * @param msg
      * @throws IOException
      */
-    public void sendAndNotify(WebSocketMessageDTO msg) throws IOException {
+    public WebSocketMessage sendAndNotify(WebSocketMessageDTO msg, boolean notify) throws IOException {
         logger.info("send custom message");
         WebSocketMessage message = createWebSocketMessage(msg);
         
@@ -734,9 +734,10 @@ public abstract class WebSocketProxy {
             out = remoteListener.getOutputStream();
         }
     
-        if (message.forward(out)) {
+        if (message.forward(out) && notify) {
             notifyMessageObservers(message);
         }
+        return message;
     }
 
     public boolean isClientMode() {

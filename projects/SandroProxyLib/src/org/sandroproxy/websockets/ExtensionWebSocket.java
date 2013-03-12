@@ -90,7 +90,7 @@ public class ExtensionWebSocket {
      * List of observers where each element is informed on all channel's
      * messages.
      */
-    private Vector<WebSocketObserver> allChannelObservers;
+    private Map<String, WebSocketObserver> allChannelObservers;
 
     /**
      * Contains all proxies with their corresponding handshake message.
@@ -98,12 +98,14 @@ public class ExtensionWebSocket {
     private Map<Long, WebSocketProxy> wsProxies;
 
 
+    private WebSocketStorage storageObserver;
 
     
     public ExtensionWebSocket(SqlLiteStore store) {
-        allChannelObservers = new Vector<WebSocketObserver>();
+        allChannelObservers = new HashMap<String, WebSocketObserver>();
         wsProxies = new HashMap<Long, WebSocketProxy>();
-        allChannelObservers.add(new WebSocketStorage(store));
+        storageObserver = new WebSocketStorage(store);
+        allChannelObservers.put(WebSocketStorage.class.getName(), storageObserver);
     }
     
     
@@ -124,8 +126,17 @@ public class ExtensionWebSocket {
      * 
      * @param observer
      */
-    public void addAllChannelObserver(WebSocketObserver observer) {
-        allChannelObservers.add(observer);
+    public void addAllChannelObserver(String name, WebSocketObserver observer) {
+        allChannelObservers.put(name, observer);
+    }
+    
+    /**
+     * Add an observer that is attached to every channel connected in future.
+     * 
+     * @param observer
+     */
+    public void removeAllChannelObserver(String name, WebSocketObserver observer) {
+        allChannelObservers.remove(name);
     }
 
 
@@ -169,7 +180,8 @@ public class ExtensionWebSocket {
             wsProxy = WebSocketProxy.create(wsVersion, localSocket, remoteSocket, wsProtocol, wsExtensions);
             
             // set other observers and handshake reference, before starting listeners
-            for (WebSocketObserver observer : allChannelObservers) {
+            for (WebSocketObserver observer : allChannelObservers.values()) {
+                // TODO here we could also have map so we can dynamically remove observers
                 wsProxy.addObserver(observer);
             }
             
@@ -363,11 +375,15 @@ public class ExtensionWebSocket {
      * @return true if sucessfull, false if proxy not connected
      * @throws IOException
      */
-    public boolean sendMessage(long channelId, WebSocketMessageDTO message) throws IOException{
+    public boolean sendMessage(long channelId, WebSocketMessageDTO message, boolean notify) throws IOException{
         if (isConnected(channelId)){
             WebSocketProxy proxy =  wsProxies.get(channelId);
             if (proxy != null){
-                proxy.sendAndNotify(message);
+                WebSocketMessage msg = proxy.sendAndNotify(message, notify);
+                // we still store message if notify is false
+                if (msg != null && !notify){
+                    storageObserver.insertMessage(msg.getDTO());
+                }
                 return true;
             }
         }
