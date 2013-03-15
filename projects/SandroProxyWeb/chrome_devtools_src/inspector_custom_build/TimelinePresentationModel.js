@@ -76,6 +76,7 @@ WebInspector.TimelinePresentationModel._initRecordStyles = function()
     recordStyles[recordTypes.InvalidateLayout] = { title: WebInspector.UIString("Invalidate Layout"), category: categories["rendering"] };
     recordStyles[recordTypes.Layout] = { title: WebInspector.UIString("Layout"), category: categories["rendering"] };
     recordStyles[recordTypes.Paint] = { title: WebInspector.UIString("Paint"), category: categories["painting"] };
+    recordStyles[recordTypes.Rasterize] = { title: WebInspector.UIString("Rasterize"), category: categories["painting"] };
     recordStyles[recordTypes.ScrollLayer] = { title: WebInspector.UIString("Scroll"), category: categories["painting"] };
     recordStyles[recordTypes.DecodeImage] = { title: WebInspector.UIString("Image Decode"), category: categories["painting"] };
     recordStyles[recordTypes.ResizeImage] = { title: WebInspector.UIString("Image Resize"), category: categories["painting"] };
@@ -139,9 +140,8 @@ WebInspector.TimelinePresentationModel.isEventDivider = function(record)
     if (record.type === recordTypes.TimeStamp)
         return true;
     if (record.type === recordTypes.MarkDOMContent || record.type === recordTypes.MarkLoad) {
-        var mainFrame = WebInspector.resourceTreeModel.mainFrame;
-        if (mainFrame && mainFrame.id === record.frameId)
-            return true;
+        if (record.data && ((typeof record.data.isMainFrame) === "boolean"))
+            return record.data.isMainFrame;
     }
     return false;
 }
@@ -272,6 +272,7 @@ WebInspector.TimelinePresentationModel.prototype = {
         this._layoutInvalidateStack = {};
         this._lastScheduleStyleRecalculation = {};
         this._webSocketCreateRecords = {};
+        this._coalescingBuckets = {};
     },
 
     addFrame: function(frame)
@@ -302,11 +303,23 @@ WebInspector.TimelinePresentationModel.prototype = {
         const recordTypes = WebInspector.TimelineModel.RecordType;
         var isHiddenRecord = record.type in WebInspector.TimelinePresentationModel._hiddenRecords;
         var origin;
+        var coalescingBucket;
+
         if (!isHiddenRecord) {
             var newParentRecord = this._findParentRecord(record);
             if (newParentRecord) {
                 origin = parentRecord;
                 parentRecord = newParentRecord;
+            }
+            if (parentRecord === this._rootRecord) {
+                // On main thread, only coalesce if the last event is of same type.
+                coalescingBucket = record.thread ? record.type : "mainThread";
+                var coalescedRecord = this._findCoalescedParent(record, coalescingBucket);
+                if (coalescedRecord) {
+                    if (!origin)
+                        origin = parentRecord;
+                    parentRecord = coalescedRecord;
+                }
             }
         }
 
@@ -335,30 +348,96 @@ WebInspector.TimelinePresentationModel.prototype = {
         if (isHiddenRecord)
             return formattedRecord;
 
-        formattedRecord.collapsed = (parentRecord === this._rootRecord);
+        formattedRecord.collapsed = parentRecord === this._rootRecord;
+        if (coalescingBucket)
+            this._coalescingBuckets[coalescingBucket] = formattedRecord;
 
         var childrenCount = children ? children.length : 0;
         for (var i = 0; i < childrenCount; ++i)
             this._innerAddRecord(children[i], formattedRecord);
 
-        formattedRecord.calculateAggregatedStats(WebInspector.TimelinePresentationModel.categories());
+        formattedRecord.calculateAggregatedStats();
 
-        if (origin) {
-            var lastChildEndTime = formattedRecord.lastChildEndTime;
-            var aggregatedStats = formattedRecord.aggregatedStats;
-            for (var currentRecord = formattedRecord.parent; !currentRecord.isRoot(); currentRecord = currentRecord.parent) {
-                currentRecord._cpuTime += formattedRecord._cpuTime;
-                if (currentRecord.lastChildEndTime < lastChildEndTime)
-                    currentRecord.lastChildEndTime = lastChildEndTime;
-                for (var category in aggregatedStats)
-                    currentRecord.aggregatedStats[category] += aggregatedStats[category];
-            }
-        }
+        if (origin)
+            this._updateAncestorStats(formattedRecord);
+
+        if (parentRecord.coalesced && parentRecord.startTime > formattedRecord.startTime)
+            parentRecord._record.startTime = record.startTime;
+
         origin = formattedRecord.origin();
-        if (!origin.isRoot()) {
+        if (!origin.isRoot() && !origin.coalesced)
             origin.selfTime -= formattedRecord.endTime - formattedRecord.startTime;
-        }
         return formattedRecord;
+    },
+
+    /**
+     * @param {WebInspector.TimelinePresentationModel.Record} record
+     */
+    _updateAncestorStats: function(record)
+    {
+        var lastChildEndTime = record.lastChildEndTime;
+        var aggregatedStats = record.aggregatedStats;
+        for (var currentRecord = record.parent; currentRecord && !currentRecord.isRoot(); currentRecord = currentRecord.parent) {
+            currentRecord._cpuTime += record._cpuTime;
+            if (currentRecord.lastChildEndTime < lastChildEndTime)
+                currentRecord.lastChildEndTime = lastChildEndTime;
+            for (var category in aggregatedStats)
+                currentRecord.aggregatedStats[category] += aggregatedStats[category];
+        }
+    },
+
+    /**
+     * @param {Object} record
+     * @param {String} bucket
+     * @return {WebInspector.TimelinePresentationModel.Record?}
+     */
+    _findCoalescedParent: function(record, bucket)
+    {
+        const coalescingThresholdSeconds = 0.001;
+
+        var lastRecord = this._coalescingBuckets[bucket];
+        var startTime = WebInspector.TimelineModel.startTimeInSeconds(record);
+        var endTime = WebInspector.TimelineModel.endTimeInSeconds(record);
+        if (!lastRecord || lastRecord.type !== record.type)
+            return null;
+        if (lastRecord.endTime + coalescingThresholdSeconds < startTime)
+            return null;
+        if (endTime + coalescingThresholdSeconds < lastRecord.startTime)
+            return null;
+        if (lastRecord.parent.coalesced)
+            return lastRecord.parent;
+        // Do not aggregate records that were reparented.
+        if (lastRecord.parent !== this._rootRecord)
+            return null;
+        return this._replaceWithCoalescedRecord(lastRecord);
+    },
+
+    /**
+     * @param {WebInspector.TimelinePresentationModel.Record} record
+     * @return {WebInspector.TimelinePresentationModel.Record}
+     */
+    _replaceWithCoalescedRecord: function(record)
+    {
+        var rawRecord = {
+            type: record._record.type,
+            startTime: record._record.startTime,
+            endTime: record._record.endTime,
+            data: { }
+        };
+        if (record._record.thread)
+            rawRecord.thread = "aggregated";
+        var coalescedRecord = new WebInspector.TimelinePresentationModel.Record(this, rawRecord, null, null, null, false);
+        var parent = record.parent;
+
+        coalescedRecord.coalesced = true;
+        coalescedRecord.collapsed = true;
+        coalescedRecord._children.push(record);
+        record.parent = coalescedRecord;
+        coalescedRecord.calculateAggregatedStats();
+
+        coalescedRecord.parent = parent;
+        parent._children[parent._children.indexOf(record)] = coalescedRecord;
+        return coalescedRecord;
     },
 
     _findParentRecord: function(record)
@@ -489,13 +568,13 @@ WebInspector.TimelinePresentationModel.prototype = {
         var duration = endTime - startTime;
         var offset = this._minimumRecordTime;
 
-        var contentHelper = new WebInspector.TimelinePresentationModel.PopupContentHelper(WebInspector.UIString("CPU"));
+        var contentHelper = new WebInspector.PopoverContentHelper(WebInspector.UIString("CPU"));
         var durationText = WebInspector.UIString("%s (at %s)", Number.secondsToString(duration, true),
             Number.secondsToString(startTime - offset, true));
-        contentHelper._appendTextRow(WebInspector.UIString("Duration"), durationText);
-        contentHelper._appendTextRow(WebInspector.UIString("CPU time"), Number.secondsToString(cpuTime, true));
-        contentHelper._appendTextRow(WebInspector.UIString("Message Count"), messageCount);
-        return contentHelper._contentTable;
+        contentHelper.appendTextRow(WebInspector.UIString("Duration"), durationText);
+        contentHelper.appendTextRow(WebInspector.UIString("CPU time"), Number.secondsToString(cpuTime, true));
+        contentHelper.appendTextRow(WebInspector.UIString("Message Count"), messageCount);
+        return contentHelper.contentTable();
     },
 
     __proto__: WebInspector.Object.prototype
@@ -513,12 +592,15 @@ WebInspector.TimelinePresentationModel.prototype = {
 WebInspector.TimelinePresentationModel.Record = function(presentationModel, record, parentRecord, origin, scriptDetails, hidden)
 {
     this._linkifier = presentationModel._linkifier;
-    this._aggregatedStats = [];
+    this._aggregatedStats = {};
     this._record = record;
     this._children = [];
     if (!hidden && parentRecord) {
         this.parent = parentRecord;
-        parentRecord.children.push(this);
+        if (this.isBackground)
+            WebInspector.TimelinePresentationModel.insertRetrospectiveRecord(parentRecord, this);
+        else
+            parentRecord.children.push(this);
     }
     if (origin)
         this._origin = origin;
@@ -618,12 +700,7 @@ WebInspector.TimelinePresentationModel.Record = function(presentationModel, reco
                 var openRecord = recordStack[index - 1];
                 if (openRecord.startTime > timeRecord.startTime)
                     continue;
-                function compareStartTime(value, record)
-                {
-                    return value < record.startTime ? -1 : 1;
-                }
-                timeRecord.parent.children.splice(timeRecord.parent.children.indexOf(timeRecord));
-                openRecord.children.splice(insertionIndexForObjectInListSortedByFunction(timeRecord.startTime, openRecord.children, compareStartTime), 0, timeRecord);
+                WebInspector.TimelinePresentationModel.adoptRecord(openRecord, timeRecord);
                 break;
             }
         }
@@ -684,6 +761,23 @@ WebInspector.TimelinePresentationModel.Record = function(presentationModel, reco
     }
 }
 
+WebInspector.TimelinePresentationModel.adoptRecord = function(newParent, record)
+{
+    record.parent.children.splice(record.parent.children.indexOf(record));
+    WebInspector.TimelinePresentationModel.insertRetrospectiveRecord(newParent, record);
+    record.parent = newParent;
+}
+
+WebInspector.TimelinePresentationModel.insertRetrospectiveRecord = function(parent, record)
+{
+    function compareStartTime(value, record)
+    {
+        return value < record.startTime ? -1 : 1;
+    }
+    
+    parent.children.splice(insertionIndexForObjectInListSortedByFunction(record.startTime, parent.children, compareStartTime), 0, record);
+}
+
 WebInspector.TimelinePresentationModel.Record.prototype = {
     get lastChildEndTime()
     {
@@ -697,7 +791,7 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
 
     get selfTime()
     {
-        return this._selfTime;
+        return this.coalesced ? this._lastChildEndTime - this.startTime : this._selfTime;
     },
 
     set selfTime(time)
@@ -784,6 +878,14 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
     },
 
     /**
+     * @return {boolean}
+     */
+    get isBackground()
+    {
+        return !!this._record.thread;
+    },
+
+    /**
      * @return {Object}
      */
     get data()
@@ -855,16 +957,22 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
      */
     _generatePopupContentWithImagePreview: function(callback, previewElement)
     {
-        var contentHelper = new WebInspector.TimelinePresentationModel.PopupContentHelper(this.title);
+        var contentHelper = new WebInspector.PopoverContentHelper(this.title);
         var text = WebInspector.UIString("%s (at %s)", Number.secondsToString(this._lastChildEndTime - this.startTime, true),
             Number.secondsToString(this._startTimeOffset));
-        contentHelper._appendTextRow(WebInspector.UIString("Duration"), text);
+        contentHelper.appendTextRow(WebInspector.UIString("Duration"), text);
 
         if (this._children.length) {
-            contentHelper._appendTextRow(WebInspector.UIString("Self Time"), Number.secondsToString(this._selfTime, true));
-            contentHelper._appendTextRow(WebInspector.UIString("CPU Time"), Number.secondsToString(this._cpuTime, true));
-            contentHelper._appendElementRow(WebInspector.UIString("Aggregated Time"),
+            if (!this.coalesced)
+                contentHelper.appendTextRow(WebInspector.UIString("Self Time"), Number.secondsToString(this._selfTime, true));
+            contentHelper.appendTextRow(WebInspector.UIString("CPU Time"), Number.secondsToString(this._cpuTime, true));
+            contentHelper.appendElementRow(WebInspector.UIString("Aggregated Time"),
                 WebInspector.TimelinePresentationModel._generateAggregatedInfo(this._aggregatedStats));
+        }
+
+        if (this.coalesced) {
+            callback(contentHelper.contentTable());
+            return;
         }
         const recordTypes = WebInspector.TimelineModel.RecordType;
 
@@ -874,47 +982,47 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
 
         switch (this.type) {
             case recordTypes.GCEvent:
-                contentHelper._appendTextRow(WebInspector.UIString("Collected"), Number.bytesToString(this.data["usedHeapSizeDelta"]));
+                contentHelper.appendTextRow(WebInspector.UIString("Collected"), Number.bytesToString(this.data["usedHeapSizeDelta"]));
                 break;
             case recordTypes.TimerInstall:
             case recordTypes.TimerFire:
             case recordTypes.TimerRemove:
-                contentHelper._appendTextRow(WebInspector.UIString("Timer ID"), this.data["timerId"]);
+                contentHelper.appendTextRow(WebInspector.UIString("Timer ID"), this.data["timerId"]);
                 if (typeof this.timeout === "number") {
-                    contentHelper._appendTextRow(WebInspector.UIString("Timeout"), Number.secondsToString(this.timeout / 1000));
-                    contentHelper._appendTextRow(WebInspector.UIString("Repeats"), !this.singleShot);
+                    contentHelper.appendTextRow(WebInspector.UIString("Timeout"), Number.secondsToString(this.timeout / 1000));
+                    contentHelper.appendTextRow(WebInspector.UIString("Repeats"), !this.singleShot);
                 }
                 break;
             case recordTypes.FireAnimationFrame:
-                contentHelper._appendTextRow(WebInspector.UIString("Callback ID"), this.data["id"]);
+                contentHelper.appendTextRow(WebInspector.UIString("Callback ID"), this.data["id"]);
                 break;
             case recordTypes.FunctionCall:
-                contentHelper._appendElementRow(WebInspector.UIString("Location"), this._linkifyScriptLocation());
+                contentHelper.appendElementRow(WebInspector.UIString("Location"), this._linkifyScriptLocation());
                 break;
             case recordTypes.ScheduleResourceRequest:
             case recordTypes.ResourceSendRequest:
             case recordTypes.ResourceReceiveResponse:
             case recordTypes.ResourceReceivedData:
             case recordTypes.ResourceFinish:
-                contentHelper._appendElementRow(WebInspector.UIString("Resource"), WebInspector.linkifyResourceAsNode(this.url));
+                contentHelper.appendElementRow(WebInspector.UIString("Resource"), WebInspector.linkifyResourceAsNode(this.url));
                 if (previewElement)
-                    contentHelper._appendElementRow(WebInspector.UIString("Preview"), previewElement);
+                    contentHelper.appendElementRow(WebInspector.UIString("Preview"), previewElement);
                 if (this.data["requestMethod"])
-                    contentHelper._appendTextRow(WebInspector.UIString("Request Method"), this.data["requestMethod"]);
+                    contentHelper.appendTextRow(WebInspector.UIString("Request Method"), this.data["requestMethod"]);
                 if (typeof this.data["statusCode"] === "number")
-                    contentHelper._appendTextRow(WebInspector.UIString("Status Code"), this.data["statusCode"]);
+                    contentHelper.appendTextRow(WebInspector.UIString("Status Code"), this.data["statusCode"]);
                 if (this.data["mimeType"])
-                    contentHelper._appendTextRow(WebInspector.UIString("MIME Type"), this.data["mimeType"]);
+                    contentHelper.appendTextRow(WebInspector.UIString("MIME Type"), this.data["mimeType"]);
                 if (this.data["encodedDataLength"])
-                    contentHelper._appendTextRow(WebInspector.UIString("Encoded Data Length"), WebInspector.UIString("%d Bytes", this.data["encodedDataLength"]));
+                    contentHelper.appendTextRow(WebInspector.UIString("Encoded Data Length"), WebInspector.UIString("%d Bytes", this.data["encodedDataLength"]));
                 break;
             case recordTypes.EvaluateScript:
                 if (this.data && this.url)
-                    contentHelper._appendElementRow(WebInspector.UIString("Script"), this._linkifyLocation(this.url, this.data["lineNumber"]));
+                    contentHelper.appendElementRow(WebInspector.UIString("Script"), this._linkifyLocation(this.url, this.data["lineNumber"]));
                 break;
             case recordTypes.Paint:
-                contentHelper._appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("(%d, %d)", this.data["x"], this.data["y"]));
-                contentHelper._appendTextRow(WebInspector.UIString("Dimensions"), WebInspector.UIString("%d × %d", this.data["width"], this.data["height"]));
+                contentHelper.appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("(%d, %d)", this.data["x"], this.data["y"]));
+                contentHelper.appendTextRow(WebInspector.UIString("Dimensions"), WebInspector.UIString("%d × %d", this.data["width"], this.data["height"]));
                 break;
             case recordTypes.RecalculateStyles: // We don't want to see default details.
                 callSiteStackTraceLabel = WebInspector.UIString("Styles invalidated");
@@ -924,51 +1032,51 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
                 callSiteStackTraceLabel = WebInspector.UIString("Layout invalidated");
                 if (this.stackTrace) {
                     callStackLabel = WebInspector.UIString("Layout forced");
-                    contentHelper._appendTextRow(WebInspector.UIString("Note"), WebInspector.UIString("Forced synchronous layout is a possible performance bottleneck."));
+                    contentHelper.appendTextRow(WebInspector.UIString("Note"), WebInspector.UIString("Forced synchronous layout is a possible performance bottleneck."));
                 }
                 break;
             case recordTypes.Time:
             case recordTypes.TimeEnd:
-                contentHelper._appendTextRow(WebInspector.UIString("Message"), this.data["message"]);
+                contentHelper.appendTextRow(WebInspector.UIString("Message"), this.data["message"]);
                 if (typeof this.intervalDuration === "number")
-                    contentHelper._appendTextRow(WebInspector.UIString("Interval Duration"), Number.secondsToString(this.intervalDuration, true));
+                    contentHelper.appendTextRow(WebInspector.UIString("Interval Duration"), Number.secondsToString(this.intervalDuration, true));
                 break;
             case recordTypes.WebSocketCreate:
             case recordTypes.WebSocketSendHandshakeRequest:
             case recordTypes.WebSocketReceiveHandshakeResponse:
             case recordTypes.WebSocketDestroy:
                 if (typeof this.webSocketURL !== "undefined")
-                    contentHelper._appendTextRow(WebInspector.UIString("URL"), this.webSocketURL);
+                    contentHelper.appendTextRow(WebInspector.UIString("URL"), this.webSocketURL);
                 if (typeof this.webSocketProtocol !== "undefined")
-                    contentHelper._appendTextRow(WebInspector.UIString("WebSocket Protocol"), this.webSocketProtocol);
+                    contentHelper.appendTextRow(WebInspector.UIString("WebSocket Protocol"), this.webSocketProtocol);
                 if (typeof this.data["message"] !== "undefined")
-                    contentHelper._appendTextRow(WebInspector.UIString("Message"), this.data["message"])
+                    contentHelper.appendTextRow(WebInspector.UIString("Message"), this.data["message"])
                     break;
             default:
                 if (this.detailsNode())
-                    contentHelper._appendElementRow(WebInspector.UIString("Details"), this.detailsNode().childNodes[1].cloneNode());
+                    contentHelper.appendElementRow(WebInspector.UIString("Details"), this.detailsNode().childNodes[1].cloneNode());
                 break;
         }
 
         if (this.scriptName && this.type !== recordTypes.FunctionCall)
-            contentHelper._appendElementRow(WebInspector.UIString("Function Call"), this._linkifyScriptLocation());
+            contentHelper.appendElementRow(WebInspector.UIString("Function Call"), this._linkifyScriptLocation());
 
         if (this.usedHeapSize) {
             if (this.usedHeapSizeDelta) {
                 var sign = this.usedHeapSizeDelta > 0 ? "+" : "-";
-                contentHelper._appendTextRow(WebInspector.UIString("Used Heap Size"),
+                contentHelper.appendTextRow(WebInspector.UIString("Used Heap Size"),
                     WebInspector.UIString("%s (%s%s)", Number.bytesToString(this.usedHeapSize), sign, Number.bytesToString(this.usedHeapSizeDelta)));
             } else if (this.category === WebInspector.TimelinePresentationModel.categories().scripting)
-                contentHelper._appendTextRow(WebInspector.UIString("Used Heap Size"), Number.bytesToString(this.usedHeapSize));
+                contentHelper.appendTextRow(WebInspector.UIString("Used Heap Size"), Number.bytesToString(this.usedHeapSize));
         }
 
         if (this.callSiteStackTrace)
-            contentHelper._appendStackTrace(callSiteStackTraceLabel || WebInspector.UIString("Call Site stack"), this.callSiteStackTrace, this._linkifyCallFrame.bind(this));
+            contentHelper.appendStackTrace(callSiteStackTraceLabel || WebInspector.UIString("Call Site stack"), this.callSiteStackTrace, this._linkifyCallFrame.bind(this));
 
         if (this.stackTrace)
-            contentHelper._appendStackTrace(callStackLabel || WebInspector.UIString("Call Stack"), this.stackTrace, this._linkifyCallFrame.bind(this));
+            contentHelper.appendStackTrace(callStackLabel || WebInspector.UIString("Call Stack"), this.stackTrace, this._linkifyCallFrame.bind(this));
 
-        callback(contentHelper._contentTable);
+        callback(contentHelper.contentTable());
     },
 
     _refreshDetails: function()
@@ -1005,6 +1113,9 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
     _getRecordDetails: function()
     {
         var details;
+        if (this.coalesced)
+            return this._createSpanWithText(WebInspector.UIString("× %d", this.children.length));
+
         switch (this.type) {
         case WebInspector.TimelineModel.RecordType.GCEvent:
             details = WebInspector.UIString("%s collected", Number.bytesToString(this.data["usedHeapSizeDelta"]));
@@ -1064,10 +1175,10 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
             break;
         }
 
-        if (typeof details === "string")
-            return this._createSpanWithText(details);
+        if (details && !(details instanceof Node))
+            return this._createSpanWithText("" + details);
 
-        return details ? details : null;
+        return details || null;
     },
 
     /**
@@ -1100,28 +1211,30 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
     },
 
     /**
-     * @param {string=} defaultValue
+     * @param {*=} defaultValue
+     * @return {Element|string}
      */
     _linkifyScriptLocation: function(defaultValue)
     {
-        return this.scriptName ? this._linkifyLocation(this.scriptName, this.scriptLine, 0) : defaultValue;
+        if (this.scriptName)
+            return this._linkifyLocation(this.scriptName, this.scriptLine, 0);
+        else
+            return defaultValue ? "" + defaultValue : null;
     },
 
-    calculateAggregatedStats: function(categories)
+    calculateAggregatedStats: function()
     {
         this._aggregatedStats = {};
-        for (var category in categories)
-            this._aggregatedStats[category] = 0;
         this._cpuTime = this._selfTime;
 
         for (var index = this._children.length; index; --index) {
             var child = this._children[index - 1];
-            for (var category in categories)
-                this._aggregatedStats[category] += child._aggregatedStats[category];
+            for (var category in child._aggregatedStats)
+                this._aggregatedStats[category] = (this._aggregatedStats[category] || 0) + child._aggregatedStats[category];
         }
         for (var category in this._aggregatedStats)
             this._cpuTime += this._aggregatedStats[category];
-        this._aggregatedStats[this.category.name] += this._selfTime;
+        this._aggregatedStats[this.category.name] = (this._aggregatedStats[this.category.name] || 0) + this._selfTime;
     },
 
     get aggregatedStats()
@@ -1155,94 +1268,19 @@ WebInspector.TimelinePresentationModel._generateAggregatedInfo = function(aggreg
     return cell;
 }
 
-/**
- * @constructor
- * @param {string} title
- */
-WebInspector.TimelinePresentationModel.PopupContentHelper = function(title)
-{
-    this._contentTable = document.createElement("table");
-    var titleCell = this._createCell(WebInspector.UIString("%s - Details", title), "timeline-details-title");
-    titleCell.colSpan = 2;
-    var titleRow = document.createElement("tr");
-    titleRow.appendChild(titleCell);
-    this._contentTable.appendChild(titleRow);
-}
-
-WebInspector.TimelinePresentationModel.PopupContentHelper.prototype = {
-    /**
-     * @param {string=} styleName
-     */
-    _createCell: function(content, styleName)
-    {
-        var text = document.createElement("label");
-        text.appendChild(document.createTextNode(content));
-        var cell = document.createElement("td");
-        cell.className = "timeline-details";
-        if (styleName)
-            cell.className += " " + styleName;
-        cell.textContent = content;
-        return cell;
-    },
-
-    _appendTextRow: function(title, content)
-    {
-        var row = document.createElement("tr");
-        row.appendChild(this._createCell(title, "timeline-details-row-title"));
-        row.appendChild(this._createCell(content, "timeline-details-row-data"));
-        this._contentTable.appendChild(row);
-    },
-
-    /**
-     * @param {string=} titleStyle
-     */
-    _appendElementRow: function(title, content, titleStyle)
-    {
-        var row = document.createElement("tr");
-        var titleCell = this._createCell(title, "timeline-details-row-title");
-        if (titleStyle)
-            titleCell.addStyleClass(titleStyle);
-        row.appendChild(titleCell);
-        var cell = document.createElement("td");
-        cell.className = "timeline-details";
-        cell.appendChild(content);
-        row.appendChild(cell);
-        this._contentTable.appendChild(row);
-    },
-
-    _appendStackTrace: function(title, stackTrace, callFrameLinkifier)
-    {
-        this._appendTextRow("", "");
-        var framesTable = document.createElement("table");
-        for (var i = 0; i < stackTrace.length; ++i) {
-            var stackFrame = stackTrace[i];
-            var row = document.createElement("tr");
-            row.className = "timeline-details";
-            row.appendChild(this._createCell(stackFrame.functionName ? stackFrame.functionName : WebInspector.UIString("(anonymous function)"), "timeline-function-name"));
-            row.appendChild(this._createCell(" @ "));
-            var linkCell = document.createElement("td");
-            var urlElement = callFrameLinkifier(stackFrame);
-            linkCell.appendChild(urlElement);
-            row.appendChild(linkCell);
-            framesTable.appendChild(row);
-        }
-        this._appendElementRow(title, framesTable, "timeline-stacktrace-title");
-    }
-}
-
 WebInspector.TimelinePresentationModel.generatePopupContentForFrame = function(frame)
 {
-    var contentHelper = new WebInspector.TimelinePresentationModel.PopupContentHelper(WebInspector.UIString("Frame"));
+    var contentHelper = new WebInspector.PopoverContentHelper(WebInspector.UIString("Frame"));
     var durationInSeconds = frame.endTime - frame.startTime;
     var durationText = WebInspector.UIString("%s (at %s)", Number.secondsToString(frame.endTime - frame.startTime, true),
         Number.secondsToString(frame.startTimeOffset, true));
-    contentHelper._appendTextRow(WebInspector.UIString("Duration"), durationText);
-    contentHelper._appendTextRow(WebInspector.UIString("FPS"), Math.floor(1 / durationInSeconds));
-    contentHelper._appendTextRow(WebInspector.UIString("CPU time"), Number.secondsToString(frame.cpuTime, true));
-    contentHelper._appendElementRow(WebInspector.UIString("Aggregated Time"),
+    contentHelper.appendTextRow(WebInspector.UIString("Duration"), durationText);
+    contentHelper.appendTextRow(WebInspector.UIString("FPS"), Math.floor(1 / durationInSeconds));
+    contentHelper.appendTextRow(WebInspector.UIString("CPU time"), Number.secondsToString(frame.cpuTime, true));
+    contentHelper.appendElementRow(WebInspector.UIString("Aggregated Time"),
         WebInspector.TimelinePresentationModel._generateAggregatedInfo(frame.timeByCategory));
 
-    return contentHelper._contentTable;
+    return contentHelper.contentTable();
 }
 
 /**
@@ -1258,18 +1296,18 @@ WebInspector.TimelinePresentationModel.generatePopupContentForFrameStatistics = 
         return WebInspector.UIString("%s (%.0f FPS)", Number.secondsToString(time, true), 1 / time);
     }
 
-    var contentHelper = new WebInspector.TimelinePresentationModel.PopupContentHelper(WebInspector.UIString("Selected Range"));
+    var contentHelper = new WebInspector.PopoverContentHelper(WebInspector.UIString("Selected Range"));
 
-    contentHelper._appendTextRow(WebInspector.UIString("Selected range"), WebInspector.UIString("%s\u2013%s (%d frames)",
+    contentHelper.appendTextRow(WebInspector.UIString("Selected range"), WebInspector.UIString("%s\u2013%s (%d frames)",
         Number.secondsToString(statistics.startOffset, true), Number.secondsToString(statistics.endOffset, true), statistics.frameCount));
-    contentHelper._appendTextRow(WebInspector.UIString("Minimum Time"), formatTimeAndFPS(statistics.minDuration));
-    contentHelper._appendTextRow(WebInspector.UIString("Average Time"), formatTimeAndFPS(statistics.average));
-    contentHelper._appendTextRow(WebInspector.UIString("Maximum Time"), formatTimeAndFPS(statistics.maxDuration));
-    contentHelper._appendTextRow(WebInspector.UIString("Standard Deviation"), Number.secondsToString(statistics.stddev, true));
-    contentHelper._appendElementRow(WebInspector.UIString("Time by category"),
+    contentHelper.appendTextRow(WebInspector.UIString("Minimum Time"), formatTimeAndFPS(statistics.minDuration));
+    contentHelper.appendTextRow(WebInspector.UIString("Average Time"), formatTimeAndFPS(statistics.average));
+    contentHelper.appendTextRow(WebInspector.UIString("Maximum Time"), formatTimeAndFPS(statistics.maxDuration));
+    contentHelper.appendTextRow(WebInspector.UIString("Standard Deviation"), Number.secondsToString(statistics.stddev, true));
+    contentHelper.appendElementRow(WebInspector.UIString("Time by category"),
         WebInspector.TimelinePresentationModel._generateAggregatedInfo(statistics.timeByCategory));
 
-    return contentHelper._contentTable;
+    return contentHelper.contentTable();
 }
 
 /**
@@ -1374,3 +1412,5 @@ WebInspector.TimelineCategory.prototype = {
 
     __proto__: WebInspector.Object.prototype
 }
+
+//@ sourceURL=http://localhost/inspector/front-end/TimelinePresentationModel.js

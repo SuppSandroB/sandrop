@@ -1,3 +1,7 @@
+.CodeMirror * {
+  -webkit-box-sizing: content-box;
+}
+
 .CodeMirror {
   line-height: 1.2em !important;
   height: 100% !important;
@@ -27,12 +31,42 @@
 .cm-breakpoint-disabled {
   opacity: 0.5;
 }
+
+.CodeMirror-matchingbracket {
+  border-bottom: 1px solid black;
+  color: black !important;
+}
+
+.CodeMirror-nonmatchingbracket {
+  color: black !important;
+}
+
 .cm-breakpoint-conditional {
   -webkit-border-image: url(Images/breakpointConditionalBorder.png) 1 14 1 2;
 }
+
 .cm-execution-line {
     background-color: rgb(171, 191, 254) !important;
     outline: 1px solid rgb(64, 115, 244);
+}
+
+.cm-token-highlight {
+    position: relative;
+}
+
+.cm-token-highlight:before {
+    position: absolute;
+    border: 1px solid gray;
+    border-radius: 3px;
+    top: 0px;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+    content: "";
+}
+
+.cm-line-with-selection .cm-column-with-selection:before {
+    border: 0px;
 }
 
 .cm-s-web-inspector-js span.cm-keyword {color: rgb(170, 13, 145);}
