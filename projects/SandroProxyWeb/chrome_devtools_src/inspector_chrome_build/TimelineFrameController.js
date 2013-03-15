@@ -62,6 +62,8 @@ WebInspector.TimelineFrameController.prototype = {
     _addRecord: function(record)
     {
         var records;
+        if (record.isBackground)
+            return;
         if (record.type === WebInspector.TimelineModel.RecordType.Program)
             records = record["children"] || [];
         else
@@ -76,7 +78,8 @@ WebInspector.TimelineFrameController.prototype = {
         else {
             if (!this._lastFrame)
                 this._lastFrame = this._createFrame(record);
-            WebInspector.TimelineModel.aggregateTimeForRecord(this._lastFrame.timeByCategory, record);
+            if (!record.thread)
+                WebInspector.TimelineModel.aggregateTimeForRecord(this._lastFrame.timeByCategory, record);
             this._lastFrame.cpuTime += WebInspector.TimelineModel.durationInSeconds(record);
         }
     },
