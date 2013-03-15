@@ -267,6 +267,10 @@
     position: absolute;
 }
 
+.timeline-tree-item.background .timeline-tree-icon {
+    background: none !important;
+}
+
 .timeline-tree-item.even {
     background-color: rgba(0, 0, 0, 0.05);
 }
@@ -358,6 +362,11 @@
     opacity: 0.7;
 }
 
+.timeline-graph-side.background .timeline-graph-bar {
+    background: transparent !important;
+    border-width: 2px;
+}
+
 .timeline-graph-side.even {
     background-color: rgba(0, 0, 0, 0.05);
 }
@@ -375,38 +384,6 @@
 
 .popover .timeline-aggregated-category.timeline-loading {
     margin-left: 0px;
-}
-
-.timeline-details {
-    -webkit-user-select: text;
-    vertical-align: top;
-}
-
-.timeline-function-name {
-    text-align: right;
-}
-
-.timeline-stacktrace-title {
-    padding-top: 4px;
-}
-
-.timeline-details-row-title {
-    font-weight: bold;
-    text-align: right;
-    white-space: nowrap;
-}
-
-.timeline-details-row-data {
-    white-space: nowrap;
-}
-
-.timeline-details-title {
-    border-bottom: 1px solid #B8B8B8;
-    font-size: 11px;
-    font-weight: bold;
-    padding-bottom: 5px;
-    padding-top: 0px;
-    white-space: nowrap;
 }
 
 .garbage-collect-status-bar-item .glyph {
@@ -667,10 +644,25 @@
 
 .timeline-cpu-bars .timeline-graph-bar {
     border-color: rgb(192, 192, 192);
-    background-color: rgba(0, 0, 0, 0.15);
-    top: 2px;
-    bottom: 2px;
+    background-color: rgba(0, 0, 0, 0.1);
+    top: 4px;
+    bottom: 4px;
     height: auto;
+}
+
+.timeline-cpu-curtain-left, .timeline-cpu-curtain-right {
+    background-color: rgba(0, 0, 0, 0.15);
+    position: absolute;
+    top: 0;
+    height: 100%;
+}
+
+.timeline-cpu-curtain-left {
+    left: 0;
+}
+
+.timeline-cpu-curtain-right {
+    right: 0;
 }
 
 .image-preview-container {

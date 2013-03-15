@@ -225,6 +225,7 @@ WebInspector.ResourceScriptMapping.prototype = {
 
 /**
  * @interface
+ * @extends {WebInspector.EventTarget}
  */
 WebInspector.ScriptFile = function()
 {
@@ -247,20 +248,6 @@ WebInspector.ScriptFile.prototype = {
      * @return {boolean}
      */
     isDivergingFromVM: function() { return false; },
-
-    /**
-     * @param {string} eventType
-     * @param {function(WebInspector.Event)} listener
-     * @param {Object=} thisObject
-     */
-    addEventListener: function(eventType, listener, thisObject) { },
-
-    /**
-     * @param {string} eventType
-     * @param {function(WebInspector.Event)} listener
-     * @param {Object=} thisObject
-     */
-    removeEventListener: function(eventType, listener, thisObject) { }
 }
 
 /**
@@ -277,6 +264,7 @@ WebInspector.ResourceScriptFile = function(resourceScriptMapping, uiSourceCode)
     this._uiSourceCode = uiSourceCode;
     this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyCommitted, this._workingCopyCommitted, this);
     this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyChanged, this._workingCopyChanged, this);
+    this._maybeDirtyChanged(false);
 }
 
 WebInspector.ResourceScriptFile.prototype = {
@@ -309,6 +297,11 @@ WebInspector.ResourceScriptFile.prototype = {
     _workingCopyChanged: function(event)
     {
         var wasDirty = /** @type {boolean} */ (event.data.wasDirty);
+        this._maybeDirtyChanged(wasDirty);
+    },
+
+    _maybeDirtyChanged: function(wasDirty)
+    {
         if (!wasDirty && this._uiSourceCode.isDirty() && !this._hasDivergedFromVM) {
             this._isDivergingFromVM = true;
             this.dispatchEventToListeners(WebInspector.ScriptFile.Events.WillDivergeFromVM, this._uiSourceCode);

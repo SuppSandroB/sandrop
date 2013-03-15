@@ -51,10 +51,7 @@ WebInspector.UISourceCode = function(project, path, originURL, url, contentType,
      * @type Array.<function(?string,boolean,string)>
      */
     this._requestContentCallbacks = [];
-    /**
-     * @type Array.<WebInspector.LiveLocation>
-     */
-    this._liveLocations = [];
+    this._liveLocations = new Set();
     /**
      * @type {Array.<WebInspector.PresentationConsoleMessage>}
      */
@@ -135,12 +132,15 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {string} url
+     * @param {string} newName
      */
-    urlChanged: function(url)
+    rename: function(newName)
     {
-        this._url = url;
-        this._originURL = url;
+        if (!this._path.length)
+            return;
+        this._path[this._path.length - 1] = newName;
+        this._url = newName;
+        this._originURL = newName;
         this.dispatchEventToListeners(WebInspector.UISourceCode.Events.TitleChanged, null);
     },
 
@@ -214,6 +214,41 @@ WebInspector.UISourceCode.prototype = {
             this._project.requestFileContent(this, this._fireContentAvailable.bind(this));
     },
 
+    checkContentUpdated: function()
+    {
+        if (!this._project.canSetFileContent())
+            return;
+        if (this._checkingContent)
+            return;
+        this._checkingContent = true;
+        this._project.requestFileContent(this, contentLoaded.bind(this));
+
+        function contentLoaded(updatedContent)
+        {
+            if (typeof this._lastAcceptedContent === "string" && this._lastAcceptedContent === updatedContent) {
+                delete this._checkingContent;
+                return;
+            }
+            if (this._content === updatedContent) {
+                delete this._checkingContent;
+                return;
+            }
+
+            if (!this.isDirty()) {
+                this._commitContent(updatedContent, false);
+                delete this._checkingContent;
+                return;
+            }
+
+            var shouldUpdate = window.confirm(WebInspector.UIString("This file was changed externally. Would you like to reload it?"));
+            if (shouldUpdate)
+                this._commitContent(updatedContent, false);
+            else
+                this._lastAcceptedContent = updatedContent;
+            delete this._checkingContent;
+        }
+    },
+
     /**
      * @param {function(?string,boolean,string)} callback
      */
@@ -224,8 +259,9 @@ WebInspector.UISourceCode.prototype = {
 
     /**
      * @param {string} content
+     * @param {boolean} shouldSetContentInProject
      */
-    _commitContent: function(content)
+    _commitContent: function(content, shouldSetContentInProject)
     {
         this._content = content;
         this._contentLoaded = true;
@@ -244,7 +280,8 @@ WebInspector.UISourceCode.prototype = {
             WebInspector.fileManager.save(this._url, this._content, false);
             WebInspector.fileManager.close(this._url);
         }
-        this._project.setFileContent(this, this._content, function() { });
+        if (shouldSetContentInProject)
+            this._project.setFileContent(this, this._content, function() { });
     },
 
     /**
@@ -252,7 +289,7 @@ WebInspector.UISourceCode.prototype = {
      */
     addRevision: function(content)
     {
-        this._commitContent(content);
+        this._commitContent(content, true);
     },
 
     _restoreRevisionHistory: function()
@@ -385,7 +422,7 @@ WebInspector.UISourceCode.prototype = {
             return;
         }
 
-        this._commitContent(this._workingCopy);
+        this._commitContent(this._workingCopy, true);
         callback(null);
 
         WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
@@ -488,15 +525,15 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {WebInspector.LiveLocation} liveLocation
+     * @param {!WebInspector.LiveLocation} liveLocation
      */
     addLiveLocation: function(liveLocation)
     {
-        this._liveLocations.push(liveLocation);
+        this._liveLocations.add(liveLocation);
     },
 
     /**
-     * @param {WebInspector.LiveLocation} liveLocation
+     * @param {!WebInspector.LiveLocation} liveLocation
      */
     removeLiveLocation: function(liveLocation)
     {
@@ -505,9 +542,9 @@ WebInspector.UISourceCode.prototype = {
 
     updateLiveLocations: function()
     {
-        var locationsCopy = this._liveLocations.slice();
-        for (var i = 0; i < locationsCopy.length; ++i)
-            locationsCopy[i].update();
+        var items = this._liveLocations.items();
+        for (var i = 0; i < items.length; ++i)
+            items[i].update();
     },
 
     /**
@@ -635,6 +672,7 @@ WebInspector.UISourceCode.prototype = {
 
 /**
  * @interface
+ * @extends {WebInspector.EventTarget}
  */
 WebInspector.UISourceCodeProvider = function()
 {
@@ -650,20 +688,6 @@ WebInspector.UISourceCodeProvider.prototype = {
      * @return {Array.<WebInspector.UISourceCode>}
      */
     uiSourceCodes: function() {},
-
-    /**
-     * @param {string} eventType
-     * @param {function(WebInspector.Event)} listener
-     * @param {Object=} thisObject
-     */
-    addEventListener: function(eventType, listener, thisObject) { },
-
-    /**
-     * @param {string} eventType
-     * @param {function(WebInspector.Event)} listener
-     * @param {Object=} thisObject
-     */
-    removeEventListener: function(eventType, listener, thisObject) { }
 }
 
 /**

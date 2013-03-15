@@ -338,7 +338,7 @@ WebInspector.ElementsPanel.prototype = {
         }
 
         var contextMenu = new WebInspector.ContextMenu(event);
-        var populated = this.treeOutline.populateContextMenu(contextMenu, event);
+        this.treeOutline.populateContextMenu(contextMenu, event);
 
         if (WebInspector.experimentsSettings.cssRegions.isEnabled()) {
             contextMenu.appendSeparator();
@@ -486,7 +486,6 @@ WebInspector.ElementsPanel.prototype = {
             this._currentSearchResultIndex = (this._searchResults.length - 1);
 
         this._highlightCurrentSearchResult();
-        return true;
     },
 
     _highlightCurrentSearchResult: function()
@@ -1012,18 +1011,26 @@ WebInspector.ElementsPanel.prototype = {
 
     handleShortcut: function(event)
     {
-        if (WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event) && !event.shiftKey && event.keyIdentifier === "U+005A") { // Z key
-            WebInspector.domAgent.undo(this._updateSidebars.bind(this));
-            event.handled = true;
-            return;
+        function handleUndoRedo()
+        {
+            if (WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event) && !event.shiftKey && event.keyIdentifier === "U+005A") { // Z key
+                WebInspector.domAgent.undo(this._updateSidebars.bind(this));
+                event.handled = true;
+                return;
+            }
+
+            var isRedoKey = WebInspector.isMac() ? event.metaKey && event.shiftKey && event.keyIdentifier === "U+005A" : // Z key
+                                                   event.ctrlKey && event.keyIdentifier === "U+0059"; // Y key
+            if (isRedoKey) {
+                DOMAgent.redo(this._updateSidebars.bind(this));
+                event.handled = true;
+            }
         }
 
-        var isRedoKey = WebInspector.isMac() ? event.metaKey && event.shiftKey && event.keyIdentifier === "U+005A" : // Z key
-                                               event.ctrlKey && event.keyIdentifier === "U+0059"; // Y key
-        if (isRedoKey) {
-            DOMAgent.redo(this._updateSidebars.bind(this));
-            event.handled = true;
-            return;
+        if (!this.treeOutline.editing()) {
+            handleUndoRedo.call(this);
+            if (event.handled)
+                return;
         }
 
         this.treeOutline.handleShortcut(event);
@@ -1119,21 +1126,26 @@ WebInspector.ElementsPanel.prototype = {
             for (var pane in this.sidebarPanes)
                 this.sidebarPaneView.addPane(this.sidebarPanes[pane]);
         } else {
-            this.sidebarPaneView = new WebInspector.SplitView(true, this.name + "PanelSplitSidebarRatio", 0.5);
+            this.sidebarPaneView = new WebInspector.SidebarTabbedPane();
 
-            var group1 = new WebInspector.SidebarTabbedPane();
-            group1.show(this.sidebarPaneView.firstElement());
-            group1.addPane(this.sidebarPanes.computedStyle);
-            group1.addPane(this.sidebarPanes.styles);
-            group1.addPane(this.sidebarPanes.metrics);
+            var compositePane = new WebInspector.SidebarPane(this.sidebarPanes.styles.title());
+            compositePane.element.addStyleClass("composite");
+            compositePane.element.addStyleClass("fill");
 
-            var group2 = new WebInspector.SidebarTabbedPane();
-            group2.show(this.sidebarPaneView.secondElement());
-            group2.addPane(this.sidebarPanes.properties);
-            group2.addPane(this.sidebarPanes.domBreakpoints);
-            group2.addPane(this.sidebarPanes.eventListeners);
+            var splitView = new WebInspector.SplitView(true, "StylesPaneSplitRatio", 0.5);
+            splitView.show(compositePane.bodyElement);
+            this.sidebarPanes.styles.show(splitView.firstElement());
+            splitView.firstElement().appendChild(this.sidebarPanes.styles.titleElement);
 
-            this.sidebarPaneView.extensionPaneContainer = group2;
+            this.sidebarPanes.metrics.show(splitView.secondElement());
+            splitView.secondElement().appendChild(this.sidebarPanes.computedStyle.titleElement);
+            splitView.secondElement().addStyleClass("metrics-and-computed");
+            this.sidebarPanes.computedStyle.show(splitView.secondElement());
+
+            this.sidebarPaneView.addPane(compositePane);
+            this.sidebarPaneView.addPane(this.sidebarPanes.properties);
+            this.sidebarPaneView.addPane(this.sidebarPanes.domBreakpoints);
+            this.sidebarPaneView.addPane(this.sidebarPanes.eventListeners);
         }
         this.sidebarPaneView.show(this.splitView.sidebarElement);
         this.sidebarPanes.styles.expand();
@@ -1146,8 +1158,7 @@ WebInspector.ElementsPanel.prototype = {
     addExtensionSidebarPane: function(id, pane)
     {
         this.sidebarPanes[id] = pane;
-        var container = this.sidebarPaneView.extensionPaneContainer || this.sidebarPaneView;
-        container.addPane(pane);
+        this.sidebarPaneView.addPane(pane);
     },
 
     __proto__: WebInspector.Panel.prototype

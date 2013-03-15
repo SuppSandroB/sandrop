@@ -21,6 +21,7 @@ InspectorBackend.registerCommand("Memory.getProcessMemoryDistribution", [{"name"
 
 // Page.
 InspectorBackend.registerPageDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Page");
+InspectorBackend.registerEnum("Page.ResourceType", {Document: "Document", Stylesheet: "Stylesheet", Image: "Image", Font: "Font", Script: "Script", XHR: "XHR", WebSocket: "WebSocket", Other: "Other"});
 InspectorBackend.registerEvent("Page.domContentEventFired", ["timestamp"]);
 InspectorBackend.registerEvent("Page.loadEventFired", ["timestamp"]);
 InspectorBackend.registerEvent("Page.frameNavigated", ["frame"]);
@@ -71,6 +72,10 @@ InspectorBackend.registerCommand("Page.handleJavaScriptDialog", [{"name": "accep
 
 // Runtime.
 InspectorBackend.registerRuntimeDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Runtime");
+InspectorBackend.registerEnum("Runtime.RemoteObjectType", {Object: "object", Function: "function", Undefined: "undefined", String: "string", Number: "number", Boolean: "boolean"});
+InspectorBackend.registerEnum("Runtime.RemoteObjectSubtype", {Array: "array", Null: "null", Node: "node", Regexp: "regexp", Date: "date"});
+InspectorBackend.registerEnum("Runtime.PropertyPreviewType", {Object: "object", Function: "function", Undefined: "undefined", String: "string", Number: "number", Boolean: "boolean"});
+InspectorBackend.registerEnum("Runtime.PropertyPreviewSubtype", {Array: "array", Null: "null", Node: "node", Regexp: "regexp", Date: "date"});
 InspectorBackend.registerEvent("Runtime.executionContextCreated", ["context"]);
 InspectorBackend.registerCommand("Runtime.evaluate", [{"name": "expression", "type": "string", "optional": false}, {"name": "objectGroup", "type": "string", "optional": true}, {"name": "includeCommandLineAPI", "type": "boolean", "optional": true}, {"name": "doNotPauseOnExceptionsAndMuteConsole", "type": "boolean", "optional": true}, {"name": "contextId", "type": "number", "optional": true}, {"name": "returnByValue", "type": "boolean", "optional": true}, {"name": "generatePreview", "type": "boolean", "optional": true}], ["result", "wasThrown"]);
 InspectorBackend.registerCommand("Runtime.callFunctionOn", [{"name": "objectId", "type": "string", "optional": false}, {"name": "functionDeclaration", "type": "string", "optional": false}, {"name": "arguments", "type": "object", "optional": true}, {"name": "doNotPauseOnExceptionsAndMuteConsole", "type": "boolean", "optional": true}, {"name": "returnByValue", "type": "boolean", "optional": true}, {"name": "generatePreview", "type": "boolean", "optional": true}], ["result", "wasThrown"]);
@@ -83,6 +88,9 @@ InspectorBackend.registerCommand("Runtime.disable", [], []);
 
 // Console.
 InspectorBackend.registerConsoleDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Console");
+InspectorBackend.registerEnum("Console.ConsoleMessageSource", {XML: "xml", Javascript: "javascript", Network: "network", ConsoleAPI: "console-api", Storage: "storage", Appcache: "appcache", Rendering: "rendering", Css: "css", Security: "security", Other: "other"});
+InspectorBackend.registerEnum("Console.ConsoleMessageLevel", {Log: "log", Warning: "warning", Error: "error", Debug: "debug"});
+InspectorBackend.registerEnum("Console.ConsoleMessageType", {Log: "log", Dir: "dir", DirXML: "dirxml", Table: "table", Trace: "trace", Clear: "clear", StartGroup: "startGroup", StartGroupCollapsed: "startGroupCollapsed", EndGroup: "endGroup", Assert: "assert", Timing: "timing", Profile: "profile", ProfileEnd: "profileEnd"});
 InspectorBackend.registerEvent("Console.messageAdded", ["message"]);
 InspectorBackend.registerEvent("Console.messageRepeatCountUpdated", ["count"]);
 InspectorBackend.registerEvent("Console.messagesCleared", []);
@@ -95,6 +103,7 @@ InspectorBackend.registerCommand("Console.addInspectedHeapObject", [{"name": "he
 
 // Network.
 InspectorBackend.registerNetworkDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Network");
+InspectorBackend.registerEnum("Network.InitiatorType", {Parser: "parser", Script: "script", Other: "other"});
 InspectorBackend.registerEvent("Network.requestWillBeSent", ["requestId", "frameId", "loaderId", "documentURL", "request", "timestamp", "initiator", "redirectResponse"]);
 InspectorBackend.registerEvent("Network.requestServedFromCache", ["requestId"]);
 InspectorBackend.registerEvent("Network.responseReceived", ["requestId", "frameId", "loaderId", "timestamp", "type", "response"]);
@@ -131,11 +140,13 @@ InspectorBackend.registerCommand("Database.executeSQL", [{"name": "databaseId", 
 
 // IndexedDB.
 InspectorBackend.registerIndexedDBDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "IndexedDB");
+InspectorBackend.registerEnum("IndexedDB.KeyType", {Number: "number", String: "string", Date: "date", Array: "array"});
+InspectorBackend.registerEnum("IndexedDB.KeyPathType", {Null: "null", String: "string", Array: "array"});
 InspectorBackend.registerCommand("IndexedDB.enable", [], []);
 InspectorBackend.registerCommand("IndexedDB.disable", [], []);
-InspectorBackend.registerCommand("IndexedDB.requestDatabaseNamesForFrame", [{"name": "frameId", "type": "string", "optional": false}], ["securityOriginWithDatabaseNames"]);
-InspectorBackend.registerCommand("IndexedDB.requestDatabase", [{"name": "frameId", "type": "string", "optional": false}, {"name": "databaseName", "type": "string", "optional": false}], ["databaseWithObjectStores"]);
-InspectorBackend.registerCommand("IndexedDB.requestData", [{"name": "frameId", "type": "string", "optional": false}, {"name": "databaseName", "type": "string", "optional": false}, {"name": "objectStoreName", "type": "string", "optional": false}, {"name": "indexName", "type": "string", "optional": false}, {"name": "skipCount", "type": "number", "optional": false}, {"name": "pageSize", "type": "number", "optional": false}, {"name": "keyRange", "type": "object", "optional": true}], ["objectStoreDataEntries", "hasMore"]);
+InspectorBackend.registerCommand("IndexedDB.requestDatabaseNames", [{"name": "securityOrigin", "type": "string", "optional": false}], ["databaseNames"]);
+InspectorBackend.registerCommand("IndexedDB.requestDatabase", [{"name": "securityOrigin", "type": "string", "optional": false}, {"name": "databaseName", "type": "string", "optional": false}], ["databaseWithObjectStores"]);
+InspectorBackend.registerCommand("IndexedDB.requestData", [{"name": "securityOrigin", "type": "string", "optional": false}, {"name": "databaseName", "type": "string", "optional": false}, {"name": "objectStoreName", "type": "string", "optional": false}, {"name": "indexName", "type": "string", "optional": false}, {"name": "skipCount", "type": "number", "optional": false}, {"name": "pageSize", "type": "number", "optional": false}, {"name": "keyRange", "type": "object", "optional": true}], ["objectStoreDataEntries", "hasMore"]);
 
 // DOMStorage.
 InspectorBackend.registerDOMStorageDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "DOMStorage");
@@ -215,6 +226,10 @@ InspectorBackend.registerCommand("DOM.setFileInputFiles", [{"name": "nodeId", "t
 
 // CSS.
 InspectorBackend.registerCSSDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "CSS");
+InspectorBackend.registerEnum("CSS.StyleSheetOrigin", {User: "user", UserAgent: "user-agent", Inspector: "inspector", Regular: "regular"});
+InspectorBackend.registerEnum("CSS.CSSPropertyStatus", {Active: "active", Inactive: "inactive", Disabled: "disabled", Style: "style"});
+InspectorBackend.registerEnum("CSS.CSSMediaSource", {MediaRule: "mediaRule", ImportRule: "importRule", LinkedSheet: "linkedSheet", InlineSheet: "inlineSheet"});
+InspectorBackend.registerEnum("CSS.RegionRegionOverset", {Overset: "overset", Fit: "fit", Empty: "empty"});
 InspectorBackend.registerEvent("CSS.mediaQueryResultChanged", []);
 InspectorBackend.registerEvent("CSS.styleSheetChanged", ["styleSheetId"]);
 InspectorBackend.registerEvent("CSS.namedFlowCreated", ["namedFlow"]);
@@ -251,6 +266,7 @@ InspectorBackend.registerCommand("Timeline.canMonitorMainThread", [], ["result"]
 
 // Debugger.
 InspectorBackend.registerDebuggerDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Debugger");
+InspectorBackend.registerEnum("Debugger.ScopeType", {Global: "global", Local: "local", With: "with", Closure: "closure", Catch: "catch"});
 InspectorBackend.registerEvent("Debugger.globalObjectCleared", []);
 InspectorBackend.registerEvent("Debugger.scriptParsed", ["scriptId", "url", "startLine", "startColumn", "endLine", "endColumn", "isContentScript", "sourceMapURL", "hasSourceURL"]);
 InspectorBackend.registerEvent("Debugger.scriptFailedToParse", ["url", "scriptSource", "startLine", "errorLine", "errorMessage"]);
@@ -285,6 +301,7 @@ InspectorBackend.registerCommand("Debugger.setOverlayMessage", [{"name": "messag
 InspectorBackend.registerCommand("Debugger.setVariableValue", [{"name": "scopeNumber", "type": "number", "optional": false}, {"name": "variableName", "type": "string", "optional": false}, {"name": "newValue", "type": "object", "optional": false}, {"name": "callFrameId", "type": "string", "optional": true}, {"name": "functionObjectId", "type": "string", "optional": true}], []);
 
 // DOMDebugger.
+InspectorBackend.registerEnum("DOMDebugger.DOMBreakpointType", {SubtreeModified: "subtree-modified", AttributeModified: "attribute-modified", NodeRemoved: "node-removed"});
 InspectorBackend.registerCommand("DOMDebugger.setDOMBreakpoint", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "type", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("DOMDebugger.removeDOMBreakpoint", [{"name": "nodeId", "type": "number", "optional": false}, {"name": "type", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("DOMDebugger.setEventListenerBreakpoint", [{"name": "eventName", "type": "string", "optional": false}], []);
@@ -296,6 +313,7 @@ InspectorBackend.registerCommand("DOMDebugger.removeXHRBreakpoint", [{"name": "u
 
 // Profiler.
 InspectorBackend.registerProfilerDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Profiler");
+InspectorBackend.registerEnum("Profiler.ProfileHeaderTypeId", {CPU: "CPU", CSS: "CSS", HEAP: "HEAP"});
 InspectorBackend.registerEvent("Profiler.addProfileHeader", ["header"]);
 InspectorBackend.registerEvent("Profiler.addHeapSnapshotChunk", ["uid", "chunk"]);
 InspectorBackend.registerEvent("Profiler.finishHeapSnapshot", ["uid"]);
@@ -345,6 +363,7 @@ InspectorBackend.registerEvent("Worker.disconnectedFromWorker", []);
 InspectorBackend.registerCommand("Worker.enable", [], []);
 InspectorBackend.registerCommand("Worker.disable", [], []);
 InspectorBackend.registerCommand("Worker.sendMessageToWorker", [{"name": "workerId", "type": "number", "optional": false}, {"name": "message", "type": "object", "optional": false}], []);
+InspectorBackend.registerCommand("Worker.canInspectWorkers", [], ["result"]);
 InspectorBackend.registerCommand("Worker.connectToWorker", [{"name": "workerId", "type": "number", "optional": false}], []);
 InspectorBackend.registerCommand("Worker.disconnectFromWorker", [{"name": "workerId", "type": "number", "optional": false}], []);
 InspectorBackend.registerCommand("Worker.setAutoconnectToWorkers", [{"name": "value", "type": "boolean", "optional": false}], []);
@@ -375,7 +394,7 @@ InspectorBackend.registerLayerTreeDispatcher = InspectorBackend.registerDomainDi
 InspectorBackend.registerEvent("LayerTree.layerTreeDidChange", []);
 InspectorBackend.registerCommand("LayerTree.enable", [], []);
 InspectorBackend.registerCommand("LayerTree.disable", [], []);
-InspectorBackend.registerCommand("LayerTree.getLayerTree", [], ["layerTree"]);
-InspectorBackend.registerCommand("LayerTree.nodeIdForLayerId", [{"name": "layerId", "type": "string", "optional": false}], ["nodeId"]);
+InspectorBackend.registerCommand("LayerTree.layersForNode", [{"name": "nodeId", "type": "number", "optional": false}], ["layers"]);
+InspectorBackend.registerCommand("LayerTree.reasonsForCompositingLayer", [{"name": "layerId", "type": "string", "optional": false}], ["compositingReasons"]);
 
 

@@ -53,7 +53,18 @@ WebInspector.CPUProfileView = function(profile)
     this.dataGrid = new WebInspector.DataGrid(columns);
     this.dataGrid.addEventListener("sorting changed", this._sortProfile, this);
     this.dataGrid.element.addEventListener("mousedown", this._mouseDownInDataGrid.bind(this), true);
-    this.dataGrid.show(this.element);
+
+    if (WebInspector.experimentsSettings.cpuFlameChart.isEnabled()) {
+        this._splitView = new WebInspector.SplitView(false, "flameChartSplitLocation");
+        this._splitView.show(this.element);
+
+        this.dataGrid.show(this._splitView.firstElement());
+
+        this.flameChart = new WebInspector.FlameChart(this);
+        this.flameChart.addEventListener(WebInspector.FlameChart.Events.SelectedNode, this._revealProfilerNode.bind(this));
+        this.flameChart.show(this._splitView.secondElement());
+    } else
+        this.dataGrid.show(this.element);
 
     this.viewSelectComboBox = new WebInspector.StatusBarComboBox(this._changeView.bind(this));
 
@@ -88,6 +99,17 @@ WebInspector.CPUProfileView._TypeTree = "Tree";
 WebInspector.CPUProfileView._TypeHeavy = "Heavy";
 
 WebInspector.CPUProfileView.prototype = {
+    _revealProfilerNode: function(event)
+    {
+        var current = this.profileDataGridTree.children[0];
+
+        while (current && current.profileNode !== event.data)
+            current = current.traverseNextNode(false, null, false);
+
+        if (current)
+            current.revealAndSelect();
+    },
+
     /**
      * @param {?Protocol.Error} error
      * @param {ProfilerAgent.CPUProfile} profile
@@ -109,6 +131,8 @@ WebInspector.CPUProfileView.prototype = {
         this._assignParentsInProfile();
         this._changeView();
         this._updatePercentButton();
+        if (this.flameChart)
+            this.flameChart.update();
     },
 
     get statusBarItems()
@@ -571,10 +595,12 @@ WebInspector.CPUProfileView.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.ProfileType}
+ * @implements {ProfilerAgent.Dispatcher}
  */
 WebInspector.CPUProfileType = function()
 {
     WebInspector.ProfileType.call(this, WebInspector.CPUProfileType.TypeId, WebInspector.UIString("Collect JavaScript CPU Profile"));
+    InspectorBackend.registerProfilerDispatcher(this);
     this._recording = false;
     WebInspector.CPUProfileType.instance = this;
 }
@@ -612,6 +638,14 @@ WebInspector.CPUProfileType.prototype = {
         return WebInspector.UIString("CPU profiles show where the execution time is spent in your page's JavaScript functions.");
     },
 
+    /**
+     * @param {ProfilerAgent.ProfileHeader} profileHeader
+     */
+    addProfileHeader: function(profileHeader)
+    {
+        this.addProfile(this.createProfile(profileHeader));
+    },
+
     isRecordingProfile: function()
     {
         return this._recording;
@@ -630,6 +664,9 @@ WebInspector.CPUProfileType.prototype = {
         ProfilerAgent.stop();
     },
 
+    /**
+     * @param {boolean} isProfiling
+     */
     setRecordingProfile: function(isProfiling)
     {
         this._recording = isProfiling;
@@ -638,7 +675,7 @@ WebInspector.CPUProfileType.prototype = {
     /**
      * @override
      * @param {string=} title
-     * @return {WebInspector.ProfileHeader}
+     * @return {!WebInspector.ProfileHeader}
      */
     createTemporaryProfile: function(title)
     {
@@ -649,11 +686,57 @@ WebInspector.CPUProfileType.prototype = {
     /**
      * @override
      * @param {ProfilerAgent.ProfileHeader} profile
-     * @return {WebInspector.ProfileHeader}
+     * @return {!WebInspector.ProfileHeader}
      */
     createProfile: function(profile)
     {
         return new WebInspector.CPUProfileHeader(this, profile.title, profile.uid);
+    },
+
+    /**
+     * @override
+     * @param {!WebInspector.ProfileHeader} profile
+     */
+    removeProfile: function(profile)
+    {
+        WebInspector.ProfileType.prototype.removeProfile.call(this, profile);
+        if (!profile.isTemporary)
+            ProfilerAgent.removeProfile(this.id, profile.uid);
+    },
+
+    /**
+     * @override
+     * @param {function(this:WebInspector.ProfileType, ?string, Array.<ProfilerAgent.ProfileHeader>)} populateCallback
+     */
+    _requestProfilesFromBackend: function(populateCallback)
+    {
+        ProfilerAgent.getProfileHeaders(populateCallback);
+    },
+
+    /**
+     * @override
+     */
+    resetProfiles: function()
+    {
+        this._reset();
+    },
+
+    /** @deprecated To be removed from the protocol */
+    addHeapSnapshotChunk: function(uid, chunk)
+    {
+        throw new Error("Never called");
+    },
+
+    /** @deprecated To be removed from the protocol */
+    finishHeapSnapshot: function(uid)
+    {
+        throw new Error("Never called");
+    },
+
+    /** @deprecated To be removed from the protocol */
+    reportHeapSnapshotProgress: function(done, total)
+    {
+        throw new Error("Never called");
     },
 
     __proto__: WebInspector.ProfileType.prototype

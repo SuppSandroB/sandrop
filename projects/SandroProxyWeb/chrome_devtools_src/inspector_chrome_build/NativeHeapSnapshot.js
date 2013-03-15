@@ -69,6 +69,40 @@ WebInspector.NativeHeapSnapshot.prototype = {
         return null;
     },
 
+    images: function()
+    {
+        var aggregatesByClassName = this.aggregates(false, "allObjects");
+        var result = [];
+        var cachedImages = aggregatesByClassName["WebCore::CachedImage"];
+        function getImageName(node)
+        {
+            return node.name();
+        }
+        this._addNodes(cachedImages, getImageName, result);
+
+        var canvases = aggregatesByClassName["WebCore::HTMLCanvasElement"];
+        function getCanvasName(node)
+        {
+            return "HTMLCanvasElement";
+        }
+        this._addNodes(canvases, getCanvasName, result);
+        return result;
+    },
+
+    _addNodes: function(classData, nameResolver, result)
+    {
+        if (!classData)
+            return;
+        var node = this.rootNode();
+        for (var i = 0; i < classData.idxs.length; i++) {
+            node.nodeIndex = classData.idxs[i];
+            result.push({
+                name: nameResolver(node),
+                size: node.retainedSize(),
+            });
+        }
+    },
+
     __proto__: WebInspector.HeapSnapshot.prototype
 };
 
