@@ -33,6 +33,7 @@ importScript("cm/css.js");
 importScript("cm/javascript.js");
 importScript("cm/xml.js");
 importScript("cm/htmlmixed.js");
+importScript("cm/matchbrackets.js");
 
 /**
  * @constructor
@@ -47,13 +48,26 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
     this._delegate = delegate;
     this._url = url;
 
-    this.registerRequiredCSS("codemirror.css");
-    this.registerRequiredCSS("cmdevtools.css");
+    this.registerRequiredCSS("cm/codemirror.css");
+    this.registerRequiredCSS("cm/cmdevtools.css");
 
     this._codeMirror = window.CodeMirror(this.element, {
         lineNumbers: true,
-        gutters: ["CodeMirror-linenumbers", "breakpoints"]
+        gutters: ["CodeMirror-linenumbers", "breakpoints"],
+        matchBrackets: true
     });
+
+    var indent = WebInspector.settings.textEditorIndent.get();
+    if (indent === WebInspector.TextUtils.Indent.TabCharacter) {
+        this._codeMirror.setOption("indentWithTabs", true);
+        this._codeMirror.setOption("indentUnit", 4);
+    } else {
+        this._codeMirror.setOption("indentWithTabs", false);
+        this._codeMirror.setOption("indentUnit", indent.length);
+    }
+
+    this._tokenHighlighter = new WebInspector.CodeMirrorTextEditor.TokenHighlighter(this._codeMirror);
+    this._blockIndentController = new WebInspector.CodeMirrorTextEditor.BlockIndentController(this._codeMirror);
 
     this._codeMirror.on("change", this._change.bind(this));
     this._codeMirror.on("gutterClick", this._gutterClick.bind(this));
@@ -64,6 +78,7 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
     this.element.firstChild.addStyleClass("source-code");
     this.element.firstChild.addStyleClass("fill");
     this._elementToWidget = new Map();
+    this._nestedUpdatesCounter = 0;
 }
 
 WebInspector.CodeMirrorTextEditor.prototype = {
@@ -109,9 +124,16 @@ WebInspector.CodeMirrorTextEditor.prototype = {
         this._codeMirror.focus();
     },
 
-    beginUpdates: function() { },
+    beginUpdates: function()
+    {
+        ++this._nestedUpdatesCounter;
+    },
 
-    endUpdates: function() { },
+    endUpdates: function()
+    {
+        if (!--this._nestedUpdatesCounter);
+            this._codeMirror.refresh();
+    },
 
     /**
      * @param {number} lineNumber
@@ -407,4 +429,92 @@ WebInspector.CodeMirrorTextEditor.prototype = {
     },
 
     __proto__: WebInspector.View.prototype
+}
+
+WebInspector.CodeMirrorTextEditor.TokenHighlighter = function(codeMirror)
+{
+    this._codeMirror = codeMirror;
+    this._codeMirror.on("cursorActivity", this._cursorChange.bind(this));
+}
+
+WebInspector.CodeMirrorTextEditor.TokenHighlighter.prototype = {
+    _cursorChange: function()
+    {
+        this._codeMirror.operation(this._removeHighlight.bind(this));
+        var selectionStart = this._codeMirror.getCursor("start");
+        var selectionEnd = this._codeMirror.getCursor("end");
+        if (selectionStart.line !== selectionEnd.line)
+            return;
+        if (selectionStart.ch === selectionEnd.ch)
+            return;
+
+        var selectedText = this._codeMirror.getSelection();
+        if (this._isWord(selectedText, selectionStart.line, selectionStart.ch, selectionEnd.ch))
+            this._codeMirror.operation(this._addHighlight.bind(this, selectedText, selectionStart));
+    },
+
+    _isWord: function(selectedText, lineNumber, startColumn, endColumn)
+    {
+        var line = this._codeMirror.getLine(lineNumber);
+        var leftBound = startColumn === 0 || !WebInspector.TextUtils.isWordChar(line.charAt(startColumn - 1));
+        var rightBound = endColumn === line.length || !WebInspector.TextUtils.isWordChar(line.charAt(endColumn));
+        return leftBound && rightBound && WebInspector.TextUtils.isWord(selectedText);
+    },
+
+    _removeHighlight: function()
+    {
+        if (this._highlightDescriptor) {
+            this._codeMirror.removeOverlay(this._highlightDescriptor.overlay);
+            this._codeMirror.removeLineClass(this._highlightDescriptor.selectionStart.line, "wrap", "cm-line-with-selection");
+            delete this._highlightDescriptor;
+        }
+    },
+
+    _addHighlight: function(token, selectionStart)
+    {
+        const tokenFirstChar = token.charAt(0);
+        function nextToken(stream)
+        {
+            if (stream.match(token) && (stream.eol() || !WebInspector.TextUtils.isWordChar(stream.peek())))
+                return stream.column() === selectionStart.ch ? "token-highlight column-with-selection" : "token-highlight";
+
+            var eatenChar;
+            do {
+                eatenChar = stream.next();
+            } while (eatenChar && (WebInspector.TextUtils.isWordChar(eatenChar) || stream.peek() !== tokenFirstChar));
+        }
+
+        var overlayMode = {
+            token: nextToken
+        };
+        this._codeMirror.addOverlay(overlayMode);
+        this._codeMirror.addLineClass(selectionStart.line, "wrap", "cm-line-with-selection")
+        this._highlightDescriptor = {
+            overlay: overlayMode,
+            selectionStart: selectionStart
+        };
+    }
+}
+
+WebInspector.CodeMirrorTextEditor.BlockIndentController = function(codeMirror)
+{
+    codeMirror.addKeyMap(this);
+}
+
+WebInspector.CodeMirrorTextEditor.BlockIndentController.prototype = {
+    name: "blockIndentKeymap",
+
+    Enter: function(codeMirror)
+    {
+        if (codeMirror.somethingSelected())
+            return CodeMirror.Pass;
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+        if (line.substr(cursor.ch - 1, 2) === "{}") {
+            codeMirror.execCommand("newlineAndIndent");
+            codeMirror.setCursor(cursor);
+            codeMirror.execCommand("newlineAndIndent");
+        } else
+            return CodeMirror.Pass;
+    }
 }

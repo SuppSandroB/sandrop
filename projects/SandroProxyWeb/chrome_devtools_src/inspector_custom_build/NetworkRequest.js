@@ -72,6 +72,7 @@ WebInspector.NetworkRequest.InitiatorType = {
     Script: "script",
     Other: "other",
 }
+
 WebInspector.NetworkRequest.prototype = {
     /**
      * @return {NetworkAgent.RequestId}

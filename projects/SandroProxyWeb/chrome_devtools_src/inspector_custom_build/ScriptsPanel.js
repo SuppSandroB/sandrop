@@ -115,7 +115,7 @@ WebInspector.ScriptsPanel = function(workspaceForTest)
     this.sidebarPanes.xhrBreakpoints = new WebInspector.XHRBreakpointsSidebarPane();
     this.sidebarPanes.eventListenerBreakpoints = new WebInspector.EventListenerBreakpointsSidebarPane();
 
-    if (InspectorFrontendHost.canInspectWorkers() && !WebInspector.WorkerManager.isWorkerFrontend()) {
+    if (Capabilities.canInspectWorkers && !WebInspector.WorkerManager.isWorkerFrontend()) {
         WorkerAgent.enable();
         this.sidebarPanes.workerList = new WebInspector.WorkersSidebarPane(WebInspector.workerManager);
     }
@@ -200,7 +200,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     defaultFocusedElement: function()
     {
-        return this._navigator.view.defaultFocusedElement();
+        return this._editorContainer.view.defaultFocusedElement() || this._navigator.view.defaultFocusedElement();
     },
 
     get paused()
@@ -433,7 +433,7 @@ WebInspector.ScriptsPanel.prototype = {
             return sourceFrame;
         this._currentUISourceCode = uiSourceCode;
         if (!uiSourceCode.project().isServiceProject())
-            this._navigator.revealUISourceCode(uiSourceCode);
+            this._navigator.revealUISourceCode(uiSourceCode, true);
         this._editorContainer.showFile(uiSourceCode);
         this._updateScriptViewStatusBarItems();
 
@@ -493,7 +493,7 @@ WebInspector.ScriptsPanel.prototype = {
         if (!sourceFrame)
             return;
         this._sourceFramesByUISourceCode.remove(uiSourceCode);
-        sourceFrame.detach();
+        sourceFrame.dispose();
     },
 
     _clearCurrentExecutionLine: function()
@@ -674,7 +674,11 @@ WebInspector.ScriptsPanel.prototype = {
         WebInspector.settings.pauseOnExceptionStateString.set(nextStateMap[this._pauseOnExceptionButton.state]);
     },
 
-    _togglePause: function()
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _togglePause: function(event)
     {
         if (this._paused) {
             this._paused = false;
@@ -687,12 +691,17 @@ WebInspector.ScriptsPanel.prototype = {
         }
 
         this._clearInterface();
+        return true;
     },
 
-    _stepOverClicked: function()
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _stepOverClicked: function(event)
     {
         if (!this._paused)
-            return;
+            return true;
 
         this._paused = false;
         this._stepping = true;
@@ -700,12 +709,17 @@ WebInspector.ScriptsPanel.prototype = {
         this._clearInterface();
 
         DebuggerAgent.stepOver();
+        return true;
     },
 
-    _stepIntoClicked: function()
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _stepIntoClicked: function(event)
     {
         if (!this._paused)
-            return;
+            return true;
 
         this._paused = false;
         this._stepping = true;
@@ -713,12 +727,17 @@ WebInspector.ScriptsPanel.prototype = {
         this._clearInterface();
 
         DebuggerAgent.stepInto();
+        return true;
     },
 
-    _stepOutClicked: function()
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _stepOutClicked: function(event)
     {
         if (!this._paused)
-            return;
+            return true;
 
         this._paused = false;
         this._stepping = true;
@@ -726,6 +745,7 @@ WebInspector.ScriptsPanel.prototype = {
         this._clearInterface();
 
         DebuggerAgent.stepOut();
+        return true;
     },
 
     _toggleBreakpointsClicked: function(event)
@@ -748,11 +768,17 @@ WebInspector.ScriptsPanel.prototype = {
         }
     },
 
-    _evaluateSelectionInConsole: function()
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _evaluateSelectionInConsole: function(event)
     {
         var selection = window.getSelection();
-        if (selection.type === "Range" && !selection.isCollapsed)
-            WebInspector.evaluateInConsole(selection.toString());
+        if (selection.type !== "Range" || selection.isCollapsed)
+            return false;
+        WebInspector.evaluateInConsole(selection.toString());
+        return true;
     },
 
     _createDebugToolbar: function()
@@ -812,7 +838,7 @@ WebInspector.ScriptsPanel.prototype = {
     /**
      * @param {string} buttonId
      * @param {string} buttonTitle
-     * @param {function(Event)} handler
+     * @param {function(Event=):boolean} handler
      * @param {!Array.<!WebInspector.KeyboardShortcut.Descriptor>} shortcuts
      */
     _createButtonAndRegisterShortcuts: function(buttonId, buttonTitle, handler, shortcuts)
@@ -890,7 +916,7 @@ WebInspector.ScriptsPanel.prototype = {
     jumpToPreviousSearchResult: function()
     {
         if (!this._searchView)
-            return false;
+            return;
 
         if (this._searchView !== this.visibleView) {
             this.performSearch(this._searchQuery);
@@ -953,33 +979,43 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.watchExpressions.addExpression(expression);
     },
 
+    /**
+     * @return {boolean}
+     */
     _toggleBreakpoint: function()
     {
         var sourceFrame = this.visibleView;
         if (!sourceFrame)
-            return;
+            return false;
 
         if (sourceFrame instanceof WebInspector.JavaScriptSourceFrame) {
             var javaScriptSourceFrame = /** @type {WebInspector.JavaScriptSourceFrame} */ (sourceFrame);
             javaScriptSourceFrame.toggleBreakpointOnCurrentLine();
-        }            
+            return true;
+        }
+        return false;
     },
 
-    _showOutlineDialog: function()
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _showOutlineDialog: function(event)
     {
         var uiSourceCode = this._editorContainer.currentFile();
         if (!uiSourceCode)
-            return;
+            return false;
 
         switch (uiSourceCode.contentType()) {
         case WebInspector.resourceTypes.Document:
         case WebInspector.resourceTypes.Script:
             WebInspector.JavaScriptOutlineDialog.show(this.visibleView, uiSourceCode);
-            break;
+            return true;
         case WebInspector.resourceTypes.Stylesheet:
             WebInspector.StyleSheetOutlineDialog.show(this.visibleView, uiSourceCode);
-            break;
+            return true;
         }
+        return false;
     },
 
     _installDebuggerSidebarController: function()
@@ -1028,9 +1064,10 @@ WebInspector.ScriptsPanel.prototype = {
     {
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data.uiSourceCode);
         var name = /** @type {string} */ (event.data.name);
-        if (!uiSourceCode.project().type() === WebInspector.projectTypes.Snippets)
+        if (uiSourceCode.project().type() !== WebInspector.projectTypes.Snippets)
             return;
         WebInspector.scriptSnippetModel.renameScriptSnippet(uiSourceCode, name);
+        uiSourceCode.rename(name);
     },
         
     /**
@@ -1106,6 +1143,77 @@ WebInspector.ScriptsPanel.prototype = {
     },
 
     /** 
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _mapFileSystemToNetwork: function(uiSourceCode)
+    {
+        WebInspector.SelectUISourceCodeForProjectTypeDialog.show(uiSourceCode.name(), WebInspector.projectTypes.Network, mapFileSystemToNetwork.bind(this), this.editorView.mainElement)                
+
+        /** 
+         * @param {WebInspector.UISourceCode} networkUISourceCode
+         */
+        function mapFileSystemToNetwork(networkUISourceCode)
+        {
+            this._workspace.addMapping(networkUISourceCode, uiSourceCode, WebInspector.fileSystemWorkspaceProvider);
+        }
+    },
+
+    /** 
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _removeNetworkMapping: function(uiSourceCode)
+    {
+        if (confirm(WebInspector.UIString("Are you sure you want to remove network mapping?")))
+            this._workspace.removeMapping(uiSourceCode);
+    },
+
+    /** 
+     * @param {WebInspector.UISourceCode} networkUISourceCode
+     */
+    _mapNetworkToFileSystem: function(networkUISourceCode)
+    {
+        WebInspector.SelectUISourceCodeForProjectTypeDialog.show(networkUISourceCode.name(), WebInspector.projectTypes.FileSystem, mapNetworkToFileSystem.bind(this), this.editorView.mainElement)                
+
+        /** 
+         * @param {WebInspector.UISourceCode} uiSourceCode
+         */
+        function mapNetworkToFileSystem(uiSourceCode)
+        {
+            this._workspace.addMapping(networkUISourceCode, uiSourceCode, WebInspector.fileSystemWorkspaceProvider);
+        }
+    },
+
+    /** 
+     * @param {WebInspector.ContextMenu} contextMenu
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _appendUISourceCodeMappingItems: function(contextMenu, uiSourceCode)
+    {
+        if (uiSourceCode.project().type() === WebInspector.projectTypes.FileSystem) {
+            var hasMappings = !!uiSourceCode.url;
+            if (!hasMappings)
+                contextMenu.appendItem(WebInspector.UIString("Map to network resource..."), this._mapFileSystemToNetwork.bind(this, uiSourceCode));
+            else
+                contextMenu.appendItem(WebInspector.UIString("Remove network mapping"), this._removeNetworkMapping.bind(this, uiSourceCode));
+        }
+
+        if (uiSourceCode.project().type() === WebInspector.projectTypes.Network) {
+            /** 
+             * @param {WebInspector.Project} project
+             */
+            function filterProject(project)
+            {
+                return project.type() === WebInspector.projectTypes.FileSystem;
+            }
+
+            if (!this._workspace.projects().filter(filterProject).length)
+                return;
+            if (this._workspace.uiSourceCodeForURL(uiSourceCode.url) === uiSourceCode)
+                contextMenu.appendItem(WebInspector.UIString("Map to file system resource..."), this._mapNetworkToFileSystem.bind(this, uiSourceCode));
+        }
+    },
+
+    /** 
      * @param {WebInspector.ContextMenu} contextMenu
      * @param {Object} target
      */
@@ -1116,6 +1224,10 @@ WebInspector.ScriptsPanel.prototype = {
 
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (target);
         contextMenu.appendItem(WebInspector.UIString("Local modifications..."), this._showLocalHistory.bind(this, uiSourceCode));
+
+        if (WebInspector.isolatedFileSystemManager.supportsFileSystems() && WebInspector.experimentsSettings.fileSystemProject.isEnabled())
+            this._appendUISourceCodeMappingItems(contextMenu, uiSourceCode);
+
         var resource = WebInspector.resourceForURL(uiSourceCode.url);
         if (resource && resource.request)
             contextMenu.appendApplicableItems(resource.request);
@@ -1201,6 +1313,7 @@ WebInspector.ScriptsPanel.prototype = {
             group2.addPane(this.sidebarPanes.domBreakpoints);
             group2.addPane(this.sidebarPanes.xhrBreakpoints);
             group2.addPane(this.sidebarPanes.eventListenerBreakpoints);
+            group2.addPane(this.sidebarPanes.workerList);
 
             this.sidebarPaneView.firstElement().appendChild(this.debugToolbar);
         }
