@@ -164,13 +164,18 @@ public class ConnectionHandler implements Runnable {
                     
                     boolean isSSLPort = false;
                     boolean checkForSSL = true;
-                    // 433 port should be ssl, 80 without
-                    if (_base.getPort() == 443){
+                    if (!_transparentSecure){
+                        // 433 port should be ssl, 80 without
+                        if (_base.getPort() == 443){
+                            isSSLPort = true;
+                            checkForSSL = false;
+                        }else if (_base.getPort() == 80){
+                            isSSLPort = false;
+                            checkForSSL = false;
+                        }
+                    }else{
+                        checkForSSL = false;
                         isSSLPort = true;
-                        checkForSSL = false;
-                    }else if (_base.getPort() == 80){
-                        isSSLPort = false;
-                        checkForSSL = false;
                     }
                     
                     // 2. trying to connect to server to see if ssl works 
