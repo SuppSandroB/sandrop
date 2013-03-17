@@ -35,6 +35,7 @@ package org.sandrop.webscarab.plugin.proxy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PushbackInputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.logging.Level;
@@ -210,7 +211,17 @@ public class ConnectionHandler implements Runnable {
                             int oldPort = _base.getPort();
                             _base = new HttpUrl("http://" + oldHost + ":"+ oldPort);
                         }else{
+                            
                             _clientIn = _sock.getInputStream();
+                            PushbackInputStream pis = new PushbackInputStream(_clientIn);
+                            int i = pis.read();
+                            if (i != -1){
+                                pis.unread(i);
+                            }else{
+                                _logger.finest("!!Error Client could be using SSL pinning so mitm will not work");
+                                return;
+                            }
+                            _clientIn = pis;
                             _clientOut = _sock.getOutputStream();
                         }
                     }else{
