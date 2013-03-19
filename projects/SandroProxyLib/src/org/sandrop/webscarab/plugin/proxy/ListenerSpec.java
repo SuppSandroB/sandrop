@@ -46,10 +46,11 @@ public class ListenerSpec implements Comparable {
     private boolean _primaryProxy = false;
     private boolean _transparentProxy = false;
     private boolean _transparentProxySecure = false;
+    private boolean _captureData = true;
 
     private InetSocketAddress _sockAddr = null;
     
-    public ListenerSpec(String address, int port, HttpUrl base, boolean primaryProxy, boolean transparentProxy, boolean transparentProxySecure) {
+    public ListenerSpec(String address, int port, HttpUrl base, boolean primaryProxy, boolean transparentProxy, boolean transparentProxySecure, boolean captureData) {
         if (address == null) {
             address = "*";
         }
@@ -62,6 +63,7 @@ public class ListenerSpec implements Comparable {
         _primaryProxy = primaryProxy;
         _transparentProxy = transparentProxy;
         _transparentProxySecure = transparentProxySecure;
+        _captureData = captureData;
     }
     
     public String getAddress() {
@@ -86,6 +88,10 @@ public class ListenerSpec implements Comparable {
     
     public boolean isTransparentProxySecure() {
         return _transparentProxySecure;
+    }
+    
+    public boolean mustCaptureData(){
+        return _captureData;
     }
     
     public String getKey() {

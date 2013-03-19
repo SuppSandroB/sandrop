@@ -82,7 +82,7 @@ public class Listener implements Runnable {
         while (! _stop) {
             try {
             	sock = _serversocket.accept();
-                ch = new ConnectionHandler(_proxy, sock, _spec.getBase(), _spec.isTransparentProxy(), _spec.isTransparentProxySecure(), _proxy.getTransparentProxyResolver());
+                ch = new ConnectionHandler(_proxy, sock, _spec.getBase(), _spec.isTransparentProxy(), _spec.isTransparentProxySecure(), _spec.mustCaptureData(), _proxy.getTransparentProxyResolver());
                 thread = new Thread(ch, Thread.currentThread().getName()+"-"+Integer.toString(_count++));
                 thread.setDaemon(true);
                 thread.start();

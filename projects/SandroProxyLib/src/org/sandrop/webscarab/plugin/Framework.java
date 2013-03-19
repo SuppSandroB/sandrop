@@ -155,7 +155,7 @@ public class Framework {
         }
     }
     
-    public Context GetAndroidContext(){
+    public Context getAndroidContext(){
         return mContext;
     }
     
@@ -173,10 +173,10 @@ public class Framework {
     
     public List<String> getListeners(){
         List<String> listeners = new ArrayList<String>();
-        String strPort = Preferences.getPreference("preference_proxy_port", "8008");
+        String strPort = Preferences.getPreference(PreferenceUtils.proxyPort, "8008");
         listeners.add("127.0.0.1:" + strPort);
         try{
-            boolean listenNonLocal = Preferences.getPreferenceBoolean("preference_proxy_listen_non_local", false);
+            boolean listenNonLocal = Preferences.getPreferenceBoolean(PreferenceUtils.proxyListenNonLocal, false);
             if (listenNonLocal){
                 List<String> nonLocalAdresses = NetworkUtils.getLocalIpAddress();
                 for (Iterator<String> iterator = nonLocalAdresses.iterator(); iterator

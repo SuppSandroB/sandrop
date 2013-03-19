@@ -50,6 +50,7 @@ public class PreferenceUtils {
     public static String proxyCustomPluginKey = "preference_proxy_custom_plugins";
     public static String proxyPort = "preference_proxy_port";
     public static String proxyListenNonLocal = "preference_proxy_listen_non_local";
+    public static String proxyCaptureData = "preference_proxy_capture_data";
     public static String caFileNamePath = "preference_ca_cert_file_path";
     public static String caFilePassword = "preference_ca_cert_password";
     public static String dataCaptureWhiteListRegEx = "preference_data_capture_whitelist";
