@@ -34,6 +34,7 @@ package org.sandrop.webscarab.httpclient;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.Socket;
 
 import java.security.KeyManagementException;
 import java.security.KeyStore;
@@ -48,6 +49,7 @@ import java.util.logging.Logger;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandroproxy.utils.PreferenceUtils;
@@ -210,6 +212,17 @@ public class HTTPClientFactory {
         uf.setTimeouts(_connectTimeout, _readTimeout);
         uf.setAuthenticator(_authenticator);
         return uf;
+    }
+    
+    public Socket getConnectedSocket(HttpUrl url) throws IOException{
+        URLFetcher uf = new URLFetcher();
+        uf.setHttpProxy(_httpProxy, _httpProxyPort);
+        uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
+        uf.setNoProxy(_noProxy);
+        uf.setSSLContextManager(_sslContextManager);
+        uf.setTimeouts(_connectTimeout, _readTimeout);
+        uf.setAuthenticator(_authenticator);
+        return uf.getConnectedSocket(url);
     }
     
     public HTTPClient getHTTPClient(int connectTimeout, int readTimeout) {

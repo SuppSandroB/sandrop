@@ -216,7 +216,7 @@ public class URLFetcher implements HTTPClient {
             request.deleteHeader("Proxy-Authorization");
 
             _response = null;
-            connect(url, request.getMethod());
+            connect(url, true);
             if (_response != null) { // there was an error opening the socket
                 return _response;
             }
@@ -342,11 +342,17 @@ public class URLFetcher implements HTTPClient {
 
         return _response;
     }
+    
+    public Socket getConnectedSocket(HttpUrl url) throws IOException{
+        _socket = null;
+        connect(url, false);
+        return _socket;
+    }
 
-    private void connect(HttpUrl url, String method) throws IOException {
+    private void connect(HttpUrl url, boolean makeSslHandshake) throws IOException {
         if (! invalidSocket(url)) return;
         _logger.fine("Opening a new connection");
-        _socket = new Socket();
+        _socket = new Socket(java.net.Proxy.NO_PROXY);
         _socket.setSoTimeout(_timeout);
         _direct = true;
 
@@ -448,7 +454,7 @@ public class URLFetcher implements HTTPClient {
             _socket.connect(new InetSocketAddress(_host, _port), _connectTimeout);
         }
 
-        if (ssl) {
+        if (ssl && makeSslHandshake) {
             // if no fingerprint is specified, get the default one
             if (_keyFingerprint == null)
                 _keyFingerprint = _sslContextManager.getDefaultKey();

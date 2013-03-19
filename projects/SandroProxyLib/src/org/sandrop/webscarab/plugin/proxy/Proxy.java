@@ -137,7 +137,7 @@ public class Proxy implements Plugin {
         parseListenerConfig();
         _certGenerator = null;
         try {
-            File dataStorageDir = PreferenceUtils.getDataStorageDir(_framework.GetAndroidContext());
+            File dataStorageDir = PreferenceUtils.getDataStorageDir(_framework.getAndroidContext());
             
             if (dataStorageDir == null){
                 String errorText = "ERROR \nNo external storage available...";
@@ -146,9 +146,9 @@ public class Proxy implements Plugin {
                 return;
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
-            String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.GetAndroidContext());
-            String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.GetAndroidContext());
-            String caPassword = PreferenceUtils.getCAFilePassword(_framework.GetAndroidContext());
+            String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.getAndroidContext());
+            String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.getAndroidContext());
+            String caPassword = PreferenceUtils.getCAFilePassword(_framework.getAndroidContext());
             String keyStoreType = "PKCS12";
             if (keystoreCAFullPath != null && keystoreCAFullPath.length() > 0 && 
                 keystoreCertFullPath != null && keystoreCertFullPath.length() > 0){
@@ -164,7 +164,7 @@ public class Proxy implements Plugin {
                 _logger.fine("Error getting custom CA certificate: Invalid file path");
             }
             
-            _webSocketManager = new ExtensionWebSocket(SqlLiteStore.getInstance(_framework.GetAndroidContext(), dataStorageDir.getAbsolutePath()));
+            _webSocketManager = new ExtensionWebSocket(SqlLiteStore.getInstance(_framework.getAndroidContext(), dataStorageDir.getAbsolutePath()));
         } catch (NoClassDefFoundError e) {
             _certGenerator = null;
         } catch (Exception e) {
@@ -482,7 +482,7 @@ public class Proxy implements Plugin {
             }
             // Fall back to the distribution-provided keypair
             _logger.info("Loading default SSL keystore from internal resource");
-            InputStream is = _framework.GetAndroidContext().getResources()
+            InputStream is = _framework.getAndroidContext().getResources()
                                             .openRawResource(R.raw.server_p12);
             // sandrob fix this
             //InputStream is = getClass().getClassLoader().getResourceAsStream(
@@ -695,10 +695,11 @@ public class Proxy implements Plugin {
             */
             base = null;
             if (!addr.equalsIgnoreCase("") && port != 0){
-                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false), null);
+                boolean captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, true);
+                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, captureData), null);
                 if (Preferences.getPreferenceBoolean("preference_proxy_transparent", false)){
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false), null);
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, captureData), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, captureData), null);
                 }
             }else{
                 _logger.fine("Warrning Skipping " + listeners[i]);

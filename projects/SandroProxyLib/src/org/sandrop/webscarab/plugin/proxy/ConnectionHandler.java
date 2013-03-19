@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PushbackInputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.logging.Level;
@@ -59,6 +60,7 @@ public class ConnectionHandler implements Runnable {
     private HttpUrl _base;
     private boolean _transparent = false;
     private boolean _transparentSecure = false;
+    private boolean _captureData = true;
     private ITransparentProxyResolver _transparentResolver = null;
 
     private HTTPClient _httpClient = null;
@@ -68,7 +70,7 @@ public class ConnectionHandler implements Runnable {
     private InputStream _clientIn = null;
     private OutputStream _clientOut = null;
 
-    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, ITransparentProxyResolver transparentProxyResolver) {
+    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, boolean captureData, ITransparentProxyResolver transparentProxyResolver) {
         _logger.setLevel(Level.FINEST);
         _proxy = proxy;
         _sock = sock;
@@ -77,6 +79,7 @@ public class ConnectionHandler implements Runnable {
         _transparentSecure = transparentSecure;
         _transparentResolver = transparentProxyResolver;
         _plugins = _proxy.getPlugins();
+        _captureData = captureData;
         try {
             _sock.setTcpNoDelay(true);
             _sock.setSoTimeout(30 * 1000);
@@ -149,6 +152,19 @@ public class ConnectionHandler implements Runnable {
             // proxy with an https:// base URL, negotiate SSL
             if (_base != null || _transparentSecure) {
                 if (_transparentSecure || _base.getScheme().equals("https")) {
+                    
+                    if (!_captureData){
+                        if (_transparentSecure){
+                            _logger.fine("!! Error Can not act as forwarder on transparent ssl, not knowing where to connect.");
+                            _sock.close();
+                            return;
+                        }
+                        String forwarderName = _base.getHost() + ":" + _base.getPort();
+                        _logger.fine("Acting as forwarder on " + forwarderName);
+                        Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
+                        SocketForwarder.connect(forwarderName, _sock, target);
+                        return;
+                    }
                     _logger.fine("Intercepting SSL connection!");
                     String hostName = null;
                     if (_transparentSecure){
@@ -230,6 +246,23 @@ public class ConnectionHandler implements Runnable {
                         _base = new HttpUrl("http://" + oldHost + ":"+ oldPort);
                     }
                 }
+            }
+            
+            if (!_captureData){
+                if (request == null){
+                    return;
+                }
+                _base = request.getURL();
+                if (_base == null){
+                    return;
+                }
+                String forwarderName = _base.getHost() + ":" + _base.getPort();
+                _logger.fine("Acting as forwarder on " + forwarderName);
+                Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
+                OutputStream os = target.getOutputStream();
+                request.write(os);
+                SocketForwarder.connect(forwarderName, _sock, target);
+                return;
             }
 
             if (_httpClient == null)
