@@ -46,14 +46,14 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License. 
  */
-package org.sandroproxy.websockets;
+package org.sandrop.websockets;
 
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
-import org.sandroproxy.websockets.utility.InvalidUtf8Exception;
-import org.sandroproxy.websockets.utility.Utf8Util;
+import org.sandrop.websockets.utility.InvalidUtf8Exception;
+import org.sandrop.websockets.utility.Utf8Util;
 
 
 /**

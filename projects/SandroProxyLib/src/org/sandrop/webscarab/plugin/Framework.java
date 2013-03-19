@@ -49,10 +49,10 @@ import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.fragments.Fragments;
+import org.sandrop.websockets.ExtensionWebSocket;
 import org.sandroproxy.utils.NetworkUtils;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
-import org.sandroproxy.websockets.ExtensionWebSocket;
 
 import EDU.oswego.cs.dl.util.concurrent.QueuedExecutor;
 import EDU.oswego.cs.dl.util.concurrent.ThreadFactory;

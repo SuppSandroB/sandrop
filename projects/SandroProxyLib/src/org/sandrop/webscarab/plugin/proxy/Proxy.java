@@ -63,10 +63,10 @@ import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.Framework;
 import org.sandrop.webscarab.plugin.Hook;
 import org.sandrop.webscarab.plugin.Plugin;
+import org.sandrop.websockets.ExtensionWebSocket;
 import org.sandroproxy.constants.Constants;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
-import org.sandroproxy.websockets.ExtensionWebSocket;
 
 import android.database.sqlite.SQLiteStatement;
 

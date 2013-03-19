@@ -46,7 +46,7 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License. 
  */
-package org.sandroproxy.websockets;
+package org.sandrop.websockets;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -62,8 +62,8 @@ import java.util.Random;
 
 import java.util.logging.Logger;
 
-import org.sandroproxy.websockets.utility.InvalidUtf8Exception;
-import org.sandroproxy.websockets.utility.Utf8Util;
+import org.sandrop.websockets.utility.InvalidUtf8Exception;
+import org.sandrop.websockets.utility.Utf8Util;
 
 /**
  * This proxy implements the WebSocket protocol version 13 as specified in <a

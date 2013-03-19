@@ -1,6 +1,6 @@
 // CHECKSTYLE_OFF
 // Copied verbatim (other than these lines) from jetty-util trunk @r1179.
-package org.sandroproxy.websockets.utility;
+package org.sandrop.websockets.utility;
 
 
 /* ------------------------------------------------------------ */

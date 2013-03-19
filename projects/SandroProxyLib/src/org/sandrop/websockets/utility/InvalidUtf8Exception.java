@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License. 
  */
-package org.sandroproxy.websockets.utility;
+package org.sandrop.websockets.utility;
 
 public class InvalidUtf8Exception extends Exception {
 	private static final long serialVersionUID = -9098080058643816518L;
