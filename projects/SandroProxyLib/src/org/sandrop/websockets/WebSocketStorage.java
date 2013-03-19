@@ -46,13 +46,13 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License. 
  */
-package org.sandroproxy.websockets;
+package org.sandrop.websockets;
 
 import java.sql.SQLException;
 import java.util.logging.Logger;
 
+import org.sandrop.websockets.WebSocketProxy.State;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
-import org.sandroproxy.websockets.WebSocketProxy.State;
 
 /**
  * Listens to all WebSocket messages and utilizes {@link TableWebSocket} to

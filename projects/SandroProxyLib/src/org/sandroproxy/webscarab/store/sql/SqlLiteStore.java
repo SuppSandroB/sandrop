@@ -23,9 +23,9 @@ import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.fragments.FragmentsStore;
 import org.sandrop.webscarab.plugin.spider.Link;
 import org.sandrop.webscarab.plugin.spider.SpiderStore;
-import org.sandroproxy.websockets.WebSocketChannelDTO;
-import org.sandroproxy.websockets.WebSocketMessage;
-import org.sandroproxy.websockets.WebSocketMessageDTO;
+import org.sandrop.websockets.WebSocketChannelDTO;
+import org.sandrop.websockets.WebSocketMessage;
+import org.sandrop.websockets.WebSocketMessageDTO;
 
 import android.content.ContentValues;
 import android.content.Context;
