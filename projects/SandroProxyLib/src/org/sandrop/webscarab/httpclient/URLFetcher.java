@@ -94,6 +94,8 @@ public class URLFetcher implements HTTPClient {
     private Authenticator _authenticator = null;
     private String _authCreds = null;
     private String _proxyAuthCreds = null;
+    
+    private static boolean LOGD = false;
 
     /** Creates a new instance of URLFetcher
      */
@@ -610,15 +612,15 @@ public class URLFetcher implements HTTPClient {
         }
         if (challenges != null) {
             for (int i=0; i<challenges.length; i++) {
-                _logger.fine("Challenge: " + challenges[i]);
+                if (LOGD) _logger.fine("Challenge: " + challenges[i]);
                 if (challenges[i].startsWith("NTLM") && credentials.startsWith("NTLM")) {
                     return attemptNegotiation(challenges[i], credentials);
                 }
                 if (challenges[i].startsWith("Negotiate") && credentials.startsWith("Negotiate")) {
-                    _logger.fine("Attempting 'Negotiate' Authentication");
+                    if (LOGD) _logger.fine("Attempting 'Negotiate' Authentication");
                     return attemptNegotiation(challenges[i], credentials);
                 }
-                _logger.info("Can't do auth for " + challenges[i]);
+                if (LOGD) _logger.info("Can't do auth for " + challenges[i]);
             }
         }
         return credentials;

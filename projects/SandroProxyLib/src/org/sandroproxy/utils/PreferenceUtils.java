@@ -77,6 +77,7 @@ public class PreferenceUtils {
         }else{
             File dataDir = context.getExternalCacheDir();
             if (IsDirWritable(dataDir)){
+                pref.edit().putString(dataStorageKey, dataDir.getAbsolutePath()).commit();
                 return dataDir;
             }
         }

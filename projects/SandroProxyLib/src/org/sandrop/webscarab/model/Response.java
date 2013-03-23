@@ -150,7 +150,7 @@ public class Response extends Message {
      * @throws IOException
      */    
     public void writeSwitchProtocol(OutputStream os) throws Exception {
-        writeSwitchProtocol(os, "\r\n");
+        writeHeaders(os, "\r\n");
         _protocolswitch = true;
     }
     
@@ -160,7 +160,7 @@ public class Response extends Message {
      * @param crlf
      * @throws IOException
      */    
-    public void writeSwitchProtocol(OutputStream os, String crlf) throws IOException {
+    public void writeHeaders(OutputStream os, String crlf) throws IOException {
         os = new BufferedOutputStream(os);
         os.write(new String(version + " " + getStatusLine() + crlf).getBytes());
         super.writeHeaders(os,crlf);

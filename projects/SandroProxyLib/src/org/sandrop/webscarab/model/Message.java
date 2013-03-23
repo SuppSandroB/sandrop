@@ -82,6 +82,7 @@ public class Message {
     boolean _chunked = false;
     boolean _gzipped = false;
     int _length = -1;
+    private boolean _skipContentStore = false;
     
     
     protected Logger _logger = Logger.getLogger(this.getClass().getName());
@@ -105,6 +106,10 @@ public class Message {
     
     public static long getLargeContentSize(String size){
         return LARGE_CONTENT_SIZE;
+    }
+    
+    public void skipContentStore(boolean flag){
+        _skipContentStore = flag;
     }
     
     /**
@@ -837,15 +842,18 @@ public class Message {
         _logger.finest("Got " + got + " bytes");
         while (got > 0) {
             sum += got;
-            if (sum > LARGE_CONTENT_SIZE && (_content instanceof ByteArrayOutputStream)){
-                if (createRandomFileName()){
-                    FileOutputStream fo =  new FileOutputStream(new File(contentFileName));
-                    fo.write(((ByteArrayOutputStream)_content).toByteArray());
-                    fo.flush();
-                    _content = fo;
+            if (!_skipContentStore){
+                if (sum > LARGE_CONTENT_SIZE && (_content instanceof ByteArrayOutputStream)){
+                    if (createRandomFileName()){
+                        FileOutputStream fo =  new FileOutputStream(new File(contentFileName));
+                        fo.write(((ByteArrayOutputStream)_content).toByteArray());
+                        fo.flush();
+                        _content = fo;
+                    }
                 }
+                _content.write(buf,0, got);
             }
-            _content.write(buf,0, got);
+            
             if (os != null) {
                 try {
                     os.write(buf,0,got);
@@ -908,6 +916,7 @@ public class Message {
         _content = null;
         _contentStream = null;
     }
+    
     
     /**
      * Sets the content of the message body. If the message headers indicate that the
