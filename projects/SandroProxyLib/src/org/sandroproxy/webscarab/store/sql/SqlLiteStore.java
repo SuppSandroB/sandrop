@@ -53,6 +53,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     private static SQLiteDatabase mDatabase = null;
     
+    private static boolean mFirstTableCreation = false;
+    
     private Map<String, IStoreEventListener> listOfEventListeners = new LinkedHashMap<String, IStoreEventListener>();
     
     public static final String mTableNames[] = {
@@ -218,6 +220,10 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             mRootDirName = rootDirName;
         }
         return mInstance;
+    }
+    
+    public boolean firstCreationOfTables(){
+        return mFirstTableCreation;
     }
     
     
@@ -452,6 +458,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
         if (oldVersion < 1){
             createHtmlTables();
+            mFirstTableCreation = true;
         }
         mDatabase.setVersion(DATABASE_VERSION);
     }

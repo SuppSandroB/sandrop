@@ -128,7 +128,7 @@ public class ConnectionHandler implements Runnable {
             String proxyAuth = null;
             if (request != null) {
                 String method = request.getMethod();
-                if (method == null) {
+                if (request.getURL() == null) {
                     return;
                 } else if (method.equals("CONNECT")) {
                     if (_clientOut != null) {
@@ -249,19 +249,14 @@ public class ConnectionHandler implements Runnable {
             }
             
             if (!_captureData){
-                if (request == null){
-                    return;
-                }
                 _base = request.getURL();
-                if (_base == null){
-                    return;
-                }
                 String forwarderName = _base.getHost() + ":" + _base.getPort();
                 _logger.fine("Acting as forwarder on " + forwarderName);
-                Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
-                OutputStream os = target.getOutputStream();
-                request.write(os);
-                SocketForwarder.connect(forwarderName, _sock, target);
+                HTTPClient target = HTTPClientFactory.getValidInstance().getHTTPClient(-1, -1);
+                Response response = target.fetchResponse(request);
+                OutputStream os = _sock.getOutputStream();
+                response.skipContentStore(true);
+                response.write(os);
                 return;
             }
 
