@@ -222,7 +222,7 @@ public class ConnectionHandler implements Runnable {
                         }
                         // we have no exception but ssl chiper is null-> switch to http
                         if (sslSocket == null || sslSocket.getSession() == null){
-                            _logger.finest("!!Error Please check if client trust SandroProxy CA certificate or ignore on ws:// protocol");
+                            _logger.finest("!!Error Check if client trust SandroProxy CA certificate or ignore on ws:// protocol");
                             String oldHost = _base.getHost();
                             int oldPort = _base.getPort();
                             _base = new HttpUrl("http://" + oldHost + ":"+ oldPort);
@@ -234,7 +234,7 @@ public class ConnectionHandler implements Runnable {
                             if (i != -1){
                                 pis.unread(i);
                             }else{
-                                _logger.finest("!!Error Please check if client trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
+                                _logger.finest("!!Error Check if client trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
                                 return;
                             }
                             _clientIn = pis;
