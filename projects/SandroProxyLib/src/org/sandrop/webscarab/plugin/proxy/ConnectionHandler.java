@@ -169,7 +169,7 @@ public class ConnectionHandler implements Runnable {
                     String hostName = null;
                     if (_transparentSecure){
                         if (_transparentResolver != null){
-                            hostName = _transparentResolver.getSecureHostName();
+                            hostName = _transparentResolver.getSecureHostName(_sock);
                         }
                     }else{
                         hostName = _base.getHost();
