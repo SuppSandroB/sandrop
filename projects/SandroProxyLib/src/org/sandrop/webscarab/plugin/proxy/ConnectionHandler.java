@@ -257,6 +257,7 @@ public class ConnectionHandler implements Runnable {
                 OutputStream os = _sock.getOutputStream();
                 response.skipContentStore(true);
                 response.write(os);
+                SocketForwarder.connect(forwarderName, _sock, response.getSocket());
                 return;
             }
 
