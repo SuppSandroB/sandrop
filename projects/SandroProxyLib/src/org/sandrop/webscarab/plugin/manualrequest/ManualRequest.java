@@ -95,7 +95,7 @@ public class ManualRequest implements Plugin {
             try {
                 _model.setBusy(true);
                 _model.setStatus("Started, Fetching response");
-                long conversationId = _framework.createConversation(_request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_MANUAL, "localhost");
+                long conversationId = _framework.createConversation(_request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_MANUAL, "localhost", -1);
                 _framework.gotRequest(conversationId, new Date(System.currentTimeMillis()), _request);
                 _response = HTTPClientFactory.getValidInstance().fetchResponse(_request);
                 if (_response != null) {

@@ -42,7 +42,7 @@ import java.util.Date;
 public interface SiteModelStore {
     
     
-    long createNewConversation(Date when, int type, String clientAddress);
+    long createNewConversation(Date when, int type, String clientAddress, int port);
     
 
     long updateGotRequestConversation(long  conversationId, Date when, Request request);
