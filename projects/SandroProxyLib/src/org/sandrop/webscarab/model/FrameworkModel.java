@@ -178,8 +178,8 @@ public class FrameworkModel {
         return new ConversationID();
     }
     
-    public long createNewConversation(Date when, int type, String clientAddress){
-        return _store.createNewConversation(when, type, clientAddress);
+    public long createNewConversation(Date when, int type, String clientAddress, int port){
+        return _store.createNewConversation(when, type, clientAddress, port);
     }
     
     public long updateGotRequestConversation(long conversationId, Date when, Request request){

@@ -428,8 +428,8 @@ public class Proxy implements Plugin {
      *            the request to log
      * @return the conversation ID
      */
-    protected long gotRequest(Request request, String from) {
-        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , from);
+    protected long gotRequest(Request request, String from, int port) {
+        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , from, port);
         _framework.gotRequest(id, new Date(System.currentTimeMillis()), request);
         return id;
     }

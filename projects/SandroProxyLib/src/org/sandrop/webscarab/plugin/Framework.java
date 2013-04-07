@@ -436,9 +436,9 @@ public class Framework {
         return true;
     }
     
-    public long createConversation(Request request, Date when, int type, String clientAddress) {
+    public long createConversation(Request request, Date when, int type, String clientAddress, int port) {
         if (!canStore(request)) return -1;
-        return _model.createNewConversation(when, type, clientAddress);
+        return _model.createNewConversation(when, type, clientAddress, port);
     }
     
     public long gotRequest(long conversationId, Date when, Request request){

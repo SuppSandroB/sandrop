@@ -287,8 +287,9 @@ public class ConnectionHandler implements Runnable {
 
             // do we add an X-Forwarded-For header?
             String from = _sock.getInetAddress().getHostAddress();
-            if (from.equals("127.0.0.1"))
-                from = null;
+            int port = _sock.getPort();
+//            if (from.equals("127.0.0.1"))
+//                from = null;
 
             // do we keep-alive?
             String keepAlive = null;
@@ -320,7 +321,7 @@ public class ConnectionHandler implements Runnable {
                 _logger.fine("Browser requested : " + request.getMethod() + " "+ request.getURL().toString());
 
                 // report the request to the listener, and get the allocated ID
-                conversationId = _proxy.gotRequest(request, from);
+                conversationId = _proxy.gotRequest(request, from, port);
 
                 // pass the request for possible modification or analysis
                 connection.setRequest(request);

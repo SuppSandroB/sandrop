@@ -47,7 +47,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     protected static final boolean LOGD = false;
     
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
     
     private static SqlLiteStore mInstance = null;
     
@@ -80,6 +80,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String CONVERSATION_UNIQUE_ID = ID_COL;
     public static final String CONVERSATION_TYPE = "type";
     public static final String CONVERSATION_CLIENT_ADDRESS = "client_ip";
+    public static final String CONVERSATION_CLIENT_PORT = "client_port";
+    public static final String CONVERSATION_CLIENT_UID = "client_uid";
+    public static final String CONVERSATION_CLIENT_APP_NAME = "client_app_name";
     public static final String CONVERSATION_STATUS = "status";
     public static final String CONVERSATION_STATUS_DESCRIPTION = "status_desc";
     public static final String CONVERSATION_REQUEST_ID = "request_id";
@@ -226,6 +229,16 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return mFirstTableCreation;
     }
     
+    
+    private static void upgradeHtmlTables1(){
+        mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_COVERSATION_ID]
+                + " ADD COLUMN " + CONVERSATION_CLIENT_PORT + " INTEGER;");
+        mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_COVERSATION_ID]
+                + " ADD COLUMN " + CONVERSATION_CLIENT_UID + " INTEGER;");
+        mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_COVERSATION_ID]
+                + " ADD COLUMN " + CONVERSATION_CLIENT_APP_NAME + " TEXT;");
+
+    }
     
     private static void createHtmlTables(){
         // conversation
@@ -459,6 +472,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         if (oldVersion < 1){
             createHtmlTables();
             mFirstTableCreation = true;
+        }
+        if (oldVersion < 3){
+            upgradeHtmlTables1();
         }
         mDatabase.setVersion(DATABASE_VERSION);
     }
@@ -885,13 +901,14 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
 
     @Override
-    public long createNewConversation(Date when, int type, String clientAddress){
+    public long createNewConversation(Date when, int type, String clientAddress, int port){
         ContentValues convCV = new ContentValues();
         long timestamp = when.getTime();
         convCV.put(CONVERSATION_STATUS, FrameworkModel.CONVERSATION_STATUS_NEW);
         convCV.put(CONVERSATION_TYPE, type);
         convCV.put(CONVERSATION_TS_START, timestamp);
         convCV.put(CONVERSATION_CLIENT_ADDRESS, clientAddress);
+        convCV.put(CONVERSATION_CLIENT_PORT, port);
         long conversationId = mDatabase.insertOrThrow(mTableNames[TABLE_COVERSATION_ID], 
                 null, convCV);
         eventNewConversation(conversationId, type, timestamp);
