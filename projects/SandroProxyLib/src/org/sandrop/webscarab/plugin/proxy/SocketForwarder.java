@@ -36,29 +36,49 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
+import android.util.Log;
+
 public class SocketForwarder extends Thread {
+    
+    private static String TAG = SocketForwarder.class.getSimpleName();
+    private static boolean LOGD = false;
+    
     private InputStream in;
     private OutputStream out;
+    
 
     public static void connect(String name, Socket clientSocket, Socket serverSocket) throws IOException {
-        SocketForwarder clientServer = new SocketForwarder(name + "_clientServer", clientSocket.getInputStream(), serverSocket.getOutputStream());
-        SocketForwarder serverClient = new SocketForwarder(name + "_serverClient", serverSocket.getInputStream(), clientSocket.getOutputStream());
-            clientServer.start();
-            serverClient.start();
-            while (clientServer.isAlive()) {
-                    try {
-                        clientServer.join();
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
+        if (clientSocket != null && serverSocket != null && clientSocket.isConnected() && serverSocket.isConnected()){
+            clientSocket.setSoTimeout(0);
+            serverSocket.setSoTimeout(0);
+            SocketForwarder clientServer = new SocketForwarder(name + "_clientServer", clientSocket.getInputStream(), serverSocket.getOutputStream());
+            SocketForwarder serverClient = new SocketForwarder(name + "_serverClient", serverSocket.getInputStream(), clientSocket.getOutputStream());
+                clientServer.start();
+                serverClient.start();
+                while (clientServer.isAlive()) {
+                        try {
+                            clientServer.join();
+                        } catch (InterruptedException ie) {
+                            ie.printStackTrace();
+                        }
+                }
+                while (serverClient.isAlive()) {
+                        try {
+                            serverClient.join();
+                        } catch (InterruptedException ie) {
+                            ie.printStackTrace();
+                        }
+                }
+        }else{
+            if (LOGD) Log.d(TAG, "skipping socket forwarding because of invalid sockets");
+            if (clientSocket != null && clientSocket.isConnected()){
+                clientSocket.close();
             }
-            while (serverClient.isAlive()) {
-                    try {
-                        serverClient.join();
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
+            if (serverSocket != null && serverSocket.isConnected()){
+                serverSocket.close();
             }
+        }
+        
     }
 
     public SocketForwarder(String name, InputStream in, OutputStream out) {
