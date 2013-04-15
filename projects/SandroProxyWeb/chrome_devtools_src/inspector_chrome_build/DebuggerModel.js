@@ -49,8 +49,7 @@ WebInspector.DebuggerModel = function()
     WebInspector.settings.pauseOnExceptionStateString = WebInspector.settings.createSetting("pauseOnExceptionStateString", WebInspector.DebuggerModel.PauseOnExceptionsState.DontPauseOnExceptions);
     WebInspector.settings.pauseOnExceptionStateString.addChangeListener(this._pauseOnExceptionStateChanged, this);
 
-    if (!Capabilities.debuggerCausesRecompilation || WebInspector.settings.debuggerEnabled.get())
-        this.enableDebugger();
+    this.enableDebugger();
 }
 
 // Keep these in sync with WebCore::ScriptDebugServer
@@ -703,6 +702,14 @@ WebInspector.DebuggerModel.CallFrame.prototype = {
     get type()
     {
         return this._payload.type;
+    },
+
+    /**
+     * @return {string}
+     */
+    get id()
+    {
+        return this._payload.callFrameId;
     },
 
     /**

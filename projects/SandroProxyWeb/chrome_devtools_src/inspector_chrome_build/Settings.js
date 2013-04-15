@@ -37,30 +37,11 @@ var Preferences = {
     minElementsSidebarWidth: 200,
     minElementsSidebarHeight: 200,
     minScriptsSidebarWidth: 200,
-    styleRulesExpandedState: {},
-    showMissingLocalizedStrings: false,
-    useLowerCaseMenuTitlesOnWindows: false,
-    sharedWorkersDebugNote: undefined,
-    localizeUI: true,
-    exposeDisableCache: false,
-    applicationTitle: "Web Inspector - %s",
-    showDockToRight: false,
-    exposeFileSystemInspection: false,
-    experimentsEnabled: true
+    applicationTitle: "Developer Tools - %s",
+    experimentsEnabled: false
 }
 
 var Capabilities = {
-    samplingCPUProfiler: false,
-    debuggerCausesRecompilation: true,
-    separateScriptCompilationAndExecutionEnabled: false,
-    profilerCausesRecompilation: true,
-    heapProfilerPresent: false,
-    canOverrideDeviceMetrics: false,
-    timelineSupportsFrameInstrumentation: false,
-    timelineCanMonitorMainThread: false,
-    canOverrideGeolocation: false,
-    canOverrideDeviceOrientation: false,
-    canShowDebugBorders: false,
     canShowFPSCounter: false,
     canContinuouslyPaint: false,
     canInspectWorkers: false
@@ -72,12 +53,11 @@ var Capabilities = {
 WebInspector.Settings = function()
 {
     this._eventSupport = new WebInspector.Object();
+    this._registry = /** @type {!Object.<string, !WebInspector.Setting>} */ ({});
 
     this.colorFormat = this.createSetting("colorFormat", "original");
     this.consoleHistory = this.createSetting("consoleHistory", []);
-    this.debuggerEnabled = this.createSetting("debuggerEnabled", false);
     this.domWordWrap = this.createSetting("domWordWrap", true);
-    this.profilerEnabled = this.createSetting("profilerEnabled", false);
     this.eventListenersFilter = this.createSetting("eventListenersFilter", "all");
     this.lastActivePanel = this.createSetting("lastActivePanel", "elements");
     this.lastViewedScriptFile = this.createSetting("lastViewedScriptFile", "application");
@@ -118,6 +98,8 @@ WebInspector.Settings = function()
     this.cssReloadEnabled = this.createSetting("cssReloadEnabled", false);
     this.cssReloadTimeout = this.createSetting("cssReloadTimeout", 1000);
     this.showCpuOnTimelineRuler = this.createSetting("showCpuOnTimelineRuler", false);
+    this.timelineStackFramesToCapture = this.createSetting("timelineStackFramesToCapture", 30);
+    this.timelineLimitStackFramesFlag = this.createSetting("timelineLimitStackFramesFlag", false);
     this.showMetricsRulers = this.createSetting("showMetricsRulers", false);
     this.emulatedCSSMedia = this.createSetting("emulatedCSSMedia", "print");
     this.showToolbarIcons = this.createSetting("showToolbarIcons", false);
@@ -125,26 +107,36 @@ WebInspector.Settings = function()
     this.workerInspectorHeight = this.createSetting("workerInspectorHeight", 600);
     this.messageURLFilters = this.createSetting("messageURLFilters", {});
     this.splitVerticallyWhenDockedToRight = this.createSetting("splitVerticallyWhenDockedToRight", true);
+    this.visiblePanels = this.createSetting("visiblePanels", {});
 }
 
 WebInspector.Settings.prototype = {
     /**
-     * @return {WebInspector.Setting}
+     * @param {string} key
+     * @param {*} defaultValue
+     * @return {!WebInspector.Setting}
      */
     createSetting: function(key, defaultValue)
     {
-        return new WebInspector.Setting(key, defaultValue, this._eventSupport);
+        if (!this._registry[key])
+            this._registry[key] = new WebInspector.Setting(key, defaultValue, this._eventSupport, window.localStorage);
+        return this._registry[key];
     }
 }
 
 /**
  * @constructor
+ * @param {string} name
+ * @param {*} defaultValue
+ * @param {!WebInspector.Object} eventSupport
+ * @param {?Storage} storage
  */
-WebInspector.Setting = function(name, defaultValue, eventSupport)
+WebInspector.Setting = function(name, defaultValue, eventSupport, storage)
 {
     this._name = name;
     this._defaultValue = defaultValue;
     this._eventSupport = eventSupport;
+    this._storage = storage;
 }
 
 WebInspector.Setting.prototype = {
@@ -169,11 +161,11 @@ WebInspector.Setting.prototype = {
             return this._value;
 
         this._value = this._defaultValue;
-        if (window.localStorage != null && this._name in window.localStorage) {
+        if (this._storage && this._name in this._storage) {
             try {
-                this._value = JSON.parse(window.localStorage[this._name]);
+                this._value = JSON.parse(this._storage[this._name]);
             } catch(e) {
-                window.localStorage.removeItem(this._name);
+                delete this._storage[this._name];
             }
         }
         return this._value;
@@ -182,9 +174,9 @@ WebInspector.Setting.prototype = {
     set: function(value)
     {
         this._value = value;
-        if (window.localStorage != null) {
+        if (this._storage) {
             try {
-                window.localStorage[this._name] = JSON.stringify(value);
+                this._storage[this._name] = JSON.stringify(value);
             } catch(e) {
                 console.error("Error saving setting with name:" + this._name);
             }
@@ -201,7 +193,7 @@ WebInspector.ExperimentsSettings = function()
     this._setting = WebInspector.settings.createSetting("experiments", {});
     this._experiments = [];
     this._enabledForTest = {};
-    
+
     // Add currently running experiments here.
     this.snippetsSupport = this._createExperiment("snippetsSupport", "Snippets support");
     this.nativeMemorySnapshots = this._createExperiment("nativeMemorySnapshots", "Native memory profiling");
@@ -218,6 +210,7 @@ WebInspector.ExperimentsSettings = function()
     this.textEditorSmartBraces = this._createExperiment("textEditorSmartBraces", "Enable smart braces in text editor");
     this.separateProfilers = this._createExperiment("separateProfilers", "Separate profiler tools");
     this.cpuFlameChart = this._createExperiment("cpuFlameChart", "Show Flame Chart in CPU Profiler");
+    this.shortcutPanelSwitch = this._createExperiment("shortcutPanelSwitch", "Enable Ctrl/Cmd + 1-9 shortcut to switch panels");
 
     this._cleanUpSetting();
 }
@@ -230,7 +223,7 @@ WebInspector.ExperimentsSettings.prototype = {
     {
         return this._experiments.slice();
     },
-    
+
     /**
      * @return {boolean}
      */
@@ -238,7 +231,7 @@ WebInspector.ExperimentsSettings.prototype = {
     {
         return Preferences.experimentsEnabled || ("experiments" in WebInspector.queryParamsObject);
     },
-    
+
     /**
      * @param {string} experimentName
      * @param {string} experimentTitle
@@ -250,7 +243,7 @@ WebInspector.ExperimentsSettings.prototype = {
         this._experiments.push(experiment);
         return experiment;
     },
-    
+
     /**
      * @param {string} experimentName
      * @return {boolean}
@@ -266,7 +259,7 @@ WebInspector.ExperimentsSettings.prototype = {
         var experimentsSetting = this._setting.get();
         return experimentsSetting[experimentName];
     },
-    
+
     /**
      * @param {string} experimentName
      * @param {boolean} enabled
@@ -320,7 +313,7 @@ WebInspector.Experiment.prototype = {
     {
         return this._name;
     },
-    
+
     /**
      * @return {string}
      */
@@ -328,7 +321,7 @@ WebInspector.Experiment.prototype = {
     {
         return this._title;
     },
-    
+
     /**
      * @return {boolean}
      */
@@ -336,7 +329,7 @@ WebInspector.Experiment.prototype = {
     {
         return this._experimentsSettings.isEnabled(this._name);
     },
-    
+
     /**
      * @param {boolean} enabled
      */

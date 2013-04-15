@@ -178,7 +178,7 @@ WebInspector.ScriptSnippetModel.prototype = {
         // If separate compilation and execution is not supported by the port we fall back to evaluation in console.
         // In case we don't need that since debugger is already paused.
         // We do the same when we are stopped on the call frame  since debugger is already paused and can not stop on breakpoint anymore.
-        if (WebInspector.debuggerModel.selectedCallFrame() || !Capabilities.separateScriptCompilationAndExecutionEnabled) {
+        if (WebInspector.debuggerModel.selectedCallFrame()) {
             expression = uiSourceCode.workingCopy() + "\n//@ sourceURL=" + evaluationUrl + "\n";
             WebInspector.evaluateInConsole(expression, true);
             return;
@@ -433,6 +433,18 @@ WebInspector.SnippetScriptFile.prototype = {
         return this._isDivergingFromVM;
     },
 
+    checkMapping: function()
+    {
+    },
+
+    /**
+     * @return {boolean}
+     */
+    isMergingToVM: function()
+    {
+        return false;
+    },
+
     /**
      * @param {boolean} isDivergingFromVM
      */
@@ -484,6 +496,14 @@ WebInspector.SnippetScriptMapping.prototype = {
     uiLocationToRawLocation: function(uiSourceCode, lineNumber, columnNumber)
     {
         return this._scriptSnippetModel._uiLocationToRawLocation(uiSourceCode, lineNumber, columnNumber);
+    },
+
+    /**
+     * @return {boolean}
+     */
+    isIdentity: function()
+    {
+        return true;
     },
 
     /**
