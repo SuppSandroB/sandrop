@@ -288,7 +288,7 @@ Object.defineProperty(Uint32Array.prototype, "sort", {
 var partition = {
     /**
      * @this {Array.<number>}
-     * @param {function(number,number):boolean} comparator
+     * @param {function(number,number):number} comparator
      * @param {number} left
      * @param {number} right
      * @param {number} pivotIndex
@@ -321,7 +321,7 @@ Object.defineProperty(Uint32Array.prototype, "partition", partition);
 var sortRange = {
     /**
      * @this {Array.<number>}
-     * @param {function(number,number):boolean} comparator
+     * @param {function(number,number):number} comparator
      * @param {number} leftBound
      * @param {number} rightBound
      * @param {number} k
@@ -336,7 +336,7 @@ var sortRange = {
             var pivotNewIndex = array.partition(comparator, left, right, pivotIndex);
             quickSortFirstK(array, comparator, left, pivotNewIndex - 1, k);
             if (pivotNewIndex < left + k - 1)
-                quickSortFirstK(array, comparator, pivotNewIndex + 1, right, k);
+                quickSortFirstK(array, comparator, pivotNewIndex + 1, right, left + k - 1 - pivotNewIndex);
         }
 
         if (leftBound === 0 && rightBound === (this.length - 1) && k >= this.length)
@@ -862,6 +862,15 @@ Map.prototype = {
     {
         var entry = this._map[key.__identifier];
         return entry ? entry[1] : undefined;
+    },
+
+    /**
+     * @param {Object} key
+     */
+    contains: function(key)
+    {
+        var entry = this._map[key.__identifier];
+        return !!entry;
     },
 
     size: function()
