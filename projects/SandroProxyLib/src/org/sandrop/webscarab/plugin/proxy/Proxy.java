@@ -449,33 +449,33 @@ public class Proxy implements Plugin {
         _framework.cleanConversation(request, response);
     }
 
-    protected SSLSocketFactory getSocketFactory(String host) {
+    protected SSLSocketFactory getSocketFactory(SiteData hostData) {
         synchronized (_factoryMap) {
             // If it has been loaded already, use it
-            if (_factoryMap.containsKey(host))
-                return (SSLSocketFactory) _factoryMap.get(host);
+            if (_factoryMap.containsKey(hostData.name))
+                return (SSLSocketFactory) _factoryMap.get(hostData.name);
             SSLSocketFactory factory;
             // Check if there is a specific keypair to use
-            File p12 = new File(_certDir + host + ".p12");
-            factory = loadSocketFactory(p12, host);
+            File p12 = new File(_certDir + hostData.name + ".p12");
+            factory = loadSocketFactory(p12, hostData.name);
             if (factory != null) {
-                _factoryMap.put(host, factory);
+                _factoryMap.put(hostData.name, factory);
                 return factory;
             }
             // See if we can generate one directly
-            factory = generateSocketFactory(host);
+            factory = generateSocketFactory(hostData);
             if (factory != null) {
-                _factoryMap.put(host, factory);
+                _factoryMap.put(hostData.name, factory);
                 return factory;
             }
             // Has the default keypair been loaded already?
             if (_factoryMap.containsKey(null)) {
-                _logger.info("Using default SSL keystore for " + host);
+                _logger.info("Using default SSL keystore for " + hostData.name);
                 return (SSLSocketFactory) _factoryMap.get(null);
             }
             // Check for a user-provided "default keypair"
             p12 = new File(_certDir + "server.p12");
-            factory = loadSocketFactory(p12, host);
+            factory = loadSocketFactory(p12, hostData.name);
             if (factory != null) {
                 _factoryMap.put(null, factory);
                 return factory;
@@ -610,17 +610,17 @@ public class Proxy implements Plugin {
         return null;
     }
 
-    private SSLSocketFactory generateSocketFactory(String host) {
+    private SSLSocketFactory generateSocketFactory(SiteData hostData) {
         if (_certGenerator == null)
             return null;
         try {
-            _logger.info("Generating custom SSL keystore for " + host);
-            return _certGenerator.getSocketFactory(host);
+            _logger.info("Generating custom SSL keystore for " + hostData.name);
+            return _certGenerator.getSocketFactory(hostData);
         } catch (IOException ioe) {
-            _logger.info("Error generating custom SSL keystore for " + host
+            _logger.info("Error generating custom SSL keystore for " + hostData.name
                     + ": " + ioe);
         } catch (GeneralSecurityException gse) {
-            _logger.info("Error generating custom SSL keystore for " + host
+            _logger.info("Error generating custom SSL keystore for " + hostData.name
                     + ": " + gse);
         }
         return null;

@@ -166,17 +166,19 @@ public class ConnectionHandler implements Runnable {
                         return;
                     }
                     _logger.fine("Intercepting SSL connection!");
-                    String hostName = null;
+                    SiteData hostData = null;
                     if (_transparentSecure){
                         if (_transparentResolver != null){
-                            hostName = _transparentResolver.getSecureHostName(_sock);
+                            hostData = _transparentResolver.getSecureHostName(_sock);
                         }
                     }else{
-                        hostName = _base.getHost();
+                        hostData = new SiteData();
+                        hostData.name = _base.getHost();
                     }
                     String host = "sandroproxy.untrusted";
-                    if (hostName == null || hostName.trim().length() == 0){
-                        hostName = host;
+                    if (hostData == null || hostData.name.trim().length() == 0){
+                        hostData = new SiteData();
+                        hostData.name = host;
                     }
                     
                     boolean isSSLPort = false;
@@ -215,7 +217,7 @@ public class ConnectionHandler implements Runnable {
                     if (isSSLPort){
                         SSLSocket sslSocket = null;
                         try{
-                            _sock = negotiateSSL(_sock, hostName);
+                            _sock = negotiateSSL(_sock, hostData);
                             sslSocket = (SSLSocket)_sock;
                         }catch (Exception ex){
                             ex.printStackTrace();
@@ -441,15 +443,15 @@ public class ConnectionHandler implements Runnable {
     }
 
 
-    private Socket negotiateSSL(Socket sock, String hostName) throws Exception {
-        SSLSocketFactory factory = _proxy.getSocketFactory(hostName);
+    private Socket negotiateSSL(Socket sock, SiteData hostData) throws Exception {
+        SSLSocketFactory factory = _proxy.getSocketFactory(hostData);
         if (factory == null)
             throw new RuntimeException(
                     "SSL Intercept not available - no keystores available");
         SSLSocket sslsock;
         try {
             int sockPort = sock.getPort();
-            sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
+            sslsock = (SSLSocket) factory.createSocket(sock, hostData.name, sockPort, false);
             sslsock.setUseClientMode(false);
             _logger.info("Finished negotiating SSL - algorithm is "
                     + sslsock.getSession().getCipherSuite());
