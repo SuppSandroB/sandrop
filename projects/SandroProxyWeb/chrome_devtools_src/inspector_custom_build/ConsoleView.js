@@ -37,8 +37,10 @@ WebInspector.ConsoleView = function(hideContextSelector)
     WebInspector.View.call(this);
 
     this.element.id = "console-view";
+    this._messageLevelFilters = {};
     this._messageURLFilters = WebInspector.settings.messageURLFilters.get();
     this._visibleMessages = [];
+    this._messages = [];
     this._urlToMessageCount = {};
 
     this._clearConsoleButton = new WebInspector.StatusBarButton(WebInspector.UIString("Clear console log."), "clear-status-bar-item");
@@ -97,9 +99,9 @@ WebInspector.ConsoleView = function(hideContextSelector)
 
     this.allElement = createFilterElement.call(this, "all", WebInspector.UIString("All"));
     createDividerElement.call(this);
-    this.errorElement = createFilterElement.call(this, "errors", WebInspector.UIString("Errors"));
-    this.warningElement = createFilterElement.call(this, "warnings", WebInspector.UIString("Warnings"));
-    this.logElement = createFilterElement.call(this, "logs", WebInspector.UIString("Logs"));
+    this.errorElement = createFilterElement.call(this, "error", WebInspector.UIString("Errors"));
+    this.warningElement = createFilterElement.call(this, "warning", WebInspector.UIString("Warnings"));
+    this.logElement = createFilterElement.call(this, "log", WebInspector.UIString("Logs"));
     this.debugElement = createFilterElement.call(this, "debug", WebInspector.UIString("Debug"));
 
     this.filter(this.allElement, false);
@@ -259,54 +261,56 @@ WebInspector.ConsoleView.prototype = {
     {
         function unselectAll()
         {
+            this._messageLevelFilters = {};
+
             this.allElement.removeStyleClass("selected");
             this.errorElement.removeStyleClass("selected");
             this.warningElement.removeStyleClass("selected");
             this.logElement.removeStyleClass("selected");
             this.debugElement.removeStyleClass("selected");
-
-            this.messagesElement.classList.remove("filter-all", "filter-errors", "filter-warnings", "filter-logs", "filter-debug");
         }
 
-        var targetFilterClass = "filter-" + target.category;
-
         if (target.category === "all") {
-            if (target.hasStyleClass("selected")) {
-                // We can't unselect all, so we break early here
-                return;
-            }
-
             unselectAll.call(this);
+            target.addStyleClass("selected");
+            this._messageLevelFilters = {error: true, warning: true, log: true, debug: true};
         } else {
             // Something other than all is being selected, so we want to unselect all
             if (this.allElement.hasStyleClass("selected")) {
+                this._messageLevelFilters = {};
                 this.allElement.removeStyleClass("selected");
-                this.messagesElement.removeStyleClass("filter-all");
+            }
+
+            if (!selectMultiple) {
+                // If multiple selection is off, we want to unselect everything else
+                // and just select ourselves.
+                unselectAll.call(this);
+
+                target.addStyleClass("selected");
+
+                this._messageLevelFilters = {};
+                this._messageLevelFilters[target.category] = true;
+            } else {
+
+                if (target.hasStyleClass("selected")) {
+                    // If selectMultiple is turned on, and we were selected, we just
+                    // want to unselect ourselves.
+                    target.removeStyleClass("selected");
+
+                    if (this._messageLevelFilters[target.category])
+                        delete this._messageLevelFilters[target.category];
+
+                } else {
+                    // If selectMultiple is turned on, and we weren't selected, we just
+                    // want to select ourselves.
+                    target.addStyleClass("selected");
+
+                    this._messageLevelFilters[target.category] = true;
+                }
             }
         }
 
-        if (!selectMultiple) {
-            // If multiple selection is off, we want to unselect everything else
-            // and just select ourselves.
-            unselectAll.call(this);
-
-            target.addStyleClass("selected");
-            this.messagesElement.addStyleClass(targetFilterClass);
-
-            return;
-        }
-
-        if (target.hasStyleClass("selected")) {
-            // If selectMultiple is turned on, and we were selected, we just
-            // want to unselect ourselves.
-            target.removeStyleClass("selected");
-            this.messagesElement.removeStyleClass(targetFilterClass);
-        } else {
-            // If selectMultiple is turned on, and we weren't selected, we just
-            // want to select ourselves.
-            target.addStyleClass("selected");
-            this.messagesElement.addStyleClass(targetFilterClass);
-        }
+        this._updateMessageList();
     },
 
     willHide: function()
@@ -384,6 +388,8 @@ WebInspector.ConsoleView.prototype = {
     _consoleMessageAdded: function(event)
     {
         var message = /** @type {WebInspector.ConsoleMessage} */ (event.data);
+        this._messages.push(message);
+
         if (this._urlToMessageCount[message.url])
             this._urlToMessageCount[message.url]++;
         else
@@ -411,6 +417,7 @@ WebInspector.ConsoleView.prototype = {
                 var group = new WebInspector.ConsoleGroup(this.currentGroup);
                 this.currentGroup.messagesElement.appendChild(group.element);
                 this.currentGroup = group;
+                message.group = group;
             }
             this.currentGroup.addMessage(message);
         }
@@ -424,6 +431,7 @@ WebInspector.ConsoleView.prototype = {
         for (var i = 0; i < this._visibleMessages.length; ++i)
             this._visibleMessages[i].willHide();
         this._visibleMessages = [];
+        this._messages = [];
 
         this.currentGroup = this.topGroup;
         this.topGroup.messagesElement.removeChildren();
@@ -463,10 +471,10 @@ WebInspector.ConsoleView.prototype = {
         var filterSubMenu = contextMenu.appendSubMenuItem(WebInspector.UIString("Filter"));
 
         if (sourceElement && sourceElement.message.url)
-            filterSubMenu.appendItem(WebInspector.UIString("Hide messages from %s", new WebInspector.ParsedURL(sourceElement.message.url).displayName), this._addMessageURLFilter.bind(this, sourceElement.message.url));
+            filterSubMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Hide messages from %s" : "Hide Messages from %s", new WebInspector.ParsedURL(sourceElement.message.url).displayName), this._addMessageURLFilter.bind(this, sourceElement.message.url));
 
         filterSubMenu.appendSeparator();
-        var unhideAll = filterSubMenu.appendItem(WebInspector.UIString("Unhide all"), this._removeMessageURLFilter.bind(this));
+        var unhideAll = filterSubMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Unhide all" : "Unhide All"), this._removeMessageURLFilter.bind(this));
         filterSubMenu.appendSeparator();
 
         var hasFilters = false;
@@ -527,7 +535,8 @@ WebInspector.ConsoleView.prototype = {
      */
     _shouldBeVisible: function(message)
     {
-        return !message.url || !this._messageURLFilters[message.url];
+        return (message.type === WebInspector.ConsoleMessage.MessageType.StartGroup || message.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed || message.type === WebInspector.ConsoleMessage.MessageType.EndGroup) ||
+            ((!message.url || !this._messageURLFilters[message.url]) && (!message.level || this._messageLevelFilters[message.level]));
     },
 
     /**
@@ -535,25 +544,35 @@ WebInspector.ConsoleView.prototype = {
      */
     _updateMessageList: function()
     {
-        var sourceMessages = WebInspector.console.messages;
+        var group = this.topGroup;
+        var sourceMessages = this._messages;
         var visibleMessageIndex = 0;
         var newVisibleMessages = [];
+        var anchor = null;
         for (var i = 0; i < sourceMessages.length; i++) {
             var sourceMessage = sourceMessages[i];
             var visibleMessage = this._visibleMessages[visibleMessageIndex];
 
             if (visibleMessage === sourceMessage) {
                 visibleMessageIndex++;
-                if (this._shouldBeVisible(visibleMessage))
+                if (this._shouldBeVisible(visibleMessage)) {
                     newVisibleMessages.push(visibleMessage);
-                else {
+                    if (sourceMessage.type === WebInspector.ConsoleMessage.MessageType.EndGroup) {
+                        anchor = group.element;
+                        group = group.parentGroup || group;
+                    } else if (sourceMessage.type === WebInspector.ConsoleMessage.MessageType.StartGroup || sourceMessage.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed) {
+                        group = sourceMessage.group;
+                        anchor = group.messagesElement.firstChild;
+                    }
+                } else {
                     visibleMessage.willHide();
-                    visibleMessage.toMessageElement().removeSelf();                    
+                    visibleMessage.toMessageElement().removeSelf();
                 }
             } else {
                 if (this._shouldBeVisible(sourceMessage)) {
-                    this.currentGroup.addMessage(sourceMessage, visibleMessage ? visibleMessage.toMessageElement() : null);
+                    group.addMessage(sourceMessage, anchor ? anchor.nextSibling : group.messagesElement.firstChild);
                     newVisibleMessages.push(sourceMessage);
+                    anchor = sourceMessage.toMessageElement();
                 }
             }
         }
@@ -654,8 +673,9 @@ WebInspector.ConsoleView.prototype = {
     {
         if (!result)
             return;
-
-        this._appendConsoleMessage(new WebInspector.ConsoleCommandResult(result, wasThrown, originatingCommand, this._linkifier));
+        var message = new WebInspector.ConsoleCommandResult(result, wasThrown, originatingCommand, this._linkifier);
+        this._messages.push(message);
+        this._appendConsoleMessage(message);
     },
 
     _appendCommand: function(text, newPromptText, useCommandLineAPI, showResultOnly)
@@ -663,6 +683,7 @@ WebInspector.ConsoleView.prototype = {
         if (!showResultOnly) {
             var commandMessage = new WebInspector.ConsoleCommand(text);
             WebInspector.console.interruptRepeatCount();
+            this._messages.push(commandMessage);
             this._appendConsoleMessage(commandMessage);
         }
         this.prompt.text = newPromptText;

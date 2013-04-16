@@ -672,13 +672,3 @@ WebInspector.ThreeDimPanel.prototype = {
     },
     __proto__: WebInspector.Panel.prototype
 }
-
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/ThreeDimPanel.js
