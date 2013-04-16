@@ -54,7 +54,6 @@ var WebInspector = {
             allProfilers.push(new WebInspector.PanelDescriptor("cpu-profiler", WebInspector.UIString("CPU Profiler"), "CPUProfilerPanel", "ProfilesPanel.js"));
             if (!WebInspector.WorkerManager.isWorkerFrontend())
                 allProfilers.push(new WebInspector.PanelDescriptor("css-profiler", WebInspector.UIString("CSS Profiler"), "CSSSelectorProfilerPanel", "ProfilesPanel.js"));
-            if (Capabilities.heapProfilerPresent)
                 allProfilers.push(new WebInspector.PanelDescriptor("heap-profiler", WebInspector.UIString("Heap Profiler"), "HeapProfilerPanel", "ProfilesPanel.js"));
             if (!WebInspector.WorkerManager.isWorkerFrontend() && WebInspector.experimentsSettings.canvasInspection.isEnabled())
                 allProfilers.push(new WebInspector.PanelDescriptor("canvas-profiler", WebInspector.UIString("Canvas Profiler"), "CanvasProfilerPanel", "ProfilesPanel.js"));
@@ -95,11 +94,8 @@ var WebInspector = {
         this._toggleConsoleButton.addEventListener("click", this._toggleConsoleButtonClicked.bind(this), false);
         mainStatusBar.insertBefore(this._toggleConsoleButton.element, bottomStatusBarContainer);
 
-        if (!WebInspector.WorkerManager.isWorkerFrontend()) {
-            this._nodeSearchButton = new WebInspector.StatusBarButton(WebInspector.UIString("Select an element in the page to inspect it."), "node-search-status-bar-item");
-            this._nodeSearchButton.addEventListener("click", this.toggleSearchingForNode, this);
-            mainStatusBar.insertBefore(this._nodeSearchButton.element, bottomStatusBarContainer);
-        }
+        if (this.inspectElementModeController)
+            mainStatusBar.insertBefore(this.inspectElementModeController.toggleSearchButton.element, bottomStatusBarContainer);
 
         mainStatusBar.appendChild(this.settingsController.statusBarItem);
     },
@@ -275,19 +271,6 @@ var WebInspector = {
         InspectorFrontendHost.setZoomFactor(WebInspector.Zoom.Table[index]);
     },
 
-    toggleSearchingForNode: function()
-    {
-        var enabled = !this._nodeSearchButton.toggled;
-        /**
-         * @param {?Protocol.Error} error
-         */
-        function callback(error)
-        {
-            if (!error)
-                this._nodeSearchButton.toggled = enabled;
-        }
-        WebInspector.domAgent.setInspectModeEnabled(enabled, callback.bind(this));
-    },
 
 
     _debuggerPaused: function()
@@ -340,7 +323,7 @@ WebInspector.reload = function()
 }
 WebInspector.loaded = function()
 {
-    InspectorBackend.loadFromJSONIfNeeded("../Inspector.json");
+    InspectorBackend.loadFromJSONIfNeeded("../protocol.json");
     WebInspector.dockController = new WebInspector.DockController();
 
     if (WebInspector.WorkerManager.isDedicatedWorkerFrontend()) {
@@ -392,23 +375,11 @@ WebInspector.doLoadedDone = function()
     if (WebInspector.queryParamsObject.toolbarColor && WebInspector.queryParamsObject.textColor)
         WebInspector.setToolbarColors(WebInspector.queryParamsObject.toolbarColor, WebInspector.queryParamsObject.textColor);
 
-    InspectorFrontendHost.loaded();
     WebInspector.WorkerManager.loaded();
 
-    DebuggerAgent.causesRecompilation(WebInspector._initializeCapability.bind(WebInspector, "debuggerCausesRecompilation", null));
-    DebuggerAgent.supportsSeparateScriptCompilationAndExecution(WebInspector._initializeCapability.bind(WebInspector, "separateScriptCompilationAndExecutionEnabled", null));
-    ProfilerAgent.causesRecompilation(WebInspector._initializeCapability.bind(WebInspector, "profilerCausesRecompilation", null));
-    ProfilerAgent.isSampling(WebInspector._initializeCapability.bind(WebInspector, "samplingCPUProfiler", null));
-    HeapProfilerAgent.hasHeapProfiler(WebInspector._initializeCapability.bind(WebInspector, "heapProfilerPresent", null));
-    TimelineAgent.supportsFrameInstrumentation(WebInspector._initializeCapability.bind(WebInspector, "timelineSupportsFrameInstrumentation", null));
-    TimelineAgent.canMonitorMainThread(WebInspector._initializeCapability.bind(WebInspector, "timelineCanMonitorMainThread", null));
-    PageAgent.canShowDebugBorders(WebInspector._initializeCapability.bind(WebInspector, "canShowDebugBorders", null));
     PageAgent.canShowFPSCounter(WebInspector._initializeCapability.bind(WebInspector, "canShowFPSCounter", null));
     PageAgent.canContinuouslyPaint(WebInspector._initializeCapability.bind(WebInspector, "canContinuouslyPaint", null));
-    PageAgent.canOverrideDeviceMetrics(WebInspector._initializeCapability.bind(WebInspector, "canOverrideDeviceMetrics", null));
-    PageAgent.canOverrideGeolocation(WebInspector._initializeCapability.bind(WebInspector, "canOverrideGeolocation", null));
-    WorkerAgent.canInspectWorkers(WebInspector._initializeCapability.bind(WebInspector, "canInspectWorkers", null));
-    PageAgent.canOverrideDeviceOrientation(WebInspector._initializeCapability.bind(WebInspector, "canOverrideDeviceOrientation", WebInspector._doLoadedDoneWithCapabilities.bind(WebInspector)));
+    WorkerAgent.canInspectWorkers(WebInspector._initializeCapability.bind(WebInspector, "canInspectWorkers", WebInspector._doLoadedDoneWithCapabilities.bind(WebInspector)));
 }
 
 WebInspector._doLoadedDoneWithCapabilities = function()
@@ -457,6 +428,8 @@ WebInspector._doLoadedDoneWithCapabilities = function()
 
     this.searchController = new WebInspector.SearchController();
     this.advancedSearchController = new WebInspector.AdvancedSearchController();
+    if (!WebInspector.WorkerManager.isWorkerFrontend())
+        this.inspectElementModeController = new WebInspector.InspectElementModeController();
     this.settingsController = new WebInspector.SettingsController();
 
     this.domBreakpointsSidebarPane = new WebInspector.DOMBreakpointsSidebarPane();
@@ -520,7 +493,6 @@ WebInspector._doLoadedDoneWithCapabilities = function()
     this.databaseModel = new WebInspector.DatabaseModel();
     this.domStorageModel = new WebInspector.DOMStorageModel();
 
-    if (!Capabilities.profilerCausesRecompilation || WebInspector.settings.profilerEnabled.get())
         ProfilerAgent.enable();
 
     if (WebInspector.settings.showPaintRects.get())
@@ -546,14 +518,6 @@ WebInspector._doLoadedDoneWithCapabilities = function()
 
 var windowLoaded = function()
 {
-    var localizedStringsURL = InspectorFrontendHost.localizedStringsURL();
-    if (localizedStringsURL) {
-        var localizedStringsScriptElement = document.createElement("script");
-        localizedStringsScriptElement.addEventListener("load", WebInspector.loaded.bind(WebInspector), false);
-        localizedStringsScriptElement.type = "text/javascript";
-        localizedStringsScriptElement.src = localizedStringsURL;
-        document.head.appendChild(localizedStringsScriptElement);
-    } else
         WebInspector.loaded();
 
     window.removeEventListener("DOMContentLoaded", windowLoaded, false);
@@ -674,7 +638,7 @@ WebInspector._registerShortcuts = function()
     ];
     section.addRelatedKeys(keys, WebInspector.UIString("Go to the panel to the left/right"));
 
-    var keys = [
+    keys = [
         shortcut.makeDescriptor("[", shortcut.Modifiers.CtrlOrMeta | shortcut.Modifiers.Alt),
         shortcut.makeDescriptor("]", shortcut.Modifiers.CtrlOrMeta | shortcut.Modifiers.Alt)
     ];
@@ -685,6 +649,8 @@ WebInspector._registerShortcuts = function()
 
     var advancedSearchShortcut = WebInspector.AdvancedSearchController.createShortcut();
     section.addKey(advancedSearchShortcut, WebInspector.UIString("Search across all sources"));
+    var inspectElementModeShortcut = WebInspector.InspectElementModeController.createShortcut();
+    section.addKey(inspectElementModeShortcut, WebInspector.UIString("Select node to inspect"));
 
     var openResourceShortcut = WebInspector.KeyboardShortcut.makeDescriptor("o", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta);
     section.addKey(openResourceShortcut, WebInspector.UIString("Go to source"));
@@ -699,6 +665,11 @@ WebInspector._registerShortcuts = function()
 
     var goToShortcut = WebInspector.GoToLineDialog.createShortcut();
     section.addKey(goToShortcut, WebInspector.UIString("Go to line"));
+    keys = [
+        shortcut.Keys.F1,
+        shortcut.makeDescriptor("?")
+    ];
+    section.addAlternateKeys(keys, WebInspector.UIString("Show keyboard shortcuts"));
 }
 
 /**
@@ -734,6 +705,8 @@ WebInspector.documentKeyDown = function(event)
     if (WebInspector.searchController.handleShortcut(event))
         return;
     if (WebInspector.advancedSearchController.handleShortcut(event))
+        return;
+    if (WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.handleShortcut(event))
         return;
 
     switch (event.keyIdentifier) {
@@ -790,19 +763,6 @@ WebInspector.documentKeyDown = function(event)
 
     // Cmd/Control + Shift + C should be a shortcut to clicking the Node Search Button.
     // This shortcut matches Firebug.
-    if (event.keyIdentifier === "U+0043") { // C key
-        if (WebInspector.isMac())
-            var isNodeSearchKey = event.metaKey && !event.ctrlKey && !event.altKey && event.shiftKey;
-        else
-            var isNodeSearchKey = event.ctrlKey && !event.metaKey && !event.altKey && event.shiftKey;
-
-        if (isNodeSearchKey) {
-            this.toggleSearchingForNode();
-            event.consume(true);
-            return;
-        }
-        return;
-    }
 }
 
 WebInspector.postDocumentKeyDown = function(event)
@@ -975,11 +935,18 @@ WebInspector.detached = function(reason)
     (new WebInspector.RemoteDebuggingTerminatedScreen(reason)).showModal();
 }
 
+WebInspector.targetCrashed = function()
+{
+    (new WebInspector.HelpScreenUntilReload(
+        WebInspector.UIString("Inspected target crashed"),
+        WebInspector.UIString("Inspected target has crashed. Once it reloads we will attach to it automatically."))).showModal();
+}
+
 WebInspector._updateFocusedNode = function(nodeId)
 {
-    if (WebInspector._nodeSearchButton.toggled) {
+    if (WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.enabled()) {
         InspectorFrontendHost.bringToFront();
-        WebInspector._nodeSearchButton.toggled = false;
+        WebInspector.inspectElementModeController.disable();
     }
     WebInspector.showPanel("elements").revealAndSelectNode(nodeId);
 }
@@ -1027,7 +994,7 @@ WebInspector.addMainEventListeners = function(doc)
     doc.addEventListener("keydown", this.documentKeyDown.bind(this), true);
     doc.addEventListener("keydown", this.postDocumentKeyDown.bind(this), false);
     doc.addEventListener("beforecopy", this.documentCanCopy.bind(this), true);
-    doc.addEventListener("copy", this.documentCopy.bind(this), true);
+    doc.addEventListener("copy", this.documentCopy.bind(this), false);
     doc.addEventListener("contextmenu", this.contextMenuEventFired.bind(this), true);
     doc.addEventListener("click", this.documentClick.bind(this), true);
 }
@@ -1037,3 +1004,20 @@ WebInspector.Zoom = {
     Table: [0.25, 0.33, 0.5, 0.66, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5],
     DefaultOffset: 6
 }
+/**
+ * @param {ExtensionDescriptor} extensionInfo
+ * @return {string}
+ */
+function buildPlatformExtensionAPI(extensionInfo)
+{
+    return "var extensionInfo = " + JSON.stringify(extensionInfo) + ";" +
+       "var tabId = " + WebInspector._inspectedTabId + ";" +
+       platformExtensionAPI.toString();
+}
+
+WebInspector.setInspectedTabId = function(tabId)
+{
+    WebInspector._inspectedTabId = tabId;
+}
+
+window.DEBUG = true;
