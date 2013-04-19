@@ -414,6 +414,7 @@ WebInspector.ProfilesPanel = function(name, type)
 
     this._createFileSelectorElement();
     this.element.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), true);
+    this._registerShortcuts();
 
     WebInspector.ContextMenu.registerProvider(this);
 }
@@ -446,6 +447,11 @@ WebInspector.ProfilesPanel.prototype = {
                 return type;
         }
         return null;
+    },
+
+    _registerShortcuts: function()
+    {
+        this.registerShortcuts(WebInspector.ProfilesPanelDescriptor.ShortcutKeys.StartStopRecording, this.toggleRecordButton.bind(this));
     },
 
     /**
@@ -484,10 +490,15 @@ WebInspector.ProfilesPanel.prototype = {
         return this._statusBarButtons.select("element").concat(this._profileTypeStatusBarItemsContainer, this._profileViewStatusBarItemsContainer);
     },
 
-    toggleRecordButton: function()
+    /**
+     * @param {WebInspector.Event|Event=} event
+     * @return {boolean}
+     */
+    toggleRecordButton: function(event)
     {
         var isProfiling = this._selectedProfileType.buttonClicked();
         this.setRecordingProfile(this._selectedProfileType.id, isProfiling);
+        return true;
     },
 
     _populateAllProfiles: function()
