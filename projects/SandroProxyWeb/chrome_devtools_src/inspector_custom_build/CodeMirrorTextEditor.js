@@ -35,6 +35,7 @@ importScript("cm/xml.js");
 importScript("cm/htmlmixed.js");
 importScript("cm/matchbrackets.js");
 importScript("cm/closebrackets.js");
+importScript("cm/markselection.js");
 
 /**
  * @constructor
@@ -56,9 +57,13 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
         lineNumbers: true,
         gutters: ["CodeMirror-linenumbers"],
         matchBrackets: true,
+        smartIndent: false,
+        styleSelectedText: true,
+        electricChars: false,
         autoCloseBrackets: WebInspector.experimentsSettings.textEditorSmartBraces.isEnabled()
     });
 
+    var extraKeys = {};
     var indent = WebInspector.settings.textEditorIndent.get();
     if (indent === WebInspector.TextUtils.Indent.TabCharacter) {
         this._codeMirror.setOption("indentWithTabs", true);
@@ -66,7 +71,14 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
     } else {
         this._codeMirror.setOption("indentWithTabs", false);
         this._codeMirror.setOption("indentUnit", indent.length);
+        extraKeys.Tab = function(codeMirror)
+        {
+            if (codeMirror.somethingSelected())
+                return CodeMirror.Pass;
+            codeMirror.replaceRange(indent, codeMirror.getCursor());
+        }
     }
+    this._codeMirror.setOption("extraKeys", extraKeys);
 
     this._tokenHighlighter = new WebInspector.CodeMirrorTextEditor.TokenHighlighter(this._codeMirror);
     this._blockIndentController = new WebInspector.CodeMirrorTextEditor.BlockIndentController(this._codeMirror);
@@ -87,9 +99,21 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
 
     this.element.addEventListener("focus", this._handleElementFocus.bind(this), false);
     this.element.tabIndex = 0;
+    this._setupSelectionColor();
 }
 
 WebInspector.CodeMirrorTextEditor.prototype = {
+    _setupSelectionColor: function()
+    {
+        if (WebInspector.CodeMirrorTextEditor._selectionStyleInjected)
+            return;
+        var style = document.createElement("style");
+        var backgroundColor = ".CodeMirror .CodeMirror-selected { background-color: " + WebInspector.getSelectionBackgroundColor() + ";}";
+        var foregroundColor = ".CodeMirror .CodeMirror-selectedtext { color: " + WebInspector.getSelectionForegroundColor() + "!important;}";
+        style.textContent = backgroundColor + foregroundColor;
+        document.head.appendChild(style);
+        WebInspector.CodeMirrorTextEditor._selectionStyleInjected = true;
+    },
 
     /**
      * @param {number} lineNumber
@@ -734,8 +758,33 @@ WebInspector.CodeMirrorTextEditor.BlockIndentController.prototype = {
             codeMirror.execCommand("newlineAndIndent");
             codeMirror.setCursor(cursor);
             codeMirror.execCommand("newlineAndIndent");
+            codeMirror.execCommand("indentMore");
+        } else if (line.substr(cursor.ch-1, 1) === "{") {
+            codeMirror.execCommand("newlineAndIndent");
+            codeMirror.execCommand("indentMore");
         } else
             return CodeMirror.Pass;
+    },
+
+    "'}'": function(codeMirror)
+    {
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+        for(var i = 0 ; i < line.length; ++i)
+            if (!WebInspector.TextUtils.isSpaceChar(line.charAt(i)))
+                return CodeMirror.Pass;
+
+        codeMirror.replaceRange("}", cursor);
+        var matchingBracket = codeMirror.findMatchingBracket();
+        if (!matchingBracket.match)
+            return;
+
+        line = codeMirror.getLine(matchingBracket.to.line);
+        var desiredIndentation = 0;
+        while (desiredIndentation < line.length && WebInspector.TextUtils.isSpaceChar(line.charAt(desiredIndentation)))
+            ++desiredIndentation;
+
+        codeMirror.replaceRange(line.substr(0, desiredIndentation) + "}", new CodeMirror.Pos(cursor.line, 0), new CodeMirror.Pos(cursor.line, cursor.ch + 1));
     }
 }
 

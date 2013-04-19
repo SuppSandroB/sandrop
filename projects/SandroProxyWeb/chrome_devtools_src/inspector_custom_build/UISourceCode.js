@@ -308,8 +308,18 @@ WebInspector.UISourceCode.prototype = {
 
         var registry = WebInspector.Revision._revisionHistoryRegistry();
         var historyItems = registry[this.url];
-        if (!historyItems || !historyItems.length)
+        if (!historyItems)
             return;
+
+        function filterOutStale(historyItem)
+        {
+            return historyItem.loaderId === WebInspector.resourceTreeModel.mainFrame.loaderId;
+        }
+
+        historyItems = historyItems.filter(filterOutStale);
+        if (!historyItems.length)
+            return;
+
         for (var i = 0; i < historyItems.length; ++i) {
             var content = window.localStorage[historyItems[i].key];
             var timestamp = new Date(historyItems[i].timestamp);
@@ -736,6 +746,17 @@ WebInspector.UILocation.prototype = {
     url: function()
     {
         return this.uiSourceCode.contentURL();
+    },
+
+    /**
+     * @return {string}
+     */
+    linkText: function()
+    {
+        var linkText = this.uiSourceCode.name() || (this.uiSourceCode.project().displayName() + "/" + this.uiSourceCode.path().join("/"));
+        if (typeof this.lineNumber === "number")
+            linkText += ":" + (this.lineNumber + 1);
+        return linkText;
     }
 }
 

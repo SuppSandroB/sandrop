@@ -108,6 +108,9 @@ WebInspector.Settings = function()
     this.messageURLFilters = this.createSetting("messageURLFilters", {});
     this.splitVerticallyWhenDockedToRight = this.createSetting("splitVerticallyWhenDockedToRight", true);
     this.visiblePanels = this.createSetting("visiblePanels", {});
+    this.shortcutPanelSwitch = this.createSetting("shortcutPanelSwitch", false);
+    this.portForwardings = this.createSetting("portForwardings", []);
+    this.codemirror = this.createSetting("codemirror", false);
 }
 
 WebInspector.Settings.prototype = {
@@ -201,16 +204,14 @@ WebInspector.ExperimentsSettings = function()
     this.fileSystemInspection = this._createExperiment("fileSystemInspection", "FileSystem inspection");
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
     this.sass = this._createExperiment("sass", "Support for Sass");
-    this.codemirror = this._createExperiment("codemirror", "Use CodeMirror editor");
-    this.aceTextEditor = this._createExperiment("aceTextEditor", "Use Ace editor");
     this.cssRegions = this._createExperiment("cssRegions", "CSS Regions Support");
     this.showOverridesInDrawer = this._createExperiment("showOverridesInDrawer", "Show Overrides in drawer");
     this.fileSystemProject = this._createExperiment("fileSystemProject", "File system folders in Sources Panel");
     this.showWhitespaceInEditor = this._createExperiment("showWhitespaceInEditor", "Show whitespace characters in editor");
     this.textEditorSmartBraces = this._createExperiment("textEditorSmartBraces", "Enable smart braces in text editor");
-    this.separateProfilers = this._createExperiment("separateProfilers", "Separate profiler tools");
+    this.customizableToolbar = this._createExperiment("customizableToolbar", "Enable toolbar customization");
     this.cpuFlameChart = this._createExperiment("cpuFlameChart", "Show Flame Chart in CPU Profiler");
-    this.shortcutPanelSwitch = this._createExperiment("shortcutPanelSwitch", "Enable Ctrl/Cmd + 1-9 shortcut to switch panels");
+    this.tethering = this._createExperiment("tethering", "Enable reverse port forwarding");
 
     this._cleanUpSetting();
 }
