@@ -831,6 +831,8 @@ WebInspector.StylePropertiesSection = function(parentPane, styleRule, editable, 
 {
     WebInspector.PropertiesSection.call(this, "");
     this.element.className = "styles-section matched-styles monospace" + (isFirstSection ? " first-styles-section" : "");
+    // We don't really use properties' disclosure.
+    this.propertiesElement.removeStyleClass("properties-tree");
 
     if (styleRule.media) {
         for (var i = styleRule.media.length - 1; i >= 0; --i) {
@@ -1820,11 +1822,11 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
                     if (formatSetting === cf.Original)
                         format = cf.Original;
                     else if (formatSetting === cf.RGB)
-                        format = (color.simple ? cf.RGB : cf.RGBA);
+                        format = (color.hasAlpha() ? cf.RGBA : cf.RGB);
                     else if (formatSetting === cf.HSL)
-                        format = (color.simple ? cf.HSL : cf.HSLA);
-                    else if (color.simple)
-                        format = (color.hasShortHex() ? cf.ShortHEX : cf.HEX);
+                        format = (color.hasAlpha() ? cf.HSLA : cf.HSL);
+                    else if (!color.hasAlpha())
+                        format = (color.canBeShortHex() ? cf.ShortHEX : cf.HEX);
                     else
                         format = cf.RGBA;
 
@@ -1846,18 +1848,18 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
                     //   - hex
                     switch (curFormat) {
                         case cf.Original:
-                            return color.simple ? cf.RGB : cf.RGBA;
+                            return !color.hasAlpha() ? cf.RGB : cf.RGBA;
 
                         case cf.RGB:
                         case cf.RGBA:
-                            return color.simple ? cf.HSL : cf.HSLA;
+                            return !color.hasAlpha() ? cf.HSL : cf.HSLA;
 
                         case cf.HSL:
                         case cf.HSLA:
-                            if (color.nickname)
+                            if (color.nickname())
                                 return cf.Nickname;
-                            if (color.simple)
-                                return color.hasShortHex() ? cf.ShortHEX : cf.HEX;
+                            if (!color.hasAlpha())
+                                return color.canBeShortHex() ? cf.ShortHEX : cf.HEX;
                             else
                                 return cf.Original;
 
@@ -1868,13 +1870,13 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
                             return cf.Original;
 
                         case cf.Nickname:
-                            if (color.simple)
-                                return color.hasShortHex() ? cf.ShortHEX : cf.HEX;
+                            if (!color.hasAlpha())
+                                return color.canBeShortHex() ? cf.ShortHEX : cf.HEX;
                             else
                                 return cf.Original;
 
                         default:
-                            return null;
+                            return cf.RGBA;
                     }
                 }
 
@@ -1882,11 +1884,9 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
                 {
                     do {
                         format = nextFormat(format);
-                        var currentValue = color.toString(format || "");
-                    } while (format && currentValue === color.value && format !== cf.Original);
-
-                    if (format)
-                        colorValueElement.textContent = currentValue;
+                        var currentValue = color.toString(format);
+                    } while (currentValue === colorValueElement.textContent);
+                    colorValueElement.textContent = currentValue;
                 }
 
                 var container = document.createElement("nobr");
@@ -2145,7 +2145,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
             enabledCheckboxElement.type = "checkbox";
             enabledCheckboxElement.checked = !this.disabled;
             enabledCheckboxElement.addEventListener("click", this.toggleEnabled.bind(this), false);
-            this.listItemElement.appendChild(enabledCheckboxElement);
+            this.listItemElement.insertBefore(enabledCheckboxElement, this.listItemElement.firstChild);
         }
     },
 
@@ -2260,6 +2260,8 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 context.originalName = this.nameElement.textContent;
                 context.originalValue = this.valueElement.textContent;
             }
+            this.property.name = name;
+            this.property.value = value;
             this.nameElement.textContent = name;
             this.valueElement.textContent = value;
             this.nameElement.normalize();
@@ -2444,10 +2446,13 @@ WebInspector.StylePropertyTreeElement.prototype = {
 
         // Determine where to move to before making changes
         var createNewProperty, moveToPropertyName, moveToSelector;
+        var isDataPasted = "originalName" in context;
+        var isDirtyViaPaste = isDataPasted && (this.nameElement.textContent !== context.originalName || this.valueElement.textContent !== context.originalValue);
+        var isPropertySplitPaste = isDataPasted && isEditingName && this.valueElement.textContent !== context.originalValue;
         var moveTo = this;
         var moveToOther = (isEditingName ^ (moveDirection === "forward"));
         var abandonNewProperty = this._newProperty && !userInput && (moveToOther || isEditingName);
-        if (moveDirection === "forward" && !isEditingName || moveDirection === "backward" && isEditingName) {
+        if (moveDirection === "forward" && (!isEditingName || isPropertySplitPaste) || moveDirection === "backward" && isEditingName) {
             moveTo = moveTo._findSibling(moveDirection);
             if (moveTo)
                 moveToPropertyName = moveTo.name;
@@ -2460,9 +2465,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         // Make the Changes and trigger the moveToNextCallback after updating.
         var moveToIndex = moveTo && this.treeOutline ? this.treeOutline.children.indexOf(moveTo) : -1;
         var blankInput = /^\s*$/.test(userInput);
-        var isDataPasted = "originalName" in context;
-        var isDirtyViaPaste = isDataPasted && (this.nameElement.textContent !== context.originalName || this.valueElement.textContent !== context.originalValue);
-        var shouldCommitNewProperty = this._newProperty && (moveToOther || (!moveDirection && !isEditingName) || (isEditingName && blankInput));
+        var shouldCommitNewProperty = this._newProperty && (isPropertySplitPaste || moveToOther || (!moveDirection && !isEditingName) || (isEditingName && blankInput));
         var section = this.section();
         if (((userInput !== previousContent || isDirtyViaPaste) && !this._newProperty) || shouldCommitNewProperty) {
             section._afterUpdate = moveToNextCallback.bind(this, this._newProperty, !blankInput, section);
@@ -2505,7 +2508,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 else {
                     var treeElement = moveToIndex >= 0 ? propertyElements[moveToIndex] : null;
                     if (treeElement) {
-                        var elementToEdit = !isEditingName ? treeElement.nameElement : treeElement.valueElement;
+                        var elementToEdit = !isEditingName || isPropertySplitPaste ? treeElement.nameElement : treeElement.valueElement;
                         if (alreadyNew && blankInput)
                             elementToEdit = moveDirection === "forward" ? treeElement.nameElement : treeElement.valueElement;
                         treeElement.startEditing(elementToEdit);

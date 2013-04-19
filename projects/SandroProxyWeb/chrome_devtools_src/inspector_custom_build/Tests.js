@@ -314,35 +314,11 @@ TestSuite.prototype.testRendererProcessNativeMemorySize = function()
     var test = this;
     var KB = 1024;
     var MB = KB * KB;
-    var arraySize = 20000000;
-    var initialSize;
-
-    function checkFuzzyValue(value, expected, allowedDelta)
-    {
-        var relativeDiff = Math.abs(value - expected) / expected;
-        if (relativeDiff > allowedDelta)
-            test.fail("Value (" + value + ") differs from expected (" + expected + ") by more than " + (allowedDelta * 100) + "%.");
-    }
 
     function step1(error, memoryBlock)
     {
         test.assertTrue(!error, "An error has occurred: " + error);
         test.assertTrue(memoryBlock.size > 1 * MB && memoryBlock.size < 1500 * MB, "Unfeasible process size: " + memoryBlock.size + " bytes.");
-
-        initialSize = memoryBlock.size;
-
-        test.evaluateInConsole_("var a = new Uint8Array(" + arraySize + ");", function() {});
-
-        MemoryAgent.getProcessMemoryDistribution(false, step2);
-    }
-
-    function step2(error, memoryBlock)
-    {
-        test.assertTrue(!error, "An error has occurred: " + error);
-        var deltaBytes = memoryBlock.size - initialSize;
-        // Checks that the process size has grown approximately by
-        // the size of the allocated array (within 10% confidence interval).
-        checkFuzzyValue(deltaBytes, arraySize, 0.1);
 
         test.releaseControl();
     }
@@ -441,7 +417,7 @@ TestSuite.prototype.testPauseWhenScriptIsRunning = function()
     function testScriptPause() {
         // The script should be in infinite loop. Click "Pause" button to
         // pause it and wait for the result.
-        WebInspector.panels.scripts.pauseButton.click();
+        WebInspector.panels.scripts._pauseButton.element.click();
 
         this._waitForScriptPause(this.releaseControl.bind(this));
     }
@@ -463,12 +439,12 @@ TestSuite.prototype.testNetworkSize = function()
         test.assertEquals(25, resource.resourceSize, "Incorrect total data length");
         test.releaseControl();
     }
-    
+
     this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
 
     // Reload inspected page to sniff network events
     test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
-    
+
     this.takeControl();
 };
 
@@ -486,12 +462,12 @@ TestSuite.prototype.testNetworkSyncSize = function()
         test.assertEquals(25, resource.resourceSize, "Incorrect total data length");
         test.releaseControl();
     }
-    
+
     this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
 
     // Send synchronous XHR to sniff network events
     test.evaluateInConsole_("var xhr = new XMLHttpRequest(); xhr.open(\"GET\", \"chunked\", false); xhr.send(null);", function() {});
-    
+
     this.takeControl();
 };
 
@@ -502,7 +478,7 @@ TestSuite.prototype.testNetworkSyncSize = function()
 TestSuite.prototype.testNetworkRawHeadersText = function()
 {
     var test = this;
-    
+
     function finishResource(resource, finishTime)
     {
         if (!resource.responseHeadersText)
@@ -510,12 +486,12 @@ TestSuite.prototype.testNetworkRawHeadersText = function()
         test.assertEquals(164, resource.responseHeadersText.length, "Incorrect response headers text length");
         test.releaseControl();
     }
-    
+
     this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
 
     // Reload inspected page to sniff network events
     test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
-    
+
     this.takeControl();
 };
 
@@ -529,24 +505,24 @@ TestSuite.prototype.testNetworkTiming = function()
 
     function finishResource(resource, finishTime)
     {
-        // Setting relaxed expectations to reduce flakiness. 
+        // Setting relaxed expectations to reduce flakiness.
         // Server sends headers after 100ms, then sends data during another 100ms.
-        // We expect these times to be measured at least as 70ms.  
-        test.assertTrue(resource.timing.receiveHeadersEnd - resource.timing.connectStart >= 70, 
+        // We expect these times to be measured at least as 70ms.
+        test.assertTrue(resource.timing.receiveHeadersEnd - resource.timing.connectStart >= 70,
                         "Time between receiveHeadersEnd and connectStart should be >=70ms, but was " +
                         "receiveHeadersEnd=" + resource.timing.receiveHeadersEnd + ", connectStart=" + resource.timing.connectStart + ".");
-        test.assertTrue(resource.responseReceivedTime - resource.startTime >= 0.07, 
+        test.assertTrue(resource.responseReceivedTime - resource.startTime >= 0.07,
                 "Time between responseReceivedTime and startTime should be >=0.07s, but was " +
                 "responseReceivedTime=" + resource.responseReceivedTime + ", startTime=" + resource.startTime + ".");
-        test.assertTrue(resource.endTime - resource.startTime >= 0.14, 
+        test.assertTrue(resource.endTime - resource.startTime >= 0.14,
                 "Time between endTime and startTime should be >=0.14s, but was " +
                 "endtime=" + resource.endTime + ", startTime=" + resource.startTime + ".");
-        
+
         test.releaseControl();
     }
-    
+
     this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
-    
+
     // Reload inspected page to sniff network events
     test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
 
@@ -640,7 +616,7 @@ TestSuite.prototype.testTimelineFrames = function()
             }
             if (!frameCount++)
                 continue;
-            
+
             test.assertHasKey(recordsInFrame, "FireAnimationFrame");
             test.assertHasKey(recordsInFrame, "Layout");
             test.assertHasKey(recordsInFrame, "RecalculateStyles");

@@ -15,6 +15,7 @@
     pointer-events: auto;
     overflow: auto;
     -webkit-user-select: text;
+    line-height: 11px;
 }
 
 .popover .content.fixed-height {
@@ -118,7 +119,6 @@
 
 .popover-details-title {
     border-bottom: 1px solid #B8B8B8;
-    font-size: 11px;
     font-weight: bold;
     padding-bottom: 5px;
     padding-top: 0px;

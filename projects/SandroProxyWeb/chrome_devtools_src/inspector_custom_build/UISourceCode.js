@@ -225,11 +225,19 @@ WebInspector.UISourceCode.prototype = {
 
         function contentLoaded(updatedContent)
         {
+            if (updatedContent === null) {
+                var workingCopy = this.workingCopy();
+                this._commitContent("", false);
+                this.setWorkingCopy(workingCopy);
+                delete this._checkingContent;
+                return;
+            }
             if (typeof this._lastAcceptedContent === "string" && this._lastAcceptedContent === updatedContent) {
                 delete this._checkingContent;
                 return;
             }
             if (this._content === updatedContent) {
+                delete this._lastAcceptedContent;
                 delete this._checkingContent;
                 return;
             }
@@ -263,6 +271,7 @@ WebInspector.UISourceCode.prototype = {
      */
     _commitContent: function(content, shouldSetContentInProject)
     {
+        delete this._lastAcceptedContent;
         this._content = content;
         this._contentLoaded = true;
         
@@ -299,8 +308,18 @@ WebInspector.UISourceCode.prototype = {
 
         var registry = WebInspector.Revision._revisionHistoryRegistry();
         var historyItems = registry[this.url];
-        if (!historyItems || !historyItems.length)
+        if (!historyItems)
             return;
+
+        function filterOutStale(historyItem)
+        {
+            return historyItem.loaderId === WebInspector.resourceTreeModel.mainFrame.loaderId;
+        }
+
+        historyItems = historyItems.filter(filterOutStale);
+        if (!historyItems.length)
+            return;
+
         for (var i = 0; i < historyItems.length; ++i) {
             var content = window.localStorage[historyItems[i].key];
             var timestamp = new Date(historyItems[i].timestamp);
@@ -395,6 +414,11 @@ WebInspector.UISourceCode.prototype = {
         if (this.isDirty())
             return this._workingCopy;
         return this._content;
+    },
+
+    resetWorkingCopy: function()
+    {
+        this.setWorkingCopy(this._content);
     },
 
     /**
@@ -663,8 +687,12 @@ WebInspector.UISourceCode.prototype = {
      */
     setSourceMapping: function(sourceMapping)
     {
+        var wasIdentity = this._sourceMapping ? this._sourceMapping.isIdentity() : true;
         this._sourceMapping = sourceMapping;
-        this.dispatchEventToListeners(WebInspector.UISourceCode.Events.SourceMappingChanged, null);
+        var data = {}
+        data.isIdentity = sourceMapping ? sourceMapping.isIdentity() : true;
+        data.identityHasChanged = data.isIdentity !== wasIdentity;
+        this.dispatchEventToListeners(WebInspector.UISourceCode.Events.SourceMappingChanged, data);
     },
 
     __proto__: WebInspector.Object.prototype
@@ -718,6 +746,17 @@ WebInspector.UILocation.prototype = {
     url: function()
     {
         return this.uiSourceCode.contentURL();
+    },
+
+    /**
+     * @return {string}
+     */
+    linkText: function()
+    {
+        var linkText = this.uiSourceCode.name() || (this.uiSourceCode.project().displayName() + "/" + this.uiSourceCode.path().join("/"));
+        if (typeof this.lineNumber === "number")
+            linkText += ":" + (this.lineNumber + 1);
+        return linkText;
     }
 }
 

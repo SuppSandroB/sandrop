@@ -43,6 +43,16 @@ WebInspector.InspectorFrontendHostStub = function()
 }
 
 WebInspector.InspectorFrontendHostStub.prototype = {
+    getSelectionBackgroundColor: function()
+    {
+        return "#6e86ff";
+    },
+
+    getSelectionForegroundColor: function()
+    {
+        return "#ffffff";
+    },
+
     platform: function()
     {
         var match = navigator.userAgent.match(/Windows NT/);
@@ -223,13 +233,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 }
 
 InspectorFrontendHost = new WebInspector.InspectorFrontendHostStub();
-Preferences.localizeUI = false;
-
-// Default implementation; platforms will override.
-WebInspector.clipboardAccessDeniedMessage = function()
-{
-    return "";
-}
 
 /**
  * @constructor
@@ -238,7 +241,7 @@ WebInspector.clipboardAccessDeniedMessage = function()
 WebInspector.ClipboardAccessDeniedScreen = function()
 {
     WebInspector.HelpScreen.call(this, WebInspector.UIString("Clipboard access is denied"));
-    var platformMessage = WebInspector.clipboardAccessDeniedMessage();
+    var platformMessage = WebInspector.UIString("You need to install a Chrome extension that grants clipboard access to Developer Tools.");
     if (platformMessage) {
         var p = this.contentElement.createChild("p");
         p.addStyleClass("help-section");
