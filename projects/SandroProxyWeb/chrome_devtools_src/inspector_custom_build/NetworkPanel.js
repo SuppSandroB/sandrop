@@ -114,7 +114,7 @@ WebInspector.NetworkLogView.prototype = {
             this._setLargerRequests(this.useLargeRows);
 
         this._allowPopover = true;
-        this._popoverHelper = new WebInspector.PopoverHelper(this.element, this._getPopoverAnchor.bind(this), this._showPopover.bind(this));
+        this._popoverHelper = new WebInspector.PopoverHelper(this.element, this._getPopoverAnchor.bind(this), this._showPopover.bind(this), this._onHidePopover.bind(this));
         // Enable faster hint.
         this._popoverHelper.setTimeout(100);
 
@@ -813,7 +813,6 @@ WebInspector.NetworkLogView.prototype = {
 
         this._mainRequestLoadTime = -1;
         this._mainRequestDOMContentTime = -1;
-        this._linkifier.reset();
     },
 
     get requests()
@@ -973,6 +972,11 @@ WebInspector.NetworkLogView.prototype = {
         else
             content = WebInspector.RequestTimingView.createTimingTable(anchor.parentElement.request);
         popover.show(content, anchor);
+    },
+
+    _onHidePopover: function()
+    {
+        this._linkifier.reset();
     },
 
     /**
@@ -2027,6 +2031,7 @@ WebInspector.NetworkDataGridNode = function(parentView, request)
     WebInspector.DataGridNode.call(this, {});
     this._parentView = parentView;
     this._request = request;
+    this._linkifier = new WebInspector.Linkifier();
 }
 
 WebInspector.NetworkDataGridNode.prototype = {
@@ -2049,6 +2054,10 @@ WebInspector.NetworkDataGridNode.prototype = {
         this._nameCell.addEventListener("dblclick", this._openInNewTab.bind(this), false);
     },
 
+    wasDetached: function()
+    {
+        this._linkifier.reset();
+    },
     isFilteredOut: function()
     {
         if (this._parentView._filteredOutRequests.get(this._request))
@@ -2279,7 +2288,7 @@ WebInspector.NetworkDataGridNode.prototype = {
             break;
 
         case WebInspector.NetworkRequest.InitiatorType.Script:
-            var urlElement = this._parentView._linkifier.linkifyLocation(initiator.url, initiator.lineNumber - 1, initiator.columnNumber - 1);
+            var urlElement = this._linkifier.linkifyLocation(initiator.url, initiator.lineNumber - 1, initiator.columnNumber - 1);
             urlElement.title = "";
             this._initiatorCell.appendChild(urlElement);
             this._appendSubtitle(this._initiatorCell, WebInspector.UIString("Script"));

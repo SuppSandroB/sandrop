@@ -122,6 +122,8 @@ body.undocked.platform-mac-mountain-lion.inactive #toolbar {
 }
 
 .toolbar-item {
+    display: inline-block;
+    float: left;
     margin: 0;
     padding-right: 6px;
     background-color: transparent;
@@ -136,21 +138,13 @@ body:not(.show-toolbar-icons) .toolbar-item {
     height: 24px;
 }
 
-body.dock-to-bottom:not(.show-toolbar-icons) .toolbar-item.toggleable {
-    padding: 0 11px;
-}
-
-body.dock-to-bottom:not(.show-toolbar-icons) .toolbar-item.toggleable.toggled-on {
-    padding: 0 9px;
-}
-
 body.show-toolbar-icons .toolbar-item.toggleable {
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding-top: 2px;
+    padding-bottom: 2px;
 }
 
 body.show-toolbar-icons.dock-to-bottom .toolbar-item.toggleable {
-    margin: 1px 0;
+    margin: 2px 0;
     padding-bottom: 2px;
 }
 
@@ -169,15 +163,17 @@ body.show-toolbar-icons.dock-to-bottom .toolbar-item.toggleable {
     vertical-align: top;
 }
 
-body.dock-to-bottom .toolbar-icon {
-    width: 24px;
-    height: 24px;
-    vertical-align: middle;
-    background-image: url(Images/toolbarIconsSmall.png);
+body.show-toolbar-icons .toolbar-icon {
+    display: block;
+    margin: auto;
 }
 
-body.show-toolbar-icons .toolbar-icon {
+body.show-toolbar-icons.dock-to-bottom .toolbar-icon {
+    width: 24px;
+    height: 24px;
     display: inline-block;
+    vertical-align: middle;
+    background-image: url(Images/toolbarIconsSmall.png);
 }
 
 body.dock-to-bottom .toolbar-icon.custom-toolbar-icon {
@@ -195,6 +191,27 @@ body.dock-to-bottom .toolbar-item:active .toolbar-icon {
 .toolbar-label {
     line-height: 22px;
     text-shadow: rgba(255, 255, 255, 0.5) 0 1px 0;
+    display: inline;
+}
+
+.toolbar-item-close-button {
+    display: inline-block;
+    margin: auto 0 auto 4px;
+    color: #555;
+    line-height: 10px;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 16px;
+    opacity: 0.4;
+}
+
+.toolbar-item .toolbar-item-close-button:hover {
+    opacity: 1;
+}
+
+#toolbar-dropdown .toolbar-items-separator {
+    border-bottom: 1px solid #aaa;
+    width: 100%;
+    margin: 5px 0;
 }
 
 body.show-toolbar-icons .toolbar-label {
@@ -209,6 +226,7 @@ body.show-toolbar-icons.dock-to-bottom .toolbar-label {
     display: inline-block;
     margin-left: 3px;
     top: 0;
+    vertical-align: middle;
 }
 
 body.dock-to-bottom #search-toolbar-label {
@@ -298,6 +316,7 @@ body.show-toolbar-icons #toolbar-dropdown .toolbar-item {
 }
 
 #toolbar-dropdown .toolbar-icon {
+    margin-left: 0;
     margin-right: 0.5em;
 }
 
@@ -311,24 +330,35 @@ body.show-toolbar-icons #toolbar-dropdown .toolbar-label {
 }
 
 #toolbar-panels-menu {
-    font-size: 17px;
-    font-weight: bold;
     border: 0;
-    background-color: transparent;
     -webkit-border-radius: 5px;
-    text-shadow: none;
     cursor: default;
-    margin: 0;
-    /* A line height of 0 allows precise text positioning using padding. */
-    line-height: 0;
-    padding: 13px 6px 11px;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-weight: bold;
+    line-height: 16px;
+    height: 22px;
+    padding: 0 4px 0 4px;
+    margin: 1px 3px;
 }
 
-#toolbar-panels-menu:hover {
+body.show-toolbar-icons #toolbar-panels-menu {
+    margin: 16px 3px;
+}
+
+body.show-toolbar-icons.dock-to-bottom #toolbar-panels-menu {
+    margin: 6px 3px;
+}
+
+#toolbar-panels-menu:hover:not(.disabled) {
     background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(191, 191, 191, 0.7)), to(rgba(171, 171, 171, 0.5)));
 }
 
-#toolbar-panels-menu:active {
+#toolbar-panels-menu.disabled {
+    opacity: 0.4;
+    text-shadow: white 1px 1px 0;
+}
+
+#toolbar-panels-menu:active:not(.disabled) {
     background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(111, 111, 111, 0.8)), to(rgba(91, 91, 91, 0.8)));
 }
 
@@ -660,9 +690,11 @@ body.drawer-visible #main-panels {
 }
 
 .status-bar {
+    position: relative;
     white-space: nowrap;
     height: 23px;
     overflow: hidden;
+    width: 100%;
     z-index: 12;
     background-image: -webkit-linear-gradient(rgb(243,243,243), rgb(235,235,235));
     border-top: 1px solid rgb(202, 202, 202);
@@ -901,10 +933,11 @@ body.remote .dock-status-bar-item {
 }
 
 #error-warning-count {
-    padding: 5px 2px 6px 0px;
-    font-size: 10px;
+    padding: 4px 6px 6px 0px;
+    font-size: 11px;
     height: 19px;
     cursor: pointer;
+    line-height: 14px;
 }
 
 #error-warning-count:hover {
@@ -1699,6 +1732,7 @@ iframe.panel.extension {
     overflow: hidden;
     -webkit-user-select: text;
     cursor: default;
+    padding-top: 2px;
 }
 
 .properties-tree li.parent {
@@ -1794,7 +1828,6 @@ li.editing .swatch, li.editing .enabled-button,  li.editing-sub-part .delete-but
 }
 
 .properties-tree.watch-expressions > li {
-    padding-top: 2px;
     padding-left: 4px;
 }
 
@@ -2925,12 +2958,13 @@ body.platform-mac .progress-bar-container progress {
 
 .source-frame-cursor-position {
     padding-left: 6px;
-    padding-top: 5px;
+    padding-top: 4px;
     display: inline-block;
     pointer-events: auto;
     -webkit-user-select: text;
     font-size: 11px;
     cursor: text;
+    line-height: 14px;
 }
 
 .elements-tree-outline li.parent::before {
