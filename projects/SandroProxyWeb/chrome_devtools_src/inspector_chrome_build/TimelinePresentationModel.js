@@ -46,11 +46,11 @@ WebInspector.TimelinePresentationModel.categories = function()
     if (WebInspector.TimelinePresentationModel._categories)
         return WebInspector.TimelinePresentationModel._categories;
     WebInspector.TimelinePresentationModel._categories = {
-        program: new WebInspector.TimelineCategory("program", WebInspector.UIString("Program"), -1, "#BBBBBB", "#DDDDDD", "#FFFFFF"),
         loading: new WebInspector.TimelineCategory("loading", WebInspector.UIString("Loading"), 0, "#5A8BCC", "#8EB6E9", "#70A2E3"),
         scripting: new WebInspector.TimelineCategory("scripting", WebInspector.UIString("Scripting"), 1, "#D8AA34", "#F3D07A", "#F1C453"),
         rendering: new WebInspector.TimelineCategory("rendering", WebInspector.UIString("Rendering"), 2, "#8266CC", "#AF9AEB", "#9A7EE6"),
-        painting: new WebInspector.TimelineCategory("painting", WebInspector.UIString("Painting"), 2, "#5FA050", "#8DC286", "#71B363")
+        painting: new WebInspector.TimelineCategory("painting", WebInspector.UIString("Painting"), 2, "#5FA050", "#8DC286", "#71B363"),
+        other: new WebInspector.TimelineCategory("other", WebInspector.UIString("Other"), -1, "#BBBBBB", "#DDDDDD", "#EEEEEE")
     };
     return WebInspector.TimelinePresentationModel._categories;
 };
@@ -68,7 +68,7 @@ WebInspector.TimelinePresentationModel._initRecordStyles = function()
 
     var recordStyles = {};
     recordStyles[recordTypes.Root] = { title: "#root", category: categories["loading"] };
-    recordStyles[recordTypes.Program] = { title: WebInspector.UIString("Program"), category: categories["program"] };
+    recordStyles[recordTypes.Program] = { title: WebInspector.UIString("Other"), category: categories["other"] };
     recordStyles[recordTypes.EventDispatch] = { title: WebInspector.UIString("Event"), category: categories["scripting"] };
     recordStyles[recordTypes.BeginFrame] = { title: WebInspector.UIString("Frame Start"), category: categories["rendering"] };
     recordStyles[recordTypes.ScheduleStyleRecalculation] = { title: WebInspector.UIString("Schedule Style Recalculation"), category: categories["rendering"] };
@@ -77,7 +77,7 @@ WebInspector.TimelinePresentationModel._initRecordStyles = function()
     recordStyles[recordTypes.Layout] = { title: WebInspector.UIString("Layout"), category: categories["rendering"] };
     recordStyles[recordTypes.Paint] = { title: WebInspector.UIString("Paint"), category: categories["painting"] };
     recordStyles[recordTypes.Rasterize] = { title: WebInspector.UIString("Rasterize"), category: categories["painting"] };
-    recordStyles[recordTypes.ScrollLayer] = { title: WebInspector.UIString("Scroll"), category: categories["painting"] };
+    recordStyles[recordTypes.ScrollLayer] = { title: WebInspector.UIString("Scroll"), category: categories["rendering"] };
     recordStyles[recordTypes.DecodeImage] = { title: WebInspector.UIString("Image Decode"), category: categories["painting"] };
     recordStyles[recordTypes.ResizeImage] = { title: WebInspector.UIString("Image Resize"), category: categories["painting"] };
     recordStyles[recordTypes.CompositeLayers] = { title: WebInspector.UIString("Composite Layers"), category: categories["painting"] };
@@ -122,7 +122,7 @@ WebInspector.TimelinePresentationModel.recordStyle = function(record)
     if (!result) {
         result = {
             title: WebInspector.UIString("Unknown: %s", record.type),
-            category: WebInspector.TimelinePresentationModel.categories()["program"]
+            category: WebInspector.TimelinePresentationModel.categories()["other"]
         };
         recordStyles[record.type] = result;
     }
@@ -265,6 +265,7 @@ WebInspector.TimelinePresentationModel.prototype = {
         this._scheduledResourceRequests = {};
         this._timerRecords = {};
         this._requestAnimationFrameRecords = {};
+        this._eventDividerRecords = [];
         this._timeRecords = {};
         this._timeRecordStack = [];
         this._frames = [];
@@ -344,6 +345,9 @@ WebInspector.TimelinePresentationModel.prototype = {
         }
 
         var formattedRecord = new WebInspector.TimelinePresentationModel.Record(this, record, parentRecord, origin, scriptDetails, isHiddenRecord);
+
+        if (WebInspector.TimelinePresentationModel.isEventDivider(formattedRecord))
+            this._eventDividerRecords.push(formattedRecord);
 
         if (isHiddenRecord)
             return formattedRecord;
@@ -434,6 +438,8 @@ WebInspector.TimelinePresentationModel.prototype = {
         coalescedRecord._children.push(record);
         record.parent = coalescedRecord;
         coalescedRecord.calculateAggregatedStats();
+        if (record.hasWarning || record.childHasWarning)
+            coalescedRecord.childHasWarning = true;
 
         coalescedRecord.parent = parent;
         parent._children[parent._children.indexOf(record)] = coalescedRecord;
@@ -536,6 +542,11 @@ WebInspector.TimelinePresentationModel.prototype = {
         while (lastFrame < this._frames.length && this._frames[lastFrame].endTime <= endTime)
             ++lastFrame;
         return this._frames.slice(firstFrame, lastFrame);
+    },
+
+    eventDividerRecords: function()
+    {
+        return this._eventDividerRecords;
     },
 
     isVisible: function(record)
@@ -739,6 +750,11 @@ WebInspector.TimelinePresentationModel.Record = function(presentationModel, reco
         if (this.stackTrace)
             this.setHasWarning();
         presentationModel._layoutInvalidateStack[this.frameId] = null;
+        this.highlightQuad = record.data.root || WebInspector.TimelinePresentationModel.quadFromRectData(record.data);
+        break;
+
+    case recordTypes.Paint:
+        this.highlightQuad = record.data.clip || WebInspector.TimelinePresentationModel.quadFromRectData(record.data);
         break;
 
     case recordTypes.WebSocketCreate:
@@ -984,8 +1000,11 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
             case recordTypes.GCEvent:
                 contentHelper.appendTextRow(WebInspector.UIString("Collected"), Number.bytesToString(this.data["usedHeapSizeDelta"]));
                 break;
-            case recordTypes.TimerInstall:
             case recordTypes.TimerFire:
+                callSiteStackTraceLabel = WebInspector.UIString("Timer installed");
+                // Fall-through intended.
+
+            case recordTypes.TimerInstall:
             case recordTypes.TimerRemove:
                 contentHelper.appendTextRow(WebInspector.UIString("Timer ID"), this.data["timerId"]);
                 if (typeof this.timeout === "number") {
@@ -994,6 +1013,7 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
                 }
                 break;
             case recordTypes.FireAnimationFrame:
+                callSiteStackTraceLabel = WebInspector.UIString("Animation frame requested");
                 contentHelper.appendTextRow(WebInspector.UIString("Callback ID"), this.data["id"]);
                 break;
             case recordTypes.FunctionCall:
@@ -1021,14 +1041,34 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
                     contentHelper.appendElementRow(WebInspector.UIString("Script"), this._linkifyLocation(this.url, this.data["lineNumber"]));
                 break;
             case recordTypes.Paint:
-                contentHelper.appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("(%d, %d)", this.data["x"], this.data["y"]));
-                contentHelper.appendTextRow(WebInspector.UIString("Dimensions"), WebInspector.UIString("%d × %d", this.data["width"], this.data["height"]));
+                var clip = this.data["clip"];
+                if (clip) {
+                    contentHelper.appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("(%d, %d)", clip[0], clip[1]));
+                    var clipWidth = WebInspector.TimelinePresentationModel.quadWidth(clip);
+                    var clipHeight = WebInspector.TimelinePresentationModel.quadHeight(clip);
+                    contentHelper.appendTextRow(WebInspector.UIString("Dimensions"), WebInspector.UIString("%d × %d", clipWidth, clipHeight));
+                } else {
+                    // Backward compatibility: older version used x, y, width, height fields directly in data.
+                    if (typeof this.data["x"] !== "undefined" && typeof this.data["y"] !== "undefined")
+                        contentHelper.appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("(%d, %d)", this.data["x"], this.data["y"]));
+                    if (typeof this.data["width"] !== "undefined" && typeof this.data["height"] !== "undefined")
+                        contentHelper.appendTextRow(WebInspector.UIString("Dimensions"), WebInspector.UIString("%d\u2009\u00d7\u2009%d", this.data["width"], this.data["height"]));
+                }
                 break;
             case recordTypes.RecalculateStyles: // We don't want to see default details.
-                callSiteStackTraceLabel = WebInspector.UIString("Styles invalidated");
+                if (this.data["elementCount"])
+                    contentHelper.appendTextRow(WebInspector.UIString("Elements affected"), this.data["elementCount"]);
                 callStackLabel = WebInspector.UIString("Styles recalculation forced");
                 break;
             case recordTypes.Layout:
+                if (this.data["dirtyObjects"])
+                    contentHelper.appendTextRow(WebInspector.UIString("Nodes that need layout"), this.data["dirtyObjects"]);
+                if (this.data["totalObjects"])
+                    contentHelper.appendTextRow(WebInspector.UIString("Layout tree size"), this.data["totalObjects"]);
+                if (typeof this.data["partialLayout"] === "boolean") {
+                    contentHelper.appendTextRow(WebInspector.UIString("Layout scope"),
+                       this.data["partialLayout"] ? WebInspector.UIString("Partial") : WebInspector.UIString("Whole document"));
+                }
                 callSiteStackTraceLabel = WebInspector.UIString("Layout invalidated");
                 if (this.stackTrace) {
                     callStackLabel = WebInspector.UIString("Layout forced");
@@ -1133,7 +1173,10 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
             details = this.data ? this.data["type"] : null;
             break;
         case WebInspector.TimelineModel.RecordType.Paint:
-            details = this.data["width"] + "\u2009\u00d7\u2009" + this.data["height"];
+            var width = this.data.clip ? WebInspector.TimelinePresentationModel.quadWidth(this.data.clip) : this.data.width;
+            var height = this.data.clip ? WebInspector.TimelinePresentationModel.quadHeight(this.data.clip) : this.data.height;
+            if (width && height)
+                details = WebInspector.UIString("%d\u2009\u00d7\u2009%d", width, height);
             break;
         case WebInspector.TimelineModel.RecordType.DecodeImage:
             details = this.data["imageType"];
@@ -1175,8 +1218,12 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
             break;
         }
 
-        if (details && !(details instanceof Node))
-            return this._createSpanWithText("" + details);
+        if (details) {
+            if (details instanceof Node)
+                details.tabIndex = -1;
+            else
+                return this._createSpanWithText("" + details);
+        }
 
         return details || null;
     },
@@ -1356,6 +1403,39 @@ WebInspector.TimelinePresentationModel.createStyleRuleForCategory = function(cat
 }
 
 /**
+ * @param {Array.<number>} quad
+ * @return {number}
+ */
+WebInspector.TimelinePresentationModel.quadWidth = function(quad)
+{
+    return Math.round(Math.sqrt(Math.pow(quad[0] - quad[2], 2) + Math.pow(quad[1] - quad[3], 2)));
+}
+
+/**
+ * @param {Array.<number>} quad
+ * @return {number}
+ */
+WebInspector.TimelinePresentationModel.quadHeight = function(quad)
+{
+    return Math.round(Math.sqrt(Math.pow(quad[0] - quad[6], 2) + Math.pow(quad[1] - quad[7], 2)));
+}
+
+/**
+ * @param {Object} data
+ * @return {Array.<number>?}
+ */
+WebInspector.TimelinePresentationModel.quadFromRectData = function(data)
+{
+    if (typeof data["x"] === "undefined" || typeof data["y"] === "undefined")
+        return null;
+    var x0 = data["x"];
+    var x1 = data["x"] + data["width"];
+    var y0 = data["y"];
+    var y1 = data["y"] + data["height"];
+    return [x0, y0, x1, y0, x1, y1, x0, y1];
+}
+
+/**
  * @interface
  */
 WebInspector.TimelinePresentationModel.Filter = function()
@@ -1412,5 +1492,3 @@ WebInspector.TimelineCategory.prototype = {
 
     __proto__: WebInspector.Object.prototype
 }
-
-//@ sourceURL=http://localhost/inspector/front-end/TimelinePresentationModel.js

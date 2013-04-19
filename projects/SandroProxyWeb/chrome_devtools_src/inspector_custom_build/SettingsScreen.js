@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2013 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -53,6 +53,8 @@ WebInspector.SettingsScreen = function(onHide)
         this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Overrides, WebInspector.UIString("Overrides"), new WebInspector.OverridesSettingsTab());
     if (WebInspector.experimentsSettings.fileSystemProject.isEnabled())
         this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Workspace, WebInspector.UIString("Workspace"), new WebInspector.WorkspaceSettingsTab());
+    if (WebInspector.experimentsSettings.tethering.isEnabled())
+        this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Tethering, WebInspector.UIString("Port forwarding"), new WebInspector.TetheringSettingsTab());
     if (WebInspector.experimentsSettings.experimentsEnabled)
         this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Experiments, WebInspector.UIString("Experiments"), new WebInspector.ExperimentsSettingsTab());
     this._tabbedPane.appendTab(WebInspector.SettingsScreen.Tabs.Shortcuts, WebInspector.UIString("Shortcuts"), WebInspector.shortcutsScreen.createShortcutsTabView());
@@ -68,6 +70,7 @@ WebInspector.SettingsScreen.Tabs = {
     General: "general",
     Overrides: "overrides",
     Workspace: "workspace",
+    Tethering: "tethering",
     Experiments: "experiments",
     Shortcuts: "shortcuts"
 }
@@ -244,6 +247,42 @@ WebInspector.SettingsTab.prototype = {
         return pp;
     },
 
+    /**
+     * @param {string} label
+     * @param {WebInspector.Setting} setting
+     * @param {boolean} numeric
+     * @param {number=} maxLength
+     * @param {string=} width
+     * @param {function(string):boolean=} validatorCallback
+     */
+    _createInputSetting: function(label, setting, numeric, maxLength, width, validatorCallback)
+    {
+        var fieldset = document.createElement("fieldset");
+        var p = fieldset.createChild("p");
+        var labelElement = p.createChild("label");
+        labelElement.textContent = label + " ";
+        var inputElement = labelElement.createChild("input");
+        inputElement.value = setting.get();
+        inputElement.type = "text";
+        if (numeric)
+            inputElement.className = "numeric";
+        if (maxLength)
+            inputElement.maxLength = maxLength;
+        if (width)
+            inputElement.style.width = width;
+
+        function onBlur()
+        {
+            if (validatorCallback && !validatorCallback(inputElement.value)) {
+                inputElement.value = setting.get();
+                return;
+            }
+            setting.set(numeric ? Number(inputElement.value) : inputElement.value);
+        }
+        inputElement.addEventListener("blur", onBlur, false);
+        return fieldset;
+    },
+
     _createCustomSetting: function(name, element)
     {
         var p = document.createElement("p");
@@ -266,13 +305,15 @@ WebInspector.GenericSettingsTab = function()
     WebInspector.SettingsTab.call(this, WebInspector.UIString("General"));
 
     var p = this._appendSection();
-    if (Preferences.exposeDisableCache)
-        p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Disable cache"), WebInspector.settings.cacheDisabled));
+    p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Disable cache (while DevTools is open)"), WebInspector.settings.cacheDisabled));
     var disableJSElement = this._createCheckboxSetting(WebInspector.UIString("Disable JavaScript"), WebInspector.settings.javaScriptDisabled);
     p.appendChild(disableJSElement);
     WebInspector.settings.javaScriptDisabled.addChangeListener(this._javaScriptDisabledChanged, this);
     this._disableJSCheckbox = disableJSElement.getElementsByTagName("input")[0];
     this._updateScriptDisabledCheckbox();
+
+    var panelShortcutTitle = WebInspector.UIString("Enable %s + 1-9 shortcut to switch panels", WebInspector.isMac() ? "Cmd" : "Ctrl");
+    p.appendChild(this._createCheckboxSetting(panelShortcutTitle, WebInspector.settings.shortcutPanelSwitch));
 
     p = this._appendSection(WebInspector.UIString("Appearance"));
     p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show toolbar icons"), WebInspector.settings.showToolbarIcons));
@@ -293,10 +334,9 @@ WebInspector.GenericSettingsTab = function()
     p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show paint rectangles"), WebInspector.settings.showPaintRects));
     WebInspector.settings.showPaintRects.addChangeListener(this._showPaintRectsChanged, this);
 
-    if (Capabilities.canShowDebugBorders) {
-        p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show composited layer borders"), WebInspector.settings.showDebugBorders));
-        WebInspector.settings.showDebugBorders.addChangeListener(this._showDebugBordersChanged, this);
-    }
+    p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show composited layer borders"), WebInspector.settings.showDebugBorders));
+    WebInspector.settings.showDebugBorders.addChangeListener(this._showDebugBordersChanged, this);
+
     if (Capabilities.canShowFPSCounter) {
         p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show FPS meter"), WebInspector.settings.showFPSCounter));
         WebInspector.settings.showFPSCounter.addChangeListener(this._showFPSCounterChanged, this);
@@ -319,16 +359,22 @@ WebInspector.GenericSettingsTab = function()
         ], WebInspector.settings.textEditorIndent);
     indentationElement.firstChild.className = "toplevel";
     p.appendChild(indentationElement);
+    p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Use CodeMirror editor"), WebInspector.settings.codemirror));
 
     p = this._appendSection(WebInspector.UIString("Profiler"));
     p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show objects' hidden properties"), WebInspector.settings.showHeapSnapshotObjectsHiddenProperties));
     if (WebInspector.experimentsSettings.nativeMemorySnapshots.isEnabled())
         p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show uninstrumented native memory"), WebInspector.settings.showNativeSnapshotUninstrumentedSize));
 
-    if (Capabilities.timelineCanMonitorMainThread) {
-        p = this._appendSection(WebInspector.UIString("Timeline"));
-        p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show CPU activity on the ruler"), WebInspector.settings.showCpuOnTimelineRuler));
-    }
+    p = this._appendSection(WebInspector.UIString("Timeline"));
+    var checkbox = this._createCheckboxSetting(WebInspector.UIString("Limit number of captured JS stack frames"), WebInspector.settings.timelineLimitStackFramesFlag);
+    p.appendChild(checkbox);
+    var fieldset = this._createInputSetting(WebInspector.UIString("Frames to capture"), WebInspector.settings.timelineStackFramesToCapture, true, 2, "2em");
+    fieldset.disabled = !WebInspector.settings.timelineLimitStackFramesFlag.get();
+    WebInspector.settings.timelineLimitStackFramesFlag.addChangeListener(this._timelineLimitStackFramesChanged.bind(this, fieldset));
+    checkbox.appendChild(fieldset);
+
+    p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Show CPU activity on the ruler"), WebInspector.settings.showCpuOnTimelineRuler));
 
     p = this._appendSection(WebInspector.UIString("Console"));
     p.appendChild(this._createCheckboxSetting(WebInspector.UIString("Log XMLHttpRequests"), WebInspector.settings.monitoringXHREnabled));
@@ -360,6 +406,14 @@ WebInspector.GenericSettingsTab.prototype = {
     _continuousPaintingChanged: function()
     {
         PageAgent.setContinuousPaintingEnabled(WebInspector.settings.continuousPainting.get());
+    },
+
+    /**
+     * @param {HTMLFieldSetElement} fieldset
+     */
+    _timelineLimitStackFramesChanged: function(fieldset)
+    {
+        fieldset.disabled = !WebInspector.settings.timelineLimitStackFramesFlag.get();
     },
 
     _updateScriptDisabledCheckbox: function()
@@ -402,17 +456,9 @@ WebInspector.GenericSettingsTab.prototype = {
         checkboxElement.addEventListener("click", checkboxClicked, false);
         labelElement.appendChild(document.createTextNode(WebInspector.UIString("Auto-reload CSS upon Sass save")));
 
-        var fieldsetElement = fragment.createChild("fieldset");
+        var fieldsetElement = this._createInputSetting(WebInspector.UIString("Timeout (ms)"), WebInspector.settings.cssReloadTimeout, true, 8, "60px", validateReloadTimeout);
         fieldsetElement.disabled = !checkboxElement.checked;
-        var p = fieldsetElement.createChild("p");
-        p.appendChild(document.createTextNode(WebInspector.UIString("Timeout (ms)")));
-        p.appendChild(document.createTextNode(" "));
-        var timeoutInput = p.createChild("input");
-        timeoutInput.value = WebInspector.settings.cssReloadTimeout.get();
-        timeoutInput.className = "numeric";
-        timeoutInput.style.width = "60px";
-        timeoutInput.maxLength = 8;
-        timeoutInput.addEventListener("blur", blurListener, false);
+        fragment.appendChild(fieldsetElement);
         return fragment;
 
         function checkboxClicked()
@@ -422,14 +468,9 @@ WebInspector.GenericSettingsTab.prototype = {
             fieldsetElement.disabled = !reloadEnabled;
         }
 
-        function blurListener()
+        function validateReloadTimeout(value)
         {
-            var value = timeoutInput.value;
-            if (!isFinite(value) || value <= 0) {
-                timeoutInput.value = WebInspector.settings.cssReloadTimeout.get();
-                return;
-            }
-            WebInspector.settings.cssReloadTimeout.set(Number(value));
+            return isFinite(value) && value > 0;
         }
     },
 
@@ -652,6 +693,146 @@ WebInspector.WorkspaceSettingsTab.prototype = {
         this._addMappingRow(mappingEntry);
         this._urlInputElement.value = "";
         this._pathInputElement.value = "";
+    },
+
+    __proto__: WebInspector.SettingsTab.prototype
+}
+
+/**
+ * @constructor
+ * @extends {WebInspector.SettingsTab}
+ */
+WebInspector.TetheringSettingsTab = function()
+{
+    WebInspector.SettingsTab.call(this, WebInspector.UIString("Port Forwarding"), "workspace-tab-content");
+}
+
+WebInspector.TetheringSettingsTab.prototype = {
+    wasShown: function()
+    {
+        if (this._paragraphElement)
+            return;
+
+        this._paragraphElement = this._appendSection(WebInspector.UIString("Mappings"));
+        WebInspector.SettingsTab.prototype.wasShown.call(this);
+        var mappingEntries = WebInspector.settings.portForwardings.get();
+        for (var i = 0; i < mappingEntries.length; ++i)
+            this._addMappingRow(mappingEntries[i].port, mappingEntries[i].location, false);
+        if (!mappingEntries.length)
+            this._addMappingRow("", "", true);
+        this._save();
+    },
+
+    /**
+     * @param {string} port
+     * @param {string} location
+     * @param {boolean} focus
+     * @return {Element}
+     */
+    _addMappingRow: function(port, location, focus)
+    {
+        var mappingRow = this._paragraphElement.createChild("div", "workspace-settings-row");
+        var portElement = mappingRow.createChild("input");
+        portElement.type = "text";
+        portElement.value = port || "";
+        if (!port)
+            portElement.placeholder = "8080";
+        portElement.addEventListener("keydown", this._editTextInputKey.bind(this, true), true);
+        portElement.addEventListener("blur", this._save.bind(this), true);
+        portElement.addEventListener("input", this._validatePort.bind(this, portElement), true);
+
+        var locationElement = mappingRow.createChild("input");
+        locationElement.type = "text";
+        locationElement.value = location || "127.0.0.1:";
+        locationElement.addEventListener("keydown", this._editTextInputKey.bind(this, false), true);
+        locationElement.addEventListener("blur", this._save.bind(this), true);
+        locationElement.addEventListener("input", this._validateLocation.bind(this, locationElement), true);
+
+        var removeButton = mappingRow.createChild("button", "button remove-button");
+        removeButton.value = WebInspector.UIString("Remove");
+        removeButton.tabIndex = -1;
+        removeButton.addEventListener("click", removeMappingClicked.bind(this), false);
+
+        function removeMappingClicked()
+        {
+            mappingRow.removeSelf();
+            if (!this._paragraphElement.querySelector(".workspace-settings-row"))
+                this._addMappingRow();
+            this._save();
+        }
+        if (focus)
+            setTimeout(function() { portElement.focus(); }, 0); // Needed to work on wasShown
+        return mappingRow;
+    },
+
+    _save: function()
+    {
+        var portForwardings = [];
+        for (var rowElement = this._paragraphElement.firstChild.nextSibling; rowElement; rowElement = rowElement.nextSibling) {
+            var portElement = rowElement.firstChild;
+            var locationElement = portElement.nextSibling;
+            var port = this._validatePort(portElement);
+            var location = this._validateLocation(locationElement);
+            if (!port || !location)
+                continue;
+            portForwardings.push({ port : parseInt(port, 10), location : location });
+        }
+        WebInspector.settings.portForwardings.set(portForwardings);
+    },
+
+    /**
+     * @param {boolean} isPort
+     * @param {Event} event
+     */
+    _editTextInputKey: function(isPort, event)
+    {
+        if (!WebInspector.KeyboardShortcut.hasNoModifiers(/** @type {KeyboardEvent}*/ (event)))
+            return;
+
+        if (event.keyCode === WebInspector.KeyboardShortcut.Keys.Enter.code ||
+            event.keyCode === WebInspector.KeyboardShortcut.Keys.Tab.code) {
+            if (isPort)
+                event.target.nextElementSibling.focus();
+            else {
+                if (event.target.parentElement.nextSibling)
+                    event.target.parentElement.nextSibling.firstChild.focus();
+                else
+                    this._addMappingRow("", "", true);
+            }
+            event.consume(true);
+        }
+    },
+
+    /**
+     * @param {Element} element
+     * @param {Event=} event
+     * @return {number}
+     */
+    _validatePort: function(element, event)
+    {
+        var port = element.value;
+        if (isNaN(port) || port < 5000 || port > 10000) {
+            element.addStyleClass("workspace-settings-error");
+            return 0;
+        }
+        element.removeStyleClass("workspace-settings-error");
+        return parseInt(port, 10);
+    },
+
+    /**
+     * @param {Element} element
+     * @param {Event=} event
+     * @return {string}
+     */
+    _validateLocation: function(element, event)
+    {
+        var location = element.value;
+        if (!/\d+\.\d+\.\d+\.\d+:\d+/.test(location)) {
+            element.addStyleClass("workspace-settings-error");
+            return "";
+        }
+        element.removeStyleClass("workspace-settings-error");
+        return location;
     },
 
     __proto__: WebInspector.SettingsTab.prototype

@@ -89,8 +89,9 @@ WebInspector.TimelineGrid.prototype = {
         var divider = this._dividersElement.firstChild;
         var dividerLabelBar = this._dividersLabelBarElement.firstChild;
 
-        var paddingLeft = calculator.paddingLeft;
-        for (var i = paddingLeft ? 0 : 1; i <= dividerCount; ++i) {
+        var firstDivider = calculator.paddingLeft > 0 ? 0 : 1;
+        var sliceRemainder = (calculator.minimumBoundary() - calculator.zeroTime()) % slice;
+        for (var i = firstDivider; i <= dividerCount; ++i) {
             if (!divider) {
                 divider = document.createElement("div");
                 divider.className = "resources-divider";
@@ -105,29 +106,13 @@ WebInspector.TimelineGrid.prototype = {
                 this._dividersLabelBarElement.appendChild(dividerLabelBar);
             }
 
-            if (i === (paddingLeft ? 0 : 1)) {
-                divider.addStyleClass("first");
-                dividerLabelBar.addStyleClass("first");
-            } else {
-                divider.removeStyleClass("first");
-                dividerLabelBar.removeStyleClass("first");
-            }
-
-            if (i === dividerCount) {
-                divider.addStyleClass("last");
-                dividerLabelBar.addStyleClass("last");
-            } else {
-                divider.removeStyleClass("last");
-                dividerLabelBar.removeStyleClass("last");
-            }
-
             var left;
             if (!slice) {
-                left = dividersElementClientWidth / dividerCount * i + paddingLeft;
+                left = dividersElementClientWidth / dividerCount * i;
                 dividerLabelBar._labelElement.textContent = "";
             } else {
-                left = calculator.computePosition(calculator.minimumBoundary() + slice * i);
-                dividerLabelBar._labelElement.textContent = calculator.formatTime(slice * i);
+                left = calculator.computePosition(calculator.minimumBoundary() + slice * i - sliceRemainder);
+                dividerLabelBar._labelElement.textContent = calculator.formatTime(slice * i - sliceRemainder);
             }
             var percentLeft = 100 * left / dividersElementClientWidth;
             this._setDividerAndBarLeft(divider, dividerLabelBar, percentLeft);
@@ -229,6 +214,9 @@ WebInspector.TimelineGrid.Calculator.prototype = {
 
     /** @return {number} */
     minimumBoundary: function() { },
+
+    /** @return {number} */
+    zeroTime: function() { },
 
     /** @return {number} */
     maximumBoundary: function() { },

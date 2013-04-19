@@ -64,7 +64,7 @@ WebInspector.NetworkManager._MIMETypes = {
     "image/png":                   {"image": true},
     "image/gif":                   {"image": true},
     "image/bmp":                   {"image": true},
-    "image/svg+xml":               {"image": true},
+    "image/svg+xml":               {"image": true, "font": true},
     "image/vnd.microsoft.icon":    {"image": true},
     "image/webp":                  {"image": true},
     "image/x-icon":                {"image": true},
@@ -125,7 +125,7 @@ WebInspector.NetworkDispatcher = function(manager)
 WebInspector.NetworkDispatcher.prototype = {
     /**
      * @param {NetworkAgent.Headers} headersMap
-     * @return {Array.<Object>}
+     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     _headersMapToHeadersArray: function(headersMap)
     {
@@ -133,7 +133,7 @@ WebInspector.NetworkDispatcher.prototype = {
         for (var name in headersMap) {
             var values = headersMap[name].split("\n");
             for (var i = 0; i < values.length; ++i)
-                result.push({ name: name, value: values[i] });
+                result.push({name: name, value: values[i]});
         }
         return result;
     },

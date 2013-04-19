@@ -37,18 +37,16 @@ WebInspector.SourceFrame = function(contentProvider)
 {
     WebInspector.View.call(this);
     this.element.addStyleClass("script-view");
+    this.element.addStyleClass("fill");
 
     this._url = contentProvider.contentURL();
     this._contentProvider = contentProvider;
 
     var textEditorDelegate = new WebInspector.TextEditorDelegateForSourceFrame(this);
 
-    if (WebInspector.experimentsSettings.codemirror.isEnabled()) {
+    if (WebInspector.settings.codemirror.get()) {
         loadScript("CodeMirrorTextEditor.js");
         this._textEditor = new WebInspector.CodeMirrorTextEditor(this._url, textEditorDelegate);
-    } else if (WebInspector.experimentsSettings.aceTextEditor.isEnabled()) {
-        loadScript("AceTextEditor.js");
-        this._textEditor = new WebInspector.AceTextEditor(this._url, textEditorDelegate);
     } else
         this._textEditor = new WebInspector.DefaultTextEditor(this._url, textEditorDelegate);
 
@@ -103,7 +101,16 @@ WebInspector.SourceFrame.prototype = {
     {
         this._ensureContentLoaded();
         this._textEditor.show(this.element);
+        this._editorAttached = true;
         this._wasShownOrLoaded();
+    },
+
+    /**
+     * @return {boolean}
+     */
+    _isEditorShowing: function()
+    {
+        return this.isShowing() && this._editorAttached;
     },
 
     willHide: function()
@@ -169,14 +176,13 @@ WebInspector.SourceFrame.prototype = {
     {
         for (var line in this._messageBubbles) {
             var bubble = this._messageBubbles[line];
-            bubble.parentNode.removeChild(bubble);
+            var lineNumber = parseInt(line, 10);
+            this._textEditor.removeDecoration(lineNumber, bubble);
         }
 
         this._messages = [];
         this._rowMessages = {};
         this._messageBubbles = {};
-
-        this._textEditor.doResize();
     },
 
     /**
@@ -202,7 +208,7 @@ WebInspector.SourceFrame.prototype = {
     _innerHighlightLineIfNeeded: function()
     {
         if (typeof this._lineToHighlight === "number") {
-            if (this.loaded && this._textEditor.isShowing()) {
+            if (this.loaded && this._isEditorShowing()) {
                 this._textEditor.highlightLine(this._lineToHighlight);
                 delete this._lineToHighlight
             }
@@ -229,7 +235,7 @@ WebInspector.SourceFrame.prototype = {
     _innerRevealLineIfNeeded: function()
     {
         if (typeof this._lineToReveal === "number") {
-            if (this.loaded && this._textEditor.isShowing()) {
+            if (this.loaded && this._isEditorShowing()) {
                 this._textEditor.revealLine(this._lineToReveal);
                 delete this._lineToReveal
             }
@@ -255,9 +261,9 @@ WebInspector.SourceFrame.prototype = {
     _innerScrollToLineIfNeeded: function()
     {
         if (typeof this._lineToScrollTo === "number") {
-            if (this.loaded && this._textEditor.isShowing()) {
+            if (this.loaded && this._isEditorShowing()) {
                 this._textEditor.scrollToLine(this._lineToScrollTo);
-                delete this._lineToScrollTo
+                delete this._lineToScrollTo;
             }
         }
     },
@@ -278,7 +284,7 @@ WebInspector.SourceFrame.prototype = {
 
     _innerSetSelectionIfNeeded: function()
     {
-        if (this._selectionToSet && this.loaded && this._textEditor.isShowing()) {
+        if (this._selectionToSet && this.loaded && this._isEditorShowing()) {
             this._textEditor.setSelection(this._selectionToSet);
             delete this._selectionToSet;
         }
@@ -340,8 +346,6 @@ WebInspector.SourceFrame.prototype = {
         this._textEditor.beginUpdates();
 
         this._addExistingMessagesToSource();
-
-        this._textEditor.doResize();
 
         this._textEditor.endUpdates();
     },
@@ -504,6 +508,10 @@ WebInspector.SourceFrame.prototype = {
             this.addMessageToSource(this._messages[i].line - 1, this._messages[i]);
     },
 
+    /**
+     * @param {number} lineNumber
+     * @param {WebInspector.ConsoleMessage} msg
+     */
     addMessageToSource: function(lineNumber, msg)
     {
         if (lineNumber >= this._textEditor.linesCount)
@@ -580,6 +588,10 @@ WebInspector.SourceFrame.prototype = {
         rowMessage.repeatCountElement.textContent = WebInspector.UIString(" (repeated %d times)", rowMessage.repeatCount);
     },
 
+    /**
+     * @param {number} lineNumber
+     * @param {WebInspector.ConsoleMessage} msg
+     */
     removeMessageFromSource: function(lineNumber, msg)
     {
         if (lineNumber >= this._textEditor.linesCount)

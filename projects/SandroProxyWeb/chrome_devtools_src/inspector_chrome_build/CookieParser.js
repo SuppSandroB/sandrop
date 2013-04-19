@@ -370,53 +370,28 @@ WebInspector.Cookie.Type = {
 
 WebInspector.Cookies = {}
 
+/**
+ * @param {function(!Array.<!WebInspector.Cookie>)} callback
+ */
 WebInspector.Cookies.getCookiesAsync = function(callback)
 {
     /**
      * @param {?Protocol.Error} error 
-     * @param {Array.<WebInspector.Cookie>} cookies 
-     * @param {string} cookiesString 
-     */ 
+     * @param {Array.<PageAgent.Cookie>} cookies
+     * @param {string} cookiesString
+     */
     function mycallback(error, cookies, cookiesString)
     {
         if (error)
             return;
-        if (cookiesString)
-            callback(WebInspector.Cookies.buildCookiesFromString(cookiesString), false);
-        else
-            callback(cookies.map(WebInspector.Cookies.buildCookieProtocolObject), true);
+        callback(cookies.map(WebInspector.Cookies.buildCookieProtocolObject));
     }
 
     PageAgent.getCookies(mycallback);
 }
 
 /**
- * @param {string} rawCookieString 
- * @return {Array.<WebInspector.Cookie>}
- */
-WebInspector.Cookies.buildCookiesFromString = function(rawCookieString)
-{
-    var rawCookies = rawCookieString.split(/;\s*/);
-    var cookies = [];
-
-    if (!(/^\s*$/.test(rawCookieString))) {
-        for (var i = 0; i < rawCookies.length; ++i) {
-            var rawCookie = rawCookies[i];
-            var delimIndex = rawCookie.indexOf("=");
-            var name = rawCookie.substring(0, delimIndex);
-            var value = rawCookie.substring(delimIndex + 1);
-            var size = name.length + value.length;
-            var cookie = new WebInspector.Cookie(name, value, null);
-            cookie.setSize(size);
-            cookies.push(cookie);
-        }
-    }
-
-    return cookies;
-}
-
-/**
- * @param {Object} protocolCookie
+ * @param {!PageAgent.Cookie} protocolCookie
  * @return {!WebInspector.Cookie}
  */
 WebInspector.Cookies.buildCookieProtocolObject = function(protocolCookie)

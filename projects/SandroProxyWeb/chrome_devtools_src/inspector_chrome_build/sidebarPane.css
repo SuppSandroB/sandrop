@@ -41,9 +41,9 @@
 .sidebar-pane > .body .info {
     text-align: center;
     font-style: italic;
-    font-size: 10px;
+    font-size: 90%;
     padding: 6px;
-    color: black;
+    color: #888;
 }
 
 .sidebar-pane > .body .placard + .info {
@@ -68,55 +68,60 @@
     border-bottom: 1px solid rgb(189, 189, 189);
 }
 
-
 .sidebar-pane-title {
     position: relative;
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(243, 243, 243)), color-stop(0.05, rgb(243, 243, 243)), color-stop(0.05, rgb(230, 230, 230)), to(rgb(209, 209, 209)));
+    background: rgb(230, 230, 230);
     height: 20px;
     padding: 0 5px;
     border-top: 1px solid rgb(189, 189, 189);
     border-bottom: 1px solid rgb(189, 189, 189);
-    font-weight: bold;
-    font-size: 12px;
     line-height: 18px;
-    color: rgb(110, 110, 110);
-    text-shadow: white 0 1px 0;
     -webkit-background-origin: padding;
     -webkit-background-clip: padding;
 }
-
 
 .sidebar-pane-title + .sidebar-pane-title, .pane:not(.visible) + .sidebar-pane-title, .sidebar-pane-title:first-of-type {
     margin-top: -1px;
 }
 
 .sidebar-pane-title:active {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(231, 231, 231)), color-stop(0.05, rgb(231, 231, 231)), color-stop(0.05, rgb(207, 207, 207)), to(rgb(186, 186, 186)));
+    background-color: rgb(204, 204, 204);
     border-top: 1px solid rgb(178, 178, 178);
     border-bottom: 1px solid rgb(178, 178, 178);
 }
 
 .sidebar-pane-title::before {
-    content: url(Images/disclosureTriangleSmallRightBlack.png);
+    background-image: url(Images/statusbarButtonGlyphs.png);
+    background-size: 320px 120px;
+    opacity: 0.5;
     float: left;
     width: 11px;
-    height: 12px;
+    height: 11px;
     margin-right: 2px;
-    margin-top: 1px;
+    content: "a";
+    color: transparent;
+    position: relative;
+    top: 3px;
+}
+
+@media (-webkit-min-device-pixel-ratio: 1.5) {
+.sidebar-pane-title::before {
+    background-image: url(Images/statusbarButtonGlyphs2x.png);
+}
+}
+
+.sidebar-pane-title::before {
+    background-position: -4px -96px;
 }
 
 .sidebar-pane-title.expanded::before {
-    content: url(Images/disclosureTriangleSmallDownBlack.png);
+    background-position: -20px -96px;
 }
 
 .sidebar-pane-toolbar {
-    font-weight: bold;
-    font-size: 12px;
     line-height: 18px;
-    color: rgb(110, 110, 110);
-    text-shadow: white 0 1px 0;
     left: 0;
-    right: 0;
+    right: 4px;
     top: 0;
     height: 20px;
     position: absolute;
@@ -164,14 +169,13 @@
 .sidebar-pane-subtitle {
     position: absolute;
     right: 0;
-    font-weight: normal;
 }
 
 body.platform-windows .sidebar-pane-subtitle {
     padding-top: 1px;
 }
 
-.sidebar-pane-subtitle input, .section .header input[type=checkbox] {
+.sidebar-pane-subtitle input, .section > .header input[type=checkbox] {
     font-size: inherit;
     height: 1em;
     width: 1em;

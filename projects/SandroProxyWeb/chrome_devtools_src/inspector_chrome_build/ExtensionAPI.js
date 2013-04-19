@@ -41,7 +41,6 @@ function defineCommonExtensionSymbols(apiPrivate)
     if (!apiPrivate.console)
         apiPrivate.console = {};
     apiPrivate.console.Severity = {
-        Tip: "tip",
         Debug: "debug",
         Log: "log",
         Warning: "warning",
@@ -872,17 +871,10 @@ if (!extensionServer)
 return new InspectorExtensionAPI();
 }
 
-// Default implementation; platforms will override.
-function buildPlatformExtensionAPI(extensionInfo)
-{
-    function platformExtensionAPI(coreAPI)
-    {
-        window.webInspector = coreAPI;
-    }
-    return platformExtensionAPI.toString();
-}
-
-
+/**
+ * @param {ExtensionDescriptor} extensionInfo
+ * @return {string}
+ */
 function buildExtensionAPIInjectedScript(extensionInfo)
 {
     return "(function(injectedScriptId){ " +

@@ -70,17 +70,11 @@ WebInspector.CanvasProfileView = function(profile)
     /** @type {!Object.<string, CanvasAgent.ResourceState>} */
     this._currentResourceStates = {};
 
-    var columns = { 0: {}, 1: {}, 2: {} };
-    columns[0].title = "#";
-    columns[0].sortable = true;
-    columns[0].width = "5%";
-    columns[1].title = WebInspector.UIString("Call");
-    columns[1].sortable = true;
-    columns[1].width = "75%";
-    columns[1].disclosure = true;
-    columns[2].title = WebInspector.UIString("Location");
-    columns[2].sortable = true;
-    columns[2].width = "20%";
+    var columns = [
+        {title: "#", sortable: true, width: "5%"},
+        {title: WebInspector.UIString("Call"), sortable: true, width: "75%", disclosure: true},
+        {title: WebInspector.UIString("Location"), sortable: true, width: "20%"}
+    ];
 
     this._logGrid = new WebInspector.DataGrid(columns);
     this._logGrid.element.addStyleClass("fill");
@@ -130,11 +124,9 @@ WebInspector.CanvasProfileView.prototype = {
      */
     _createControlButton: function(parent, className, title, clickCallback)
     {
-        var button = parent.createChild("button", "status-bar-item");
-        button.addStyleClass(className);
-        button.title = title;
-        button.createChild("img");
-        button.addEventListener("click", clickCallback, false);
+        var button = new WebInspector.StatusBarButton(title, className);
+        button.element.addEventListener("click", clickCallback, false);
+        parent.appendChild(button.element);
     },
 
     _onReplayContextChanged: function()
