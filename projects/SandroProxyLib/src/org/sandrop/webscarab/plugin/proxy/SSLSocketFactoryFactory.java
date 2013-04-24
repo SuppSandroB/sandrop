@@ -49,11 +49,14 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
@@ -413,22 +416,50 @@ public class SSLSocketFactoryFactory {
         certGen.setPublicKey(keyPair.getPublic());
         certGen.setSignatureAlgorithm("SHA256withRSA");
         
-        if (hostData.alternativeNames != null && hostData.alternativeNames.size() > 0){
-            DEREncodableVector derVector = new ASN1EncodableVector();
-            GeneralName[] san = new GeneralName[hostData.alternativeNames.size()];
-            for(int i = 0; i < san.length ; i++){
-                san[i] = new GeneralName(GeneralName.dNSName, hostData.alternativeNames.get(i));
-                derVector.add(san[i]);
+        // TODO is this is a wildcard cert check database for alternative names
+        
+        // generate alternative names
+        if (hostData.certs != null && hostData.certs.length > 0){
+            Collection<List<?>> coll = hostData.certs[0].getSubjectAlternativeNames();
+            if (coll != null && coll.size() > 0){
+                Iterator<List<?>> iter = coll.iterator();
+                final int SUBALTNAME_DNSNAME = 2;
+                DEREncodableVector derVector = new ASN1EncodableVector();
+                while (iter.hasNext()) {
+                    List<?> next = (List<?>) iter.next();
+                    int OID = ((Integer) next.get(0)).intValue();
+                    switch (OID) {
+                        case SUBALTNAME_DNSNAME:
+                            GeneralName gn = new GeneralName(GeneralName.dNSName, (String) next.get(1));
+                            derVector.add(gn);
+                            break;
+                    }
+                }
+                DERSequence sequence = new DERSequence((ASN1EncodableVector)derVector);
+                GeneralNames subjectAltName = new GeneralNames(sequence);
+                certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName);
             }
-            DERSequence sequence = new DERSequence((ASN1EncodableVector)derVector);
-            GeneralNames subjectAltName = new GeneralNames(sequence);
-            certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName);
-            
-//            for (String alternativeName : hostData.alternativeNames) {
-//                GeneralNames subjectAltName = new GeneralNames(new GeneralName(GeneralName.dNSName, alternativeName));
-//                certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName); 
-//            }
         }
+        
+        // TODO store alternative names for this wildcard in database
+        
+        
+//        if (hostData.alternativeNames != null && hostData.alternativeNames.size() > 0){
+//            DEREncodableVector derVector = new ASN1EncodableVector();
+//            GeneralName[] san = new GeneralName[hostData.alternativeNames.size()];
+//            for(int i = 0; i < san.length ; i++){
+//                san[i] = new GeneralName(GeneralName.dNSName, hostData.alternativeNames.get(i));
+//                derVector.add(san[i]);
+//            }
+//            DERSequence sequence = new DERSequence((ASN1EncodableVector)derVector);
+//            GeneralNames subjectAltName = new GeneralNames(sequence);
+//            certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName);
+//            
+////            for (String alternativeName : hostData.alternativeNames) {
+////                GeneralNames subjectAltName = new GeneralNames(new GeneralName(GeneralName.dNSName, alternativeName));
+////                certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName); 
+////            }
+//        }
         certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, false,
                               new AuthorityKeyIdentifierStructure(caCerts[0]));
         certGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
@@ -487,11 +518,12 @@ public class SSLSocketFactoryFactory {
 
         public String[] getServerAliases(String keyType, Principal[] issuers) {
             
-            if (hostData.alternativeNames == null || hostData.alternativeNames.size() == 0){
-                return new String[]{hostData.name};
-            }
-            
-            return (String[]) hostData.alternativeNames.toArray();
+//            if (hostData.alternativeNames == null || hostData.alternativeNames.size() == 0){
+//                return new String[]{hostData.name};
+//            }
+//            
+//            return (String[]) hostData.alternativeNames.toArray();
+            return new String[]{hostData.name};
         }
 
     }
