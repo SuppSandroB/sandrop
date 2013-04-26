@@ -214,14 +214,12 @@ public class HTTPClientFactory {
         return uf;
     }
     
-    public Socket getConnectedSocket(HttpUrl url, SSLContextManager sslContextManager) throws IOException{
+    public Socket getConnectedSocket(HttpUrl url) throws IOException{
         URLFetcher uf = new URLFetcher();
         uf.setHttpProxy(_httpProxy, _httpProxyPort);
         uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
         uf.setNoProxy(_noProxy);
-        if (sslContextManager == null){
-            uf.setSSLContextManager(_sslContextManager);
-        }
+        uf.setSSLContextManager(_sslContextManager);
         uf.setTimeouts(_connectTimeout, _readTimeout);
         uf.setAuthenticator(_authenticator);
         return uf.getConnectedSocket(url);

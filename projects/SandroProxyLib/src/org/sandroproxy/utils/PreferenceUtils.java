@@ -46,8 +46,10 @@ public class PreferenceUtils {
     public static String dataStorageKey = "preference_proxy_data_storage";
     public static String dataLargeSize = "preference_performance_data_large_size";
     public static String proxyTransparentKey = "preference_proxy_transparent";
+    public static String proxyTransparentActiveKey = "preference_proxy_transparent_active";
     public static String proxyTransparentHostNameKey = "preference_proxy_transparent_hostname";
     public static String proxyCustomPluginKey = "preference_proxy_custom_plugins";
+    public static String proxyCustomPluginKeyActiveSetting = "preference_proxy_custom_plugins_active_setting";
     public static String proxyPort = "preference_proxy_port";
     public static String proxyListenNonLocal = "preference_proxy_listen_non_local";
     public static String proxyCaptureData = "preference_proxy_capture_data";
@@ -146,15 +148,29 @@ public class PreferenceUtils {
         return false;
     }
     
-    public static boolean isTransparentProxyActivated(Context context){
+    public static boolean isTransparentProxySelected(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         return pref.getBoolean(proxyTransparentKey, false);
     }
     
-    public static boolean isCustomProxyPluginsActivated(Context context){
+    public static boolean isTransparentProxyActive(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getBoolean(proxyTransparentActiveKey, false);
+    }
+    
+    public static void setTransparentProxyActive(Context context, boolean value){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putBoolean(proxyTransparentActiveKey, value).commit();
+    }
+    
+    public static boolean isCustomProxyPluginsStoreEnabled(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         return pref.getBoolean(proxyCustomPluginKey, false);
     }
-
     
+    public static void setCustomProxyPluginsActive(Context context, boolean value){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putBoolean(proxyCustomPluginKeyActiveSetting, value).commit();
+    }
+
 }

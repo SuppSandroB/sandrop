@@ -164,13 +164,13 @@ public class ConnectionHandler implements Runnable {
                             String forwarderName = hostData.name + ":" + hostData.destPort;
                             _logger.fine("Acting as forwarder on " + forwarderName);
                             _base = new HttpUrl("https://" + hostData.tcpAddress + ":" +  hostData.destPort);
-                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, null);
+                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
                             SocketForwarder.connect(forwarderName, _sock, target);
                             return;
                         }else{
                             String forwarderName = _base.getHost() + ":" + _base.getPort();
                             _logger.fine("Acting as forwarder on " + forwarderName);
-                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, null);
+                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
                             SocketForwarder.connect(forwarderName, _sock, target);
                             return;
                         }
