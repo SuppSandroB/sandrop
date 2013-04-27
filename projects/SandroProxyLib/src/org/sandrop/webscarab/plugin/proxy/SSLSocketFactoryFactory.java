@@ -252,10 +252,11 @@ public class SSLSocketFactoryFactory {
      */
     public synchronized SSLSocketFactory getSocketFactory(SiteData hostData)
             throws IOException, GeneralSecurityException {
-        SSLContext sslContext = (SSLContext) contextCache.get(hostData.name);
+    	String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort: hostData.name;
+        SSLContext sslContext = (SSLContext) contextCache.get(certEntry);
         if (sslContext == null) {
             X509KeyManager km;
-            if (!keystoreCert.containsAlias(hostData.name)) {
+            if (!keystoreCert.containsAlias(certEntry)) {
                 km = createKeyMaterial(hostData);
             } else {
                 km = loadKeyMaterial(hostData);
@@ -292,7 +293,7 @@ public class SSLSocketFactoryFactory {
             sslContext = SSLContext.getInstance("TLS");
             sslContext.init(new KeyManager[] { km }, trustManagers, null);
             // sslcontext.init(new KeyManager[] { km }, null, null);
-            contextCache.put(hostData.name, sslContext);
+            contextCache.put(certEntry, sslContext);
         }
         return sslContext.getSocketFactory();
     }
@@ -307,7 +308,8 @@ public class SSLSocketFactoryFactory {
     
     private X509KeyManager loadKeyMaterial(SiteData hostData) throws GeneralSecurityException, IOException {
         X509Certificate[] certs = null;
-        Certificate[] chain = keystoreCert.getCertificateChain(hostData.name);
+        String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort : hostData.name;
+        Certificate[] chain = keystoreCert.getCertificateChain(certEntry);
         if (chain != null) {
             certs = cast(chain);
         } else {
@@ -316,7 +318,7 @@ public class SSLSocketFactoryFactory {
                             + " not found!");
         }
 
-        PrivateKey pk = (PrivateKey) keystoreCert.getKey(hostData.name, passwordCerts);
+        PrivateKey pk = (PrivateKey) keystoreCert.getKey(certEntry, passwordCerts);
         if (pk == null) {
             throw new GeneralSecurityException(
                     "Internal error: private key for " + hostData.name + " not found!");
@@ -416,8 +418,6 @@ public class SSLSocketFactoryFactory {
         certGen.setPublicKey(keyPair.getPublic());
         certGen.setSignatureAlgorithm("SHA256withRSA");
         
-        // TODO is this is a wildcard cert check database for alternative names
-        
         // generate alternative names
         if (hostData.certs != null && hostData.certs.length > 0){
             Collection<List<?>> coll = hostData.certs[0].getSubjectAlternativeNames();
@@ -441,25 +441,6 @@ public class SSLSocketFactoryFactory {
             }
         }
         
-        // TODO store alternative names for this wildcard in database
-        
-        
-//        if (hostData.alternativeNames != null && hostData.alternativeNames.size() > 0){
-//            DEREncodableVector derVector = new ASN1EncodableVector();
-//            GeneralName[] san = new GeneralName[hostData.alternativeNames.size()];
-//            for(int i = 0; i < san.length ; i++){
-//                san[i] = new GeneralName(GeneralName.dNSName, hostData.alternativeNames.get(i));
-//                derVector.add(san[i]);
-//            }
-//            DERSequence sequence = new DERSequence((ASN1EncodableVector)derVector);
-//            GeneralNames subjectAltName = new GeneralNames(sequence);
-//            certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName);
-//            
-////            for (String alternativeName : hostData.alternativeNames) {
-////                GeneralNames subjectAltName = new GeneralNames(new GeneralName(GeneralName.dNSName, alternativeName));
-////                certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName); 
-////            }
-//        }
         certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, false,
                               new AuthorityKeyIdentifierStructure(caCerts[0]));
         certGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
@@ -472,7 +453,9 @@ public class SSLSocketFactoryFactory {
 
         PrivateKey pk = keyPair.getPrivate();
 
-        keystoreCert.setKeyEntry(hostData.name, pk, passwordCerts, chain);
+        String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort : hostData.name;
+        
+        keystoreCert.setKeyEntry(certEntry, pk, passwordCerts, chain);
         saveKeystore(keystoreCert, filenameCert, passwordCerts);
         return new HostKeyManager(hostData, pk, chain);
     }
