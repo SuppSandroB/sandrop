@@ -469,7 +469,8 @@ public class ConnectionHandler implements Runnable {
         SSLSocket sslsock;
         try {
             int sockPort = sock.getPort();
-            sslsock = (SSLSocket) factory.createSocket(sock, hostData.name, sockPort, false);
+            String hostName = hostData.tcpAddress != null ? hostData.tcpAddress : hostData.name;
+            sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
             sslsock.setUseClientMode(false);
             _logger.info("Finished negotiating SSL - algorithm is "
                     + sslsock.getSession().getCipherSuite());

@@ -452,20 +452,21 @@ public class Proxy implements Plugin {
     protected SSLSocketFactory getSocketFactory(SiteData hostData) {
         synchronized (_factoryMap) {
             // If it has been loaded already, use it
-            if (_factoryMap.containsKey(hostData.name))
-                return (SSLSocketFactory) _factoryMap.get(hostData.name);
+        	String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort: hostData.name;
+            if (_factoryMap.containsKey(certEntry))
+                return (SSLSocketFactory) _factoryMap.get(certEntry);
             SSLSocketFactory factory;
             // Check if there is a specific keypair to use
-            File p12 = new File(_certDir + hostData.name + ".p12");
-            factory = loadSocketFactory(p12, hostData.name);
+            File p12 = new File(_certDir + certEntry + ".p12");
+            factory = loadSocketFactory(p12, certEntry);
             if (factory != null) {
-                _factoryMap.put(hostData.name, factory);
+                _factoryMap.put(certEntry, factory);
                 return factory;
             }
             // See if we can generate one directly
             factory = generateSocketFactory(hostData);
             if (factory != null) {
-                _factoryMap.put(hostData.name, factory);
+                _factoryMap.put(certEntry, factory);
                 return factory;
             }
             // Has the default keypair been loaded already?
@@ -475,7 +476,7 @@ public class Proxy implements Plugin {
             }
             // Check for a user-provided "default keypair"
             p12 = new File(_certDir + "server.p12");
-            factory = loadSocketFactory(p12, hostData.name);
+            factory = loadSocketFactory(p12, certEntry);
             if (factory != null) {
                 _factoryMap.put(null, factory);
                 return factory;
@@ -493,7 +494,7 @@ public class Proxy implements Plugin {
                 _logger.severe("SSL Intercept not available!");
                 return null;
             }
-            factory = loadSocketFactory(is, "WebScarab JAR");
+            factory = loadSocketFactory(is, "SandroProxy JAR");
             _factoryMap.put(null, factory);
             return factory;
         }
