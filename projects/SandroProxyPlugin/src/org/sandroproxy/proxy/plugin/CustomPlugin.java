@@ -14,7 +14,7 @@ import android.util.Log;
 
 public class CustomPlugin extends ProxyPlugin {
     
-    private static boolean LOGD = true;
+    private static boolean LOGD = false;
     private static String TAG = CustomPlugin.class.getName();
     private boolean _enabled = true;
     
