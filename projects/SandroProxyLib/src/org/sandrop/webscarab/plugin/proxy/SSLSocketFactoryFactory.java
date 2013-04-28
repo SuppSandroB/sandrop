@@ -49,12 +49,17 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -66,9 +71,21 @@ import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
+import org.sandrob.bouncycastle.asn1.ASN1Encodable;
+import org.sandrob.bouncycastle.asn1.ASN1EncodableVector;
+import org.sandrob.bouncycastle.asn1.ASN1Sequence;
+import org.sandrob.bouncycastle.asn1.DEREncodableVector;
 import org.sandrob.bouncycastle.asn1.DERObjectIdentifier;
+import org.sandrob.bouncycastle.asn1.DEROctetString;
+import org.sandrob.bouncycastle.asn1.DEROutputStream;
+import org.sandrob.bouncycastle.asn1.DERSequence;
 import org.sandrob.bouncycastle.asn1.x509.BasicConstraints;
+import org.sandrob.bouncycastle.asn1.x509.GeneralName;
+import org.sandrob.bouncycastle.asn1.x509.GeneralNames;
+import org.sandrob.bouncycastle.asn1.x509.X509Extension;
 import org.sandrob.bouncycastle.asn1.x509.X509Extensions;
+import org.sandrob.bouncycastle.asn1.x509.X509Name;
+import org.sandrob.bouncycastle.util.Arrays;
 import org.sandrob.bouncycastle.x509.X509V3CertificateGenerator;
 import org.sandrob.bouncycastle.x509.extension.AuthorityKeyIdentifierStructure;
 import org.sandrob.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
@@ -233,15 +250,16 @@ public class SSLSocketFactoryFactory {
      * org.owasp.proxy.daemon.CertificateProvider#getSocketFactory(java.lang
      * .String, int)
      */
-    public synchronized SSLSocketFactory getSocketFactory(String host)
+    public synchronized SSLSocketFactory getSocketFactory(SiteData hostData)
             throws IOException, GeneralSecurityException {
-        SSLContext sslContext = (SSLContext) contextCache.get(host);
+    	String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort: hostData.name;
+        SSLContext sslContext = (SSLContext) contextCache.get(certEntry);
         if (sslContext == null) {
             X509KeyManager km;
-            if (!keystoreCert.containsAlias(host)) {
-                km = createKeyMaterial(host);
+            if (!keystoreCert.containsAlias(certEntry)) {
+                km = createKeyMaterial(hostData);
             } else {
-                km = loadKeyMaterial(host);
+                km = loadKeyMaterial(hostData);
             }
             
             // here, trust managers is a single trust-all manager
@@ -272,12 +290,10 @@ public class SSLSocketFactoryFactory {
                     }
                 }
             };
-            
-            
             sslContext = SSLContext.getInstance("TLS");
             sslContext.init(new KeyManager[] { km }, trustManagers, null);
             // sslcontext.init(new KeyManager[] { km }, null, null);
-            contextCache.put(host, sslContext);
+            contextCache.put(certEntry, sslContext);
         }
         return sslContext.getSocketFactory();
     }
@@ -290,23 +306,24 @@ public class SSLSocketFactoryFactory {
         return certs;
     }
     
-    private X509KeyManager loadKeyMaterial(String host) throws GeneralSecurityException, IOException {
+    private X509KeyManager loadKeyMaterial(SiteData hostData) throws GeneralSecurityException, IOException {
         X509Certificate[] certs = null;
-        Certificate[] chain = keystoreCert.getCertificateChain(host);
+        String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort : hostData.name;
+        Certificate[] chain = keystoreCert.getCertificateChain(certEntry);
         if (chain != null) {
             certs = cast(chain);
         } else {
             throw new GeneralSecurityException(
-                    "Internal error: certificate chain for " + host
+                    "Internal error: certificate chain for " + hostData.name
                             + " not found!");
         }
 
-        PrivateKey pk = (PrivateKey) keystoreCert.getKey(host, passwordCerts);
+        PrivateKey pk = (PrivateKey) keystoreCert.getKey(certEntry, passwordCerts);
         if (pk == null) {
             throw new GeneralSecurityException(
-                    "Internal error: private key for " + host + " not found!");
+                    "Internal error: private key for " + hostData.name + " not found!");
         }
-        return new HostKeyManager(host, pk, certs);
+        return new HostKeyManager(hostData, pk, certs);
     }
 
     private void saveKeystore(KeyStore keystore, String filename, char[] password) {
@@ -375,7 +392,7 @@ public class SSLSocketFactoryFactory {
         return serial;
     }
 
-    private X509KeyManager createKeyMaterial(String host)
+    private X509KeyManager createKeyMaterial(SiteData hostData)
             throws GeneralSecurityException {
         KeyPair keyPair;
 
@@ -387,7 +404,7 @@ public class SSLSocketFactoryFactory {
             keyPair = keygen.generateKeyPair();
         }
 
-        X500Principal subject = getSubjectPrincipal(host);
+        X500Principal subject = getSubjectPrincipal(hostData.name);
         Date begin = new Date();
         Date ends = new Date(begin.getTime() + DEFAULT_VALIDITY);
         
@@ -401,6 +418,29 @@ public class SSLSocketFactoryFactory {
         certGen.setPublicKey(keyPair.getPublic());
         certGen.setSignatureAlgorithm("SHA256withRSA");
         
+        // generate alternative names
+        if (hostData.certs != null && hostData.certs.length > 0){
+            Collection<List<?>> coll = hostData.certs[0].getSubjectAlternativeNames();
+            if (coll != null && coll.size() > 0){
+                Iterator<List<?>> iter = coll.iterator();
+                final int SUBALTNAME_DNSNAME = 2;
+                DEREncodableVector derVector = new ASN1EncodableVector();
+                while (iter.hasNext()) {
+                    List<?> next = (List<?>) iter.next();
+                    int OID = ((Integer) next.get(0)).intValue();
+                    switch (OID) {
+                        case SUBALTNAME_DNSNAME:
+                            GeneralName gn = new GeneralName(GeneralName.dNSName, (String) next.get(1));
+                            derVector.add(gn);
+                            break;
+                    }
+                }
+                DERSequence sequence = new DERSequence((ASN1EncodableVector)derVector);
+                GeneralNames subjectAltName = new GeneralNames(sequence);
+                certGen.addExtension(X509Extensions.SubjectAlternativeName, false, subjectAltName);
+            }
+        }
+        
         certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, false,
                               new AuthorityKeyIdentifierStructure(caCerts[0]));
         certGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
@@ -413,22 +453,24 @@ public class SSLSocketFactoryFactory {
 
         PrivateKey pk = keyPair.getPrivate();
 
-        keystoreCert.setKeyEntry(host, pk, passwordCerts, chain);
+        String certEntry = hostData.tcpAddress != null ? hostData.tcpAddress + "_" + hostData.destPort : hostData.name;
+        
+        keystoreCert.setKeyEntry(certEntry, pk, passwordCerts, chain);
         saveKeystore(keystoreCert, filenameCert, passwordCerts);
-        return new HostKeyManager(host, pk, chain);
+        return new HostKeyManager(hostData, pk, chain);
     }
 
     private class HostKeyManager implements X509KeyManager {
 
-        private String host;
+        private SiteData hostData;
 
         private PrivateKey pk;
 
         private X509Certificate[] certs;
 
-        public HostKeyManager(String host, PrivateKey pk,
+        public HostKeyManager(SiteData hostData, PrivateKey pk,
                 X509Certificate[] certs) {
-            this.host = host;
+            this.hostData = hostData;
             this.pk = pk;
             this.certs = certs;
         }
@@ -441,7 +483,7 @@ public class SSLSocketFactoryFactory {
 
         public String chooseServerAlias(String keyType, Principal[] issuers,
                 Socket socket) {
-            return host;
+            return hostData.name;
         }
 
         public X509Certificate[] getCertificateChain(String alias) {
@@ -458,7 +500,13 @@ public class SSLSocketFactoryFactory {
         }
 
         public String[] getServerAliases(String keyType, Principal[] issuers) {
-            return new String[] { host };
+            
+//            if (hostData.alternativeNames == null || hostData.alternativeNames.size() == 0){
+//                return new String[]{hostData.name};
+//            }
+//            
+//            return (String[]) hostData.alternativeNames.toArray();
+            return new String[]{hostData.name};
         }
 
     }

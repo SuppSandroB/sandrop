@@ -31,6 +31,8 @@
  */
 package org.sandrop.webscarab.plugin.proxy;
 
+import java.net.Socket;
+
 public interface ITransparentProxyResolver {
-    String getSecureHostName();
+    SiteData getSecureHost(Socket socket);
 }

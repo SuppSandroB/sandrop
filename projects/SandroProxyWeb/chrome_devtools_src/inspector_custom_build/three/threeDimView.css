@@ -104,8 +104,8 @@
 
 
 .three-view-tabbed-pane {
-    -webkit-box-orient: vertical;
-    display: -webkit-box;
+    display: -webkit-flex;
+    -webkit-flex-direction: column;
     height: 75%;
     width: 33%;
     position: absolute;
@@ -122,7 +122,7 @@
 }
 
 .three-network-item-view.visible {
-    display: -webkit-box;
+    display: -webkit-flex;
 }
 
 .three-network-item-view .tabbed-pane-header {

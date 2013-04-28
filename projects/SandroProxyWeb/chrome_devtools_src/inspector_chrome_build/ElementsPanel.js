@@ -342,7 +342,7 @@ WebInspector.ElementsPanel.prototype = {
 
         if (WebInspector.experimentsSettings.cssRegions.isEnabled()) {
             contextMenu.appendSeparator();
-            contextMenu.appendItem(WebInspector.UIString("CSS Named Flows..."), this._showNamedFlowCollections.bind(this));
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "CSS named flows\u2026" : "CSS Named Flows\u2026"), this._showNamedFlowCollections.bind(this));
         }
 
         contextMenu.appendSeparator();
@@ -1092,7 +1092,7 @@ WebInspector.ElementsPanel.prototype = {
             remoteObject.pushNodeToFrontend(selectNode);
         }
 
-        contextMenu.appendItem(WebInspector.UIString("Reveal in Elements Panel"), revealElement.bind(this));
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Reveal in Elements panel" : "Reveal in Elements Panel"), revealElement.bind(this));
     },
 
     _sidebarContextMenuEventFired: function(event)
@@ -1131,16 +1131,22 @@ WebInspector.ElementsPanel.prototype = {
             var compositePane = new WebInspector.SidebarPane(this.sidebarPanes.styles.title());
             compositePane.element.addStyleClass("composite");
             compositePane.element.addStyleClass("fill");
+            var expandComposite = compositePane.expand.bind(compositePane);
 
             var splitView = new WebInspector.SplitView(true, "StylesPaneSplitRatio", 0.5);
             splitView.show(compositePane.bodyElement);
+
             this.sidebarPanes.styles.show(splitView.firstElement());
             splitView.firstElement().appendChild(this.sidebarPanes.styles.titleElement);
+            this.sidebarPanes.styles.setExpandCallback(expandComposite);
 
             this.sidebarPanes.metrics.show(splitView.secondElement());
+            this.sidebarPanes.metrics.setExpandCallback(expandComposite);
+
             splitView.secondElement().appendChild(this.sidebarPanes.computedStyle.titleElement);
             splitView.secondElement().addStyleClass("metrics-and-computed");
             this.sidebarPanes.computedStyle.show(splitView.secondElement());
+            this.sidebarPanes.computedStyle.setExpandCallback(expandComposite);
 
             this.sidebarPaneView.addPane(compositePane);
             this.sidebarPaneView.addPane(this.sidebarPanes.properties);
