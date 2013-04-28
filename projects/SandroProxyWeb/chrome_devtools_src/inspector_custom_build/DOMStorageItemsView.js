@@ -72,7 +72,7 @@ WebInspector.DOMStorageItemsView.prototype = {
      */
     _domStorageItemsCleared: function(event)
     {
-        if (!this.isShowing())
+        if (!this.isShowing() || !this._dataGrid)
             return;
 
         this._dataGrid.rootNode().removeChildren();
@@ -86,7 +86,7 @@ WebInspector.DOMStorageItemsView.prototype = {
      */
     _domStorageItemRemoved: function(event)
     {
-        if (!this.isShowing())
+        if (!this.isShowing() || !this._dataGrid)
             return;
 
         var storageData = event.data;
@@ -110,7 +110,7 @@ WebInspector.DOMStorageItemsView.prototype = {
      */
     _domStorageItemAdded: function(event)
     {
-        if (!this.isShowing())
+        if (!this.isShowing() || !this._dataGrid)
             return;
 
         var storageData = event.data;
@@ -133,7 +133,7 @@ WebInspector.DOMStorageItemsView.prototype = {
      */
     _domStorageItemUpdated: function(event)
     {
-        if (!this.isShowing())
+        if (!this.isShowing() || !this._dataGrid)
             return;
 
         var storageData = event.data;
@@ -151,10 +151,12 @@ WebInspector.DOMStorageItemsView.prototype = {
                     return;
                 }
                 keyFound = true;
-                childNode.data.value = storageData.newValue;
-                childNode.refresh();
-                childNode.select();
-                childNode.reveal();
+                if (childNode.data.value !== storageData.newValue) {
+                    childNode.data.value = storageData.newValue;
+                    childNode.refresh();
+                    childNode.select();
+                    childNode.reveal();
+                }
                 this.deleteButton.visible = true;
             }
         }
@@ -173,19 +175,15 @@ WebInspector.DOMStorageItemsView.prototype = {
 
         this._dataGrid = this._dataGridForDOMStorageItems(items);
         this._dataGrid.show(this.element);
-        this._dataGrid.autoSizeColumns(10);
         this.deleteButton.visible = (this._dataGrid.rootNode().children.length > 1);
     },
 
     _dataGridForDOMStorageItems: function(items)
     {
-        var columns = {key: {}, value: {}};
-
-        columns.key.title = WebInspector.UIString("Key");
-        columns.key.editable = true;
-
-        columns.value.title = WebInspector.UIString("Value");
-        columns.value.editable = true;
+        var columns = [
+            {id: "key", title: WebInspector.UIString("Key"), editable: true, weight: 50},
+            {id: "value", title: WebInspector.UIString("Value"), editable: true, weight: 50}
+        ];
 
         var nodes = [];
 
@@ -201,6 +199,7 @@ WebInspector.DOMStorageItemsView.prototype = {
         }
 
         var dataGrid = new WebInspector.DataGrid(columns, this._editingCallback.bind(this), this._deleteCallback.bind(this));
+        dataGrid.setName("DOMStorageItemsView");
         length = nodes.length;
         for (var i = 0; i < length; ++i)
             dataGrid.rootNode().appendChild(nodes[i]);
@@ -216,6 +215,7 @@ WebInspector.DOMStorageItemsView.prototype = {
             return;
 
         this._deleteCallback(this._dataGrid.selectedNode);
+        this._dataGrid.changeNodeAfterDeletion();
     },
 
     _refreshButtonClicked: function(event)
@@ -229,10 +229,24 @@ WebInspector.DOMStorageItemsView.prototype = {
         if ("key" === columnIdentifier) {
             if (oldText)
                 domStorage.removeItem(oldText);
-
             domStorage.setItem(newText, editingNode.data.value);
+            this._removeDupes(editingNode);
         } else
             domStorage.setItem(editingNode.data.key, newText);
+    },
+
+    /**
+     * @param {!WebInspector.DataGridNode} masterNode
+     */
+    _removeDupes: function(masterNode)
+    {
+        var rootNode = this._dataGrid.rootNode();
+        var children = rootNode.children;
+        for (var i = children.length - 1; i >= 0; --i) {
+            var childNode = children[i];
+            if ((childNode.data.key === masterNode.data.key) && (masterNode !== childNode))
+                rootNode.removeChild(childNode);
+        }
     },
 
     _deleteCallback: function(node)

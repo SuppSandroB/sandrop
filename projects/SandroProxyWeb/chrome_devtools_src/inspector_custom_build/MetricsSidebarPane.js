@@ -216,7 +216,7 @@ WebInspector.MetricsSidebarPane.prototype = {
             WebInspector.Color.PageHighlight.Padding,
             WebInspector.Color.PageHighlight.Border,
             WebInspector.Color.PageHighlight.Margin,
-            WebInspector.Color.fromRGBA(0, 0, 0, 0)
+            WebInspector.Color.fromRGBA([0, 0, 0, 0])
         ];
         var boxLabels = [WebInspector.UIString("content"), WebInspector.UIString("padding"), WebInspector.UIString("border"), WebInspector.UIString("margin"), WebInspector.UIString("position")];
         var previousBox = null;
@@ -233,7 +233,7 @@ WebInspector.MetricsSidebarPane.prototype = {
 
             var boxElement = document.createElement("div");
             boxElement.className = name;
-            boxElement._backgroundColor = boxColors[i].toString("original");
+            boxElement._backgroundColor = boxColors[i].toString(WebInspector.Color.Format.RGBA);
             boxElement._name = name;
             boxElement.style.backgroundColor = boxElement._backgroundColor;
             boxElement.addEventListener("mouseover", this._highlightDOMNode.bind(this, true, name === "position" ? "all" : name), false);

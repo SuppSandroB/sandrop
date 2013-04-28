@@ -36,7 +36,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PushbackInputStream;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.logging.Level;
@@ -152,31 +151,44 @@ public class ConnectionHandler implements Runnable {
             // proxy with an https:// base URL, negotiate SSL
             if (_base != null || _transparentSecure) {
                 if (_transparentSecure || _base.getScheme().equals("https")) {
-                    
+                    SiteData hostData = null;
                     if (!_captureData){
                         if (_transparentSecure){
-                            _logger.fine("!! Error Can not act as forwarder on transparent ssl, not knowing where to connect.");
-                            _sock.close();
+                            if (_transparentResolver != null){
+                                hostData = _transparentResolver.getSecureHost(_sock);
+                            }else{
+                                _logger.fine("!! Error Can not act as forwarder on transparent ssl, not knowing where to connect.");
+                                _sock.close();
+                                return;
+                            }
+                            String forwarderName = hostData.name + ":" + hostData.destPort;
+                            _logger.fine("Acting as forwarder on " + forwarderName);
+                            _base = new HttpUrl("https://" + hostData.tcpAddress + ":" +  hostData.destPort);
+                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
+                            SocketForwarder.connect(forwarderName, _sock, target);
+                            return;
+                        }else{
+                            String forwarderName = _base.getHost() + ":" + _base.getPort();
+                            _logger.fine("Acting as forwarder on " + forwarderName);
+                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
+                            SocketForwarder.connect(forwarderName, _sock, target);
                             return;
                         }
-                        String forwarderName = _base.getHost() + ":" + _base.getPort();
-                        _logger.fine("Acting as forwarder on " + forwarderName);
-                        Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
-                        SocketForwarder.connect(forwarderName, _sock, target);
-                        return;
+                        
                     }
                     _logger.fine("Intercepting SSL connection!");
-                    String hostName = null;
                     if (_transparentSecure){
                         if (_transparentResolver != null){
-                            hostName = _transparentResolver.getSecureHostName();
+                            hostData = _transparentResolver.getSecureHost(_sock);
                         }
                     }else{
-                        hostName = _base.getHost();
+                        hostData = new SiteData();
+                        hostData.name = _base.getHost();
                     }
                     String host = "sandroproxy.untrusted";
-                    if (hostName == null || hostName.trim().length() == 0){
-                        hostName = host;
+                    if (hostData == null || hostData.name.trim().length() == 0){
+                        hostData = new SiteData();
+                        hostData.name = host;
                     }
                     
                     boolean isSSLPort = false;
@@ -215,7 +227,7 @@ public class ConnectionHandler implements Runnable {
                     if (isSSLPort){
                         SSLSocket sslSocket = null;
                         try{
-                            _sock = negotiateSSL(_sock, hostName);
+                            _sock = negotiateSSL(_sock, hostData);
                             sslSocket = (SSLSocket)_sock;
                         }catch (Exception ex){
                             ex.printStackTrace();
@@ -230,9 +242,16 @@ public class ConnectionHandler implements Runnable {
                             
                             _clientIn = _sock.getInputStream();
                             PushbackInputStream pis = new PushbackInputStream(_clientIn);
-                            int i = pis.read();
-                            if (i != -1){
-                                pis.unread(i);
+                            int readBit;
+                            try{
+                                readBit = pis.read();
+                            }catch (Exception ex){
+                                _logger.finest("!!Error Check if client trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
+                                return;
+                            }
+                            
+                            if (readBit != -1){
+                                pis.unread(readBit);
                             }else{
                                 _logger.finest("!!Error Check if client trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
                                 return;
@@ -443,14 +462,15 @@ public class ConnectionHandler implements Runnable {
     }
 
 
-    private Socket negotiateSSL(Socket sock, String hostName) throws Exception {
-        SSLSocketFactory factory = _proxy.getSocketFactory(hostName);
+    private Socket negotiateSSL(Socket sock, SiteData hostData) throws Exception {
+        SSLSocketFactory factory = _proxy.getSocketFactory(hostData);
         if (factory == null)
             throw new RuntimeException(
                     "SSL Intercept not available - no keystores available");
         SSLSocket sslsock;
         try {
             int sockPort = sock.getPort();
+            String hostName = hostData.tcpAddress != null ? hostData.tcpAddress : hostData.name;
             sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
             sslsock.setUseClientMode(false);
             _logger.info("Finished negotiating SSL - algorithm is "
