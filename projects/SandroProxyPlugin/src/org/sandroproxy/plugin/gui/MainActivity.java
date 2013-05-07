@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
                             Preferences.init(getApplicationContext());
                             framework = new Framework(getApplicationContext());
                             setStore(getApplicationContext());
-                            Proxy proxy = new Proxy(framework, null);
+                            Proxy proxy = new Proxy(framework, null, null);
                             framework.addPlugin(proxy);
                             if (true){
                                 ProxyPlugin plugin = new CustomPlugin();
