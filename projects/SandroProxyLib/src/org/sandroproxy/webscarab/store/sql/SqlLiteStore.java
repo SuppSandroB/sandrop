@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.sandrop.webscarab.model.ClientDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.Cookie;
 import org.sandrop.webscarab.model.FrameworkModel;
@@ -466,14 +467,20 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         if (oldVersion < 2) {
             Log.i(LOGTAG, "Upgrading database from version "
                     + oldVersion + " to "
-                    + DATABASE_VERSION + ", which will destroy old data");
+                    + DATABASE_VERSION);
             createWebSocketsTables();
         }
         if (oldVersion < 1){
+        	Log.i(LOGTAG, "Upgrading database from version "
+                    + oldVersion + " to "
+                    + DATABASE_VERSION);
             createHtmlTables();
             mFirstTableCreation = true;
         }
         if (oldVersion < 3){
+        	Log.i(LOGTAG, "Upgrading database from version "
+                    + oldVersion + " to "
+                    + DATABASE_VERSION);
             upgradeHtmlTables1();
         }
         mDatabase.setVersion(DATABASE_VERSION);
@@ -901,14 +908,18 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
 
     @Override
-    public long createNewConversation(Date when, int type, String clientAddress, int port){
+    public long createNewConversation(Date when, int type, ClientDescriptor clientDescriptor){
         ContentValues convCV = new ContentValues();
         long timestamp = when.getTime();
         convCV.put(CONVERSATION_STATUS, FrameworkModel.CONVERSATION_STATUS_NEW);
         convCV.put(CONVERSATION_TYPE, type);
         convCV.put(CONVERSATION_TS_START, timestamp);
-        convCV.put(CONVERSATION_CLIENT_ADDRESS, clientAddress);
-        convCV.put(CONVERSATION_CLIENT_PORT, port);
+        if (clientDescriptor != null){
+            convCV.put(CONVERSATION_CLIENT_ADDRESS, clientDescriptor.getAddress());
+            convCV.put(CONVERSATION_CLIENT_PORT, clientDescriptor.getPort());
+            convCV.put(CONVERSATION_CLIENT_APP_NAME, clientDescriptor.getNamespace());
+            convCV.put(CONVERSATION_CLIENT_UID, clientDescriptor.getId());
+        }
         long conversationId = mDatabase.insertOrThrow(mTableNames[TABLE_COVERSATION_ID], 
                 null, convCV);
         eventNewConversation(conversationId, type, timestamp);
@@ -1316,6 +1327,9 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         conv.STATUS_DESC = cs.getString(cs.getColumnIndex(CONVERSATION_STATUS_DESCRIPTION));
         conv.TYPE = cs.getInt(cs.getColumnIndex(CONVERSATION_TYPE));
         conv.CLIENT_ADDRESS = cs.getString(cs.getColumnIndex(CONVERSATION_CLIENT_ADDRESS));
+        conv.CLIENT_PORT = cs.getLong(cs.getColumnIndex(CONVERSATION_CLIENT_PORT));
+        conv.CLIENT_UID = cs.getLong(cs.getColumnIndex(CONVERSATION_CLIENT_UID));
+        conv.CLIENT_APP_NAME = cs.getString(cs.getColumnIndex(CONVERSATION_CLIENT_APP_NAME));
         
         return conv;
     }

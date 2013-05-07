@@ -53,6 +53,7 @@ import java.util.logging.Logger;
 
 
 import org.sandrop.R;
+import org.sandrop.webscarab.model.ClientDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.FrameworkModel;
 import org.sandrop.webscarab.model.HttpUrl;
@@ -87,6 +88,7 @@ public class Proxy implements Plugin {
 
     private Framework _framework = null;
     private ITransparentProxyResolver _transparentProxyResolver;
+    private IClientResolver _clientResolver;
 
     private ProxyUI _ui = null;
 
@@ -130,10 +132,11 @@ public class Proxy implements Plugin {
      * @param model
      *            The Model to submit requests and responses to
      */
-    public Proxy(Framework framework, ITransparentProxyResolver transparentProxyResolver) {
+    public Proxy(Framework framework, ITransparentProxyResolver transparentProxyResolver, IClientResolver clientResolver) {
         _logger.setLevel(Level.FINEST);
         _framework = framework;
         _transparentProxyResolver = transparentProxyResolver;
+        _clientResolver = clientResolver;
         parseListenerConfig();
         _certGenerator = null;
         try {
@@ -187,6 +190,10 @@ public class Proxy implements Plugin {
     
     public ITransparentProxyResolver getTransparentProxyResolver(){
         return _transparentProxyResolver;
+    }
+    
+    public IClientResolver getClientResolver(){
+        return _clientResolver;
     }
 
     /**
@@ -428,8 +435,8 @@ public class Proxy implements Plugin {
      *            the request to log
      * @return the conversation ID
      */
-    protected long gotRequest(Request request, String from, int port) {
-        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , from, port);
+    protected long gotRequest(Request request, ClientDescriptor clientDescriptor) {
+        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , clientDescriptor);
         _framework.gotRequest(id, new Date(System.currentTimeMillis()), request);
         return id;
     }

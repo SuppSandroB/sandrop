@@ -11,6 +11,9 @@ public class Conversation {
     public String STATUS_DESC;
     public int TYPE;
     public String CLIENT_ADDRESS;
+    public long CLIENT_PORT;
+    public long CLIENT_UID;
+    public String CLIENT_APP_NAME;
     public String REQ_METHOD;
     public String REQ_PATH;
     public String REQ_QUERY_STRING;

@@ -46,10 +46,13 @@ import javax.net.ssl.SSLSocketFactory;
 
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
+import org.sandrop.webscarab.model.ClientDescriptor;
 import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.util.HtmlEncoder;
+
+import android.util.Log;
 
 public class ConnectionHandler implements Runnable {
 
@@ -61,15 +64,21 @@ public class ConnectionHandler implements Runnable {
     private boolean _transparentSecure = false;
     private boolean _captureData = true;
     private ITransparentProxyResolver _transparentResolver = null;
+    private IClientResolver _clientResolver = null;
 
     private HTTPClient _httpClient = null;
 
     private Logger _logger = Logger.getLogger(getClass().getName());
     
+    private static boolean LOGD = false;
+    private static String TAG = ConnectionHandler.class.getSimpleName();
+    
     private InputStream _clientIn = null;
     private OutputStream _clientOut = null;
 
-    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, boolean captureData, ITransparentProxyResolver transparentProxyResolver) {
+    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, boolean captureData, 
+                                                            ITransparentProxyResolver transparentProxyResolver,
+                                                            IClientResolver clientResolver) {
         _logger.setLevel(Level.FINEST);
         _proxy = proxy;
         _sock = sock;
@@ -77,6 +86,7 @@ public class ConnectionHandler implements Runnable {
         _transparent = transparent;
         _transparentSecure = transparentSecure;
         _transparentResolver = transparentProxyResolver;
+        _clientResolver = clientResolver;
         _plugins = _proxy.getPlugins();
         _captureData = captureData;
         try {
@@ -105,6 +115,12 @@ public class ConnectionHandler implements Runnable {
         boolean httpDataModified = false;
         boolean switchProtocol = false;
         try {
+            
+            ClientDescriptor clientDescriptor = null;
+            if (_clientResolver != null && _captureData){
+                clientDescriptor = _clientResolver.getClientDescriptorBySocket(_sock);
+            }
+            
             Request request = null;
             // if we do not already have a base URL (i.e. we operate as a normal
             // proxy rather than a reverse proxy), check for a CONNECT
@@ -304,16 +320,10 @@ public class ConnectionHandler implements Runnable {
                 }
             }
 
-            // do we add an X-Forwarded-For header?
-            String from = _sock.getInetAddress().getHostAddress();
-            int port = _sock.getPort();
-//            if (from.equals("127.0.0.1"))
-//                from = null;
-
             // do we keep-alive?
             String keepAlive = null;
             String version = null;
-
+            int reuseCount = 1;
             do {
                 conversationId = -1;
                 // if we are reading the first from a reverse proxy, or the
@@ -333,14 +343,42 @@ public class ConnectionHandler implements Runnable {
                 if (request.getURL() == null){
                     return;
                 }
-                if (from != null) {
-//                    request.addHeader("X-Forwarded-For", from);
+                
+                if (request.getMethod().equals("CONNECT")){
+                    if (_clientOut != null) {
+                        try {
+                            if (LOGD) Log.d(TAG, "Having connect method so we send that we are already connected");
+                            _clientOut.write(("HTTP/1.0 200 Ok\r\n\r\n")
+                                    .getBytes());
+                            _clientOut.flush();
+                            
+                            Response response = new Response();
+                            response.setStatus("200");
+                            response.setMessage("OK");
+                            response.setHeader("X-SandroProxy-Hack", "CONNECT_OVER_SSL_BUG http://code.google.com/p/android/issues/detail?id=55003");
+                            response.setNoBody();
+                            // store this conversation in store if enabled
+                            conversationId = _proxy.gotRequest(request, clientDescriptor);
+                            _proxy.gotResponse(conversationId, request, response, false);
+                            request = null;
+                            continue;
+                        } catch (IOException ioe) {
+                            _logger
+                                    .severe("IOException writing the CONNECT OK Response to the browser "
+                                            + ioe);
+                            return;
+                        }
+                    }
                 }
                 
-                _logger.fine("Browser requested : " + request.getMethod() + " "+ request.getURL().toString());
+                String clientDesc = "";
+                if (clientDescriptor != null){
+                    clientDesc = clientDescriptor.getNamespace();
+                }
+                _logger.fine( clientDesc + " requested : " + request.getMethod() + " "+ request.getURL().toString());
 
                 // report the request to the listener, and get the allocated ID
-                conversationId = _proxy.gotRequest(request, from, port);
+                conversationId = _proxy.gotRequest(request, clientDescriptor);
 
                 // pass the request for possible modification or analysis
                 connection.setRequest(request);
@@ -431,8 +469,8 @@ public class ConnectionHandler implements Runnable {
 
                 request = null;
 
-                _logger.fine("Version: " + version + " Connection: "
-                        + connection);
+                _logger.fine("Version: " + version + " keepAlive: " + keepAlive + " reuseCount:" + reuseCount);
+                reuseCount++;
             } while (!switchProtocol && 
                     ((version.equals("HTTP/1.0") && "keep-alive".equalsIgnoreCase(keepAlive)) 
                     || (version.equals("HTTP/1.1") && !"close".equalsIgnoreCase(keepAlive)))
