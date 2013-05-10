@@ -237,6 +237,8 @@ public class CredentialManager implements Authenticator {
         if (realms == null) return null;
         BasicCredential cred = realms.get(realm);
         if (cred == null) return null;
+        //String credRealm = cred.getRealm();
+        //String addRealm = credRealm != null && credRealm.length() > 0 ? credRealm.toUpperCase() + "\\" : "";
         String encoded = cred.getUsername() + ":" + cred.getPassword();
         return Encoding.base64encode(encoded.getBytes(), false);
     }
