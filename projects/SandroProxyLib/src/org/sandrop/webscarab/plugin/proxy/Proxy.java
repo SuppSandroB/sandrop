@@ -89,6 +89,7 @@ public class Proxy implements Plugin {
     private Framework _framework = null;
     private ITransparentProxyResolver _transparentProxyResolver;
     private IClientResolver _clientResolver;
+    private boolean _captureData = false;
 
     private ProxyUI _ui = null;
 
@@ -137,6 +138,7 @@ public class Proxy implements Plugin {
         _framework = framework;
         _transparentProxyResolver = transparentProxyResolver;
         _clientResolver = clientResolver;
+        _captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, false);
         parseListenerConfig();
         _certGenerator = null;
         try {
@@ -149,6 +151,7 @@ public class Proxy implements Plugin {
                 return;
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
+            
             String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.getAndroidContext());
             String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.getAndroidContext());
             String caPassword = PreferenceUtils.getCAFilePassword(_framework.getAndroidContext());
@@ -703,11 +706,10 @@ public class Proxy implements Plugin {
             */
             base = null;
             if (!addr.equalsIgnoreCase("") && port != 0){
-                boolean captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, true);
-                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, captureData), null);
+                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, _captureData), null);
                 if (Preferences.getPreferenceBoolean("preference_proxy_transparent", false)){
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, captureData), null);
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, captureData), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, _captureData), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, _captureData), null);
                 }
             }else{
                 _logger.fine("Warrning Skipping " + listeners[i]);

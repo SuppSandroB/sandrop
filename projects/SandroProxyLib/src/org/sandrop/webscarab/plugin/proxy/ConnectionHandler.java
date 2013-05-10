@@ -283,19 +283,6 @@ public class ConnectionHandler implements Runnable {
                 }
             }
             
-            if (!_captureData){
-                _base = request.getURL();
-                String forwarderName = _base.getHost() + ":" + _base.getPort();
-                _logger.fine("Acting as forwarder on " + forwarderName);
-                HTTPClient target = HTTPClientFactory.getValidInstance().getHTTPClient(-1, -1);
-                Response response = target.fetchResponse(request);
-                OutputStream os = _sock.getOutputStream();
-                response.skipContentStore(true);
-                response.write(os);
-                SocketForwarder.connect(forwarderName, _sock, response.getSocket());
-                return;
-            }
-
             if (_httpClient == null)
                 _httpClient = HTTPClientFactory.getValidInstance().getHTTPClient();
 

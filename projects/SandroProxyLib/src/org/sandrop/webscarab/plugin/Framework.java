@@ -85,6 +85,9 @@ public class Framework {
     
     private Context mContext;
     
+    private boolean _captureData = false;
+    
+    
     /**
      * Creates a new instance of Framework
      */
@@ -118,6 +121,8 @@ public class Framework {
               _credentialManager.addDigestCredentials(new DigestCredential(hostParts[0], userNameParts[0], userNameParts[1], proxyCredentialsPassword));
             }
         }
+        
+        _captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, false);
 
         configureHTTPClient(mContext);
         
@@ -421,6 +426,9 @@ public class Framework {
     private boolean canStore(Request request){
         //Do we have whitelisting? If so, check if it matches
         if (request == null) {
+            return false;
+        }
+        if (!_captureData){
             return false;
         }
         if(whitelistPattern != null && !whitelistPattern.matcher(request.getURL().toString()).matches())
