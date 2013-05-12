@@ -9,14 +9,16 @@ import java.util.Random;
 
 import javax.net.ssl.HttpsURLConnection;
 
-//import java.security.cert.CertificateException;
-//import java.security.cert.X509Certificate;
-//import javax.net.ssl.HostnameVerifier;
-//import javax.net.ssl.SSLContext;
-//import javax.net.ssl.SSLSession;
-//import javax.net.ssl.SSLSocketFactory;
-//import javax.net.ssl.TrustManager;
-//import javax.net.ssl.X509TrustManager;
+import com.squareup.okhttp.OkHttpClient;
+
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import android.os.Bundle;
 import android.app.Activity;
@@ -32,21 +34,21 @@ public class TestActivity extends Activity {
     private static String  TAG = TestActivity.class.getSimpleName();
     
     
-//    // we need this if we test it on local https server and we have selfsigned cert
-//    private TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
-//                                            @Override
-//                                            public X509Certificate[] getAcceptedIssuers() {
-//                                                return null;
-//                                            }
-//                                            @Override
-//                                            public void checkClientTrusted(X509Certificate[] arg0, String arg1)
-//                                                    throws CertificateException {
-//                                            }
-//                                            @Override
-//                                            public void checkServerTrusted(X509Certificate[] chain,
-//                                                    String authType) throws CertificateException {
-//                                            }
-//                                        } };
+    // we need this if we test it on local https server and we have selfsigned cert
+    private TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+                                            @Override
+                                            public X509Certificate[] getAcceptedIssuers() {
+                                                return null;
+                                            }
+                                            @Override
+                                            public void checkClientTrusted(X509Certificate[] arg0, String arg1)
+                                                    throws CertificateException {
+                                            }
+                                            @Override
+                                            public void checkServerTrusted(X509Certificate[] chain,
+                                                    String authType) throws CertificateException {
+                                            }
+                                        } };
                 
     // number of threads
     private static int NR_OF_THREADS = 10;
@@ -73,10 +75,27 @@ public class TestActivity extends Activity {
                     threads[i] = new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            createUrlRequest();
+                            createUrlRequest(false);
                         }
                     });
-                    threads[i].setName("ExFetchNr_" + i);
+                    threads[i].setName("AndroidClientNr_" + i);
+                    threads[i].start();
+                }
+            }
+        });
+        Button buttonOkHttp = (Button) findViewById(R.id.buttonStartOkHttp);
+        buttonOkHttp.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                
+                for (int i = 0; i < NR_OF_THREADS; i++) {
+                    threads[i] = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            createUrlRequest(true);
+                        }
+                    });
+                    threads[i].setName("OkHttpClientNr_" + i);
                     threads[i].start();
                 }
             }
@@ -93,18 +112,26 @@ public class TestActivity extends Activity {
     
     // array of links to test
     private static String[] arrOfLinks = new String[]{
-//              "https://192.168.1.135/google.png"
-            "https://lh6.googleusercontent.com/-4opwuGcJP5s/AAAAAAAAAAI/AAAAAAAAABk/45YETLhHDjU/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh3.googleusercontent.com/-S0dsLdXhhnY/AAAAAAAAAAI/AAAAAAAAABE/rhcjX171Vug/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh3.googleusercontent.com/-X4wzGKC_OJI/AAAAAAAAAAI/AAAAAAAAABc/EV9zaSzy0K0/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh5.googleusercontent.com/-YdyNW3zTz40/AAAAAAAAAAI/AAAAAAAAARg/yeDyur4i3es/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh5.googleusercontent.com/-7W9v91pqDt4/AAAAAAAAAAI/AAAAAAAAADM/QnPKkFnDQfM/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh5.googleusercontent.com/-XKwS7_-SHE0/AAAAAAAAAAI/AAAAAAAAADU/e9WW3QW0Ekk/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh5.googleusercontent.com/-J81fTvZW81M/AAAAAAAAAAI/AAAAAAAAADo/zm_uwj-DsHU/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh4.googleusercontent.com/-CLRvibbWKKo/AAAAAAAAAAI/AAAAAAAAAFo/ZyZtZmOdF5c/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh5.googleusercontent.com/-F83NNZ8SAik/AAAAAAAAAAI/AAAAAAAAABc/Xaz4rPsJIv8/s96-d-no-p-rwu-k/photo.jpg",
-            "https://lh5.googleusercontent.com/-dIBmLOOpnUc/AAAAAAAAAAI/AAAAAAAAACc/TQEMf8suNno/s96-d-no-p-rwu-k/photo.jpg"
+              "https://192.168.1.135/google.png"
+//            "https://lh6.googleusercontent.com/-4opwuGcJP5s/AAAAAAAAAAI/AAAAAAAAABk/45YETLhHDjU/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh3.googleusercontent.com/-S0dsLdXhhnY/AAAAAAAAAAI/AAAAAAAAABE/rhcjX171Vug/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh3.googleusercontent.com/-X4wzGKC_OJI/AAAAAAAAAAI/AAAAAAAAABc/EV9zaSzy0K0/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh5.googleusercontent.com/-YdyNW3zTz40/AAAAAAAAAAI/AAAAAAAAARg/yeDyur4i3es/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh5.googleusercontent.com/-7W9v91pqDt4/AAAAAAAAAAI/AAAAAAAAADM/QnPKkFnDQfM/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh5.googleusercontent.com/-XKwS7_-SHE0/AAAAAAAAAAI/AAAAAAAAADU/e9WW3QW0Ekk/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh5.googleusercontent.com/-J81fTvZW81M/AAAAAAAAAAI/AAAAAAAAADo/zm_uwj-DsHU/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh4.googleusercontent.com/-CLRvibbWKKo/AAAAAAAAAAI/AAAAAAAAAFo/ZyZtZmOdF5c/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh5.googleusercontent.com/-F83NNZ8SAik/AAAAAAAAAAI/AAAAAAAAABc/Xaz4rPsJIv8/s96-d-no-p-rwu-k/photo.jpg",
+//            "https://lh5.googleusercontent.com/-dIBmLOOpnUc/AAAAAAAAAAI/AAAAAAAAACc/TQEMf8suNno/s96-d-no-p-rwu-k/photo.jpg"
     };
+    
+    
+    private HttpURLConnection HttpUrlConnectionByOkHttp(URL url){
+        OkHttpClient okHttpClient = new OkHttpClient();
+        // okHttpClient.setProxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost", 8888)));
+        HttpURLConnection localHttpURLConnection = (HttpURLConnection) okHttpClient.open(url);
+        return localHttpURLConnection;
+    }
     
     
     /**
@@ -133,13 +160,15 @@ public class TestActivity extends Activity {
     // so it can not be seen in 
     // https://android.googlesource.com/platform/frameworks/volley/+/master/src/com/android/volley/toolbox/HurlStack.java
     // but can still be seen in server access log as for example "CONNECT 192.168.1.135:443 HTTP/1.1" 405 588
-    private void createUrlRequest(){
+    // UPDATE: 20130512 bug is still in build Build/JDQ39E 4.2.2_r1.2 but is fixed after that, probably with 
+    // https://android.googlesource.com/platform/external/okhttp/+/cf335d418ba2340c2a3cd28038b6cc38a9679b6e
+    private void createUrlRequest(boolean useOkHttp){
         try{
-//            // Install the all-trusting trust manager
-//            final SSLContext sslContext = SSLContext.getInstance( "TLS" );
-//            // Create an ssl socket factory with our all-trusting manager
-//            sslContext.init( null, trustAllCerts, new java.security.SecureRandom() );
-//            SSLSocketFactory sslSocketFactory = null;sslSocketFactory = sslContext.getSocketFactory();
+            // Install the all-trusting trust manager
+            final SSLContext sslContext = SSLContext.getInstance( "TLS" );
+            // Create an ssl socket factory with our all-trusting manager
+            sslContext.init( null, trustAllCerts, new java.security.SecureRandom() );
+            SSLSocketFactory sslSocketFactory = null;sslSocketFactory = sslContext.getSocketFactory();
         
             Random rnd = new Random();
             for (int i = 0; i < NR_OF_ITERATIONS; i++) {
@@ -150,15 +179,23 @@ public class TestActivity extends Activity {
                     String url = arrOfLinks[rnd.nextInt(arrOfLinks.length)];
                     if (LOGD) Log.d(TAG, logTagName +  " :starting with connection " + url);
                     URL parsedUrl = new URL(url);
-                    HttpsURLConnection localHttpURLConnection = (HttpsURLConnection)openConnection(parsedUrl);
-//                      localHttpURLConnection.setSSLSocketFactory(sslSocketFactory);
-//                      // we need this if hostname do not match cert subject name
-//                      localHttpURLConnection.setHostnameVerifier(new HostnameVerifier() {
-//                          @Override
-//                          public boolean verify(String hostname, SSLSession session) {
-//                                return true;
-//                            }
-//                      });
+                    HttpsURLConnection localHttpURLConnection = null;
+                    if (useOkHttp){
+                        localHttpURLConnection = (HttpsURLConnection)HttpUrlConnectionByOkHttp(parsedUrl);
+                    }else{
+                        localHttpURLConnection = (HttpsURLConnection)openConnection(parsedUrl);
+                    }
+                      localHttpURLConnection.setSSLSocketFactory(sslSocketFactory);
+                      // we need this if hostname do not match cert subject name
+                      localHttpURLConnection.setHostnameVerifier(new HostnameVerifier() {
+                          @Override
+                          public boolean verify(String hostname, SSLSession session) {
+                                return true;
+                            }
+                      });
+                    if (localHttpURLConnection == null){
+                        Log.e(TAG, "Could not create localHttpURLConnection");
+                    }
                     if (localHttpURLConnection.getResponseCode() == -1){
                         Log.e(TAG, "Could not retrieve response code from HttpUrlConnection.");
                     }
