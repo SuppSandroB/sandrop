@@ -68,6 +68,11 @@ public class PreferenceUtils {
     public static String ssTrustAllManager = "preference_ssl_trust_all_manager";
     
     
+    public static String getProxyPort(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(proxyPort, "8008");
+    }
+    
     public static File getDataStorageDir(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         String dirName = pref.getString(dataStorageKey, null);
