@@ -72,6 +72,8 @@ public class ConnectionHandler implements Runnable {
     
     private static boolean LOGD = false;
     private static String TAG = ConnectionHandler.class.getSimpleName();
+    private static int _socket_timeout_large = 1000 * 60 * 30;
+    private static int _socket_timeout_normal = 1000 * 30;
     
     private InputStream _clientIn = null;
     private OutputStream _clientOut = null;
@@ -91,7 +93,7 @@ public class ConnectionHandler implements Runnable {
         _captureData = captureData;
         try {
             _sock.setTcpNoDelay(true);
-            _sock.setSoTimeout(30 * 1000);
+            _sock.setSoTimeout(_socket_timeout_normal);
         } catch (SocketException se) {
             _logger.warning("Error setting socket parameters");
         }
@@ -319,6 +321,7 @@ public class ConnectionHandler implements Runnable {
                 if (request == null) {
                     request = new Request(_transparent, _transparentSecure);
                     _logger.fine("Reading request from the browser");
+                    _sock.setSoTimeout(_socket_timeout_large);
                     request.read(_clientIn, _base);
                     if (request.getMethod() == null || request.getURL() == null) {
                         return;
