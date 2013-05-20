@@ -125,8 +125,12 @@ WebInspector.CanvasProfileView.prototype = {
     _createControlButton: function(parent, className, title, clickCallback)
     {
         var button = new WebInspector.StatusBarButton(title, className);
-        button.element.addEventListener("click", clickCallback, false);
         parent.appendChild(button.element);
+
+        button.makeLongClickEnabled();
+        button.addEventListener("click", clickCallback, this);
+        button.addEventListener("longClickDown", clickCallback, this);
+        button.addEventListener("longClickPress", clickCallback, this);
     },
 
     _onReplayContextChanged: function()
@@ -167,7 +171,10 @@ WebInspector.CanvasProfileView.prototype = {
         var selectedNode = this._logGrid.selectedNode;
         if (!selectedNode)
             return;
-        var nextNode = forward ? selectedNode.traverseNextNode(false) : selectedNode.traversePreviousNode(false);
+        var nextNode = selectedNode;
+        do {
+            nextNode = forward ? nextNode.traverseNextNode(false) : nextNode.traversePreviousNode(false);
+        } while (nextNode && typeof nextNode.index !== "number");
         (nextNode || selectedNode).revealAndSelect();
     },
 
@@ -246,21 +253,19 @@ WebInspector.CanvasProfileView.prototype = {
         {
             delete this._pendingReplayTraceLogEvent;
 
-            if (index !== this._selectedCallIndex()) {
-                this._replayTraceLog();
-                return;
+            this._enableWaitIcon(false);
+
+            if (!error) {
+                this._currentResourceStates = {};
+                this._currentResourceStates["auto"] = resourceState;
+                this._currentResourceStates[resourceState.id] = resourceState;
+
+                this._debugInfoElement.textContent = "Replay time: " + (Date.now() - time) + "ms";
+                this._onReplayContextChanged();
             }
 
-            this._enableWaitIcon(false);
-            if (error)
-                return;
-
-            this._currentResourceStates = {};
-            this._currentResourceStates["auto"] = resourceState;
-            this._currentResourceStates[resourceState.id] = resourceState;
-
-            this._debugInfoElement.textContent = "Replay time: " + (Date.now() - time) + "ms";
-            this._onReplayContextChanged();
+            if (index !== this._selectedCallIndex())
+                this._replayTraceLog();
         }
         this._enableWaitIcon(true);
         CanvasAgent.replayTraceLog(this._traceLogId, index, didReplayTraceLog.bind(this));
@@ -518,9 +523,9 @@ WebInspector.CanvasProfileType = function()
     WebInspector.runtimeModel.addEventListener(WebInspector.RuntimeModel.Events.FrameExecutionContextListRemoved, this._frameRemoved, this);
 
     this._decorationElement = document.createElement("div");
-    this._decorationElement.addStyleClass("profile-canvas-decoration");
-    this._decorationElement.addStyleClass("hidden");
-    this._decorationElement.textContent = WebInspector.UIString("There is an uninstrumented canvas on the page. Reload the page to instrument it.");
+    this._decorationElement.className = "profile-canvas-decoration hidden";
+    this._decorationElement.createChild("div", "warning-icon-small");
+    this._decorationElement.appendChild(document.createTextNode(WebInspector.UIString("There is an uninstrumented canvas on the page. Reload the page to instrument it.")));
     var reloadPageButton = this._decorationElement.createChild("button");
     reloadPageButton.type = "button";
     reloadPageButton.textContent = WebInspector.UIString("Reload");

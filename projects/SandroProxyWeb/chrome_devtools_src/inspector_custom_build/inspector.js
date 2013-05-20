@@ -129,9 +129,7 @@ var WebInspector = {
         drawerStatusBarHeader.appendChild(statusBarElement);
         drawerStatusBarHeader.onclose = onclose;
 
-        var closeButton = drawerStatusBarHeader.createChild("span");
-        closeButton.textContent = WebInspector.UIString("\u00D7");
-        closeButton.addStyleClass("drawer-header-close-button");
+        var closeButton = drawerStatusBarHeader.createChild("div", "close-button");
         closeButton.addEventListener("click", this.closeViewInDrawer.bind(this), false);
 
         var panelStatusBar = document.getElementById("panel-status-bar");
@@ -216,23 +214,17 @@ var WebInspector = {
         errorWarningElement.removeChildren();
 
         if (errors) {
-            var errorImageElement = document.createElement("img");
-            errorImageElement.id = "error-count-img";
-            errorWarningElement.appendChild(errorImageElement);
-            var errorElement = document.createElement("span");
+            var errorImageElement = errorWarningElement.createChild("div", "error-icon-small");
+            var errorElement = errorWarningElement.createChild("span");
             errorElement.id = "error-count";
             errorElement.textContent = errors;
-            errorWarningElement.appendChild(errorElement);
         }
 
         if (warnings) {
-            var warningsImageElement = document.createElement("img");
-            warningsImageElement.id = "warning-count-img";
-            errorWarningElement.appendChild(warningsImageElement);
-            var warningsElement = document.createElement("span");
+            var warningsImageElement = errorWarningElement.createChild("div", "warning-icon-small");
+            var warningsElement = errorWarningElement.createChild("span");
             warningsElement.id = "warning-count";
             warningsElement.textContent = warnings;
-            errorWarningElement.appendChild(warningsElement);
         }
 
         if (errors) {
@@ -484,6 +476,7 @@ WebInspector._doLoadedDoneWithCapabilities = function()
     this.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerPaused, this._debuggerPaused, this);
     this.networkLog = new WebInspector.NetworkLog();
     this.domAgent = new WebInspector.DOMAgent();
+    this.domAgent.addEventListener(WebInspector.DOMAgent.Events.InspectNodeRequested, this._inspectNodeRequested, this);
     this.runtimeModel = new WebInspector.RuntimeModel(this.resourceTreeModel);
 
     this.consoleView = new WebInspector.ConsoleView(WebInspector.WorkerManager.isWorkerFrontend());
@@ -530,9 +523,7 @@ WebInspector._doLoadedDoneWithCapabilities = function()
     new WebInspector.DebuggerScriptMapping(this.workspace, this.networkWorkspaceProvider);
     this.liveEditSupport = new WebInspector.LiveEditSupport(this.workspace);
     this.styleContentBinding = new WebInspector.StyleContentBinding(this.cssModel, this.workspace);
-    new WebInspector.StylesSourceMapping(this.cssModel, this.workspace);
-    if (WebInspector.experimentsSettings.sass.isEnabled())
-        new WebInspector.SASSSourceMapping(this.cssModel, this.workspace, this.networkWorkspaceProvider);
+    new WebInspector.CSSStyleSheetMapping(this.cssModel, this.workspace, this.networkWorkspaceProvider);
 
     new WebInspector.PresentationConsoleMessageHelper(this.workspace);
 
@@ -575,12 +566,16 @@ WebInspector._doLoadedDoneWithCapabilities = function()
     if (WebInspector.settings.continuousPainting.get())
         PageAgent.setContinuousPaintingEnabled(true);
 
-    if (WebInspector.settings.javaScriptDisabled.get())
-        PageAgent.setScriptExecutionDisabled(true);
 
     if (WebInspector.settings.showFPSCounter.get())
         PageAgent.setShowFPSCounter(true);
 
+    WebInspector.settings.showMetricsRulers.addChangeListener(showRulersChanged);
+    function showRulersChanged()
+    {
+        PageAgent.setShowViewportSizeOnResize(true, WebInspector.settings.showMetricsRulers.get());
+    }
+    showRulersChanged();
     this.domAgent._emulateTouchEventsChanged();
 
     WebInspector.WorkerManager.loadCompleted();
@@ -745,10 +740,6 @@ WebInspector._registerShortcuts = function()
         shortcut.makeDescriptor("?")
     ];
     section.addAlternateKeys(keys, WebInspector.UIString("Show keyboard shortcuts"));
-    if (WebInspector.isMac()) {
-        keys = [ shortcut.makeDescriptor(",", shortcut.Modifiers.Meta) ];
-        section.addAlternateKeys(keys, WebInspector.UIString("Open settings"));
-    }
 }
 
 /**
@@ -760,12 +751,6 @@ WebInspector.documentKeyDown = function(event)
 
     if (event.keyIdentifier === "F1" ||
         (event.keyIdentifier === helpKey && event.shiftKey && (!WebInspector.isBeingEdited(event.target) || event.metaKey))) {
-        this.settingsController.showSettingsScreen(WebInspector.SettingsScreen.Tabs.Shortcuts);
-        event.consume(true);
-        return;
-    }
-
-    if (WebInspector.isMac() && event.metaKey && event.keyCode === WebInspector.KeyboardShortcut.Keys.Comma.code) {
         this.settingsController.showSettingsScreen(WebInspector.SettingsScreen.Tabs.General);
         event.consume(true);
         return;
@@ -1019,6 +1004,10 @@ WebInspector.targetCrashed = function()
         WebInspector.UIString("Inspected target has crashed. Once it reloads we will attach to it automatically."))).showModal();
 }
 
+WebInspector._inspectNodeRequested = function(event)
+{
+    WebInspector._updateFocusedNode(event.data);
+}
 WebInspector._updateFocusedNode = function(nodeId)
 {
     if (WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.enabled()) {

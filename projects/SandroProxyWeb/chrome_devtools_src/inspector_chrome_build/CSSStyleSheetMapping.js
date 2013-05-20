@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2013 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,37 +30,30 @@
 
 /**
  * @constructor
+ * @param {WebInspector.CSSStyleModel} cssModel
  * @param {WebInspector.Workspace} workspace
  * @param {WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
  */
-WebInspector.DebuggerScriptMapping = function(workspace, networkWorkspaceProvider)
+WebInspector.CSSStyleSheetMapping = function(cssModel, workspace, networkWorkspaceProvider)
 {
-    this._defaultMapping = new WebInspector.DefaultScriptMapping(workspace);
-    this._resourceMapping = new WebInspector.ResourceScriptMapping(workspace);
-    this._compilerMapping = new WebInspector.CompilerScriptMapping(workspace, networkWorkspaceProvider);
-    this._snippetMapping = WebInspector.scriptSnippetModel.scriptMapping;
+    this._cssModel = cssModel;
+    this._workspace = workspace;
+    this._stylesSourceMapping = new WebInspector.StylesSourceMapping(cssModel, workspace);
+    if (WebInspector.experimentsSettings.sass.isEnabled())
+        this._sassSourceMapping = new WebInspector.SASSSourceMapping(cssModel, workspace, networkWorkspaceProvider);
 
-    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.ParsedScriptSource, this._parsedScriptSource, this);
-    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.FailedToParseScriptSource, this._parsedScriptSource, this);
+    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.ResourceAdded, this._resourceAdded, this);
 }
 
-WebInspector.DebuggerScriptMapping.prototype = {
+WebInspector.CSSStyleSheetMapping.prototype = {
     /**
      * @param {WebInspector.Event} event
      */
-    _parsedScriptSource: function(event)
+    _resourceAdded: function(event)
     {
-        var script = /** @type {WebInspector.Script} */ (event.data);
-        this._defaultMapping.addScript(script);
-
-        if (script.isSnippet()) {
-            this._snippetMapping.addScript(script);
-            return;
-        }
-
-        this._resourceMapping.addScript(script);
-
-        if (WebInspector.settings.sourceMapsEnabled.get())
-            this._compilerMapping.addScript(script);
+        var resource = /** @type {WebInspector.Resource} */ (event.data);
+        this._stylesSourceMapping.addResource(resource);
+        if (this._sassSourceMapping)
+            this._sassSourceMapping.addResource(resource);
     }
 }

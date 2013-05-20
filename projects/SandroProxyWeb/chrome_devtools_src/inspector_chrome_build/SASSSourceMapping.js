@@ -44,9 +44,10 @@ WebInspector.SASSSourceMapping = function(cssModel, workspace, networkWorkspaceP
     this._sourceMapByStyleSheetURL = {};
     this._cssURLsForSASSURL = {};
     this._timeoutForURL = {};
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.ResourceAdded, this._resourceAdded, this);
     WebInspector.fileManager.addEventListener(WebInspector.FileManager.EventTypes.SavedURL, this._fileSaveFinished, this);
     this._cssModel.addEventListener(WebInspector.CSSStyleModel.Events.StyleSheetChanged, this._styleSheetChanged, this);
+    this._workspace.addEventListener(WebInspector.UISourceCodeProvider.Events.UISourceCodeAdded, this._uiSourceCodeAdded, this);
+    this._workspace.addEventListener(WebInspector.Workspace.Events.UISourceCodeContentCommitted, this._uiSourceCodeContentCommitted, this);
     this._workspace.addEventListener(WebInspector.Workspace.Events.ProjectWillReset, this._reset, this);
 }
 
@@ -76,14 +77,10 @@ WebInspector.SASSSourceMapping.prototype = {
 
         if (isAddingRevision)
             return;
-        this._cssModel.resourceBinding().requestResourceURLForStyleSheetId(event.data.styleSheetId, callback.bind(this));
-
-        function callback(url)
-        {
-            if (!url)
-                return;
-            this._cssModel.setSourceMapping(url, null);
-        }
+        var url = this._cssModel.resourceBinding().resourceURLForStyleSheetId(event.data.styleSheetId);
+        if (!url)
+            return;
+        this._cssModel.setSourceMapping(url, null);
     },
 
     /**
@@ -91,8 +88,15 @@ WebInspector.SASSSourceMapping.prototype = {
      */
     _fileSaveFinished: function(event)
     {
-        // FIXME: add support for FileMapping.
         var sassURL = /** @type {string} */ (event.data);
+        this._sassFileSaved(sassURL);
+    },
+
+    /**
+     * @param {string} sassURL
+     */
+    _sassFileSaved: function(sassURL)
+    {
         function callback()
         {
             delete this._timeoutForURL[sassURL];
@@ -128,11 +132,10 @@ WebInspector.SASSSourceMapping.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {WebInspector.Resource} resource
      */
-    _resourceAdded: function(event)
+    addResource: function(resource)
     {
-        var resource = /** @type {WebInspector.Resource} */ (event.data);
         if (resource.type !== WebInspector.resourceTypes.Stylesheet)
             return;
 
@@ -230,13 +233,16 @@ WebInspector.SASSSourceMapping.prototype = {
         var sources = sourceMap.sources();
         for (var i = 0; i < sources.length; ++i) {
             var url = sources[i];
-            if (!this._workspace.hasMappingForURL(url) && !this._workspace.uiSourceCodeForURL(url)) {
-                var content = InspectorFrontendHost.loadResourceSynchronously(url);
-                var contentProvider = new WebInspector.StaticContentProvider(WebInspector.resourceTypes.Stylesheet, content, "text/x-scss");
-                var uiSourceCode = this._networkWorkspaceProvider.addFileForURL(url, contentProvider, true);
+            if (!this._workspace.hasMappingForURL(url)) {
+                if (!this._workspace.uiSourceCodeForURL(url)) {
+                    var content = InspectorFrontendHost.loadResourceSynchronously(url);
+                    var contentProvider = new WebInspector.StaticContentProvider(WebInspector.resourceTypes.Stylesheet, content, "text/x-scss");
+                    var uiSourceCode = this._networkWorkspaceProvider.addFileForURL(url, contentProvider, true);
+                    uiSourceCode.setSourceMapping(this);
+                    this._addCSSURLforSASSURL(rawURL, url);
+                }
+            } else
                 this._addCSSURLforSASSURL(rawURL, url);
-                uiSourceCode.setSourceMapping(this);
-            }
         }
     },
 
@@ -278,6 +284,31 @@ WebInspector.SASSSourceMapping.prototype = {
     isIdentity: function()
     {
         return false;
+    },
+
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _uiSourceCodeAdded: function(event)
+    {
+        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
+        if (uiSourceCode.contentType() !== WebInspector.resourceTypes.Stylesheet)
+            return;
+        var cssURLs = this._cssURLsForSASSURL[uiSourceCode.url];
+        // FIXME: we get back all the mappings that StylesSourceMapping stole from us.
+        // It should not have happened at the first place.
+        for (var i = 0; cssURLs && i < cssURLs.length; ++i)
+            this._cssModel.setSourceMapping(cssURLs[i], this);
+        uiSourceCode.setSourceMapping(this);
+    },
+
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _uiSourceCodeContentCommitted: function(event)
+    {
+        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data.uiSourceCode);
+        this._sassFileSaved(uiSourceCode.url);
     },
 
     _reset: function()

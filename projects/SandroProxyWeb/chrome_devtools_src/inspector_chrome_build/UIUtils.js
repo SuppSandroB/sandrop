@@ -152,7 +152,7 @@ WebInspector.GlassPane.prototype = {
 
 WebInspector.isBeingEdited = function(element)
 {
-    if (element.hasStyleClass("text-prompt") || element.nodeName === "INPUT")
+    if (element.hasStyleClass("text-prompt") || element.nodeName === "INPUT" || element.nodeName === "TEXTAREA")
         return true;
 
     if (!WebInspector.__editingCount)
@@ -171,11 +171,13 @@ WebInspector.markBeingEdited = function(element, value)
     if (value) {
         if (element.__editing)
             return false;
+        element.addStyleClass("being-edited");
         element.__editing = true;
         WebInspector.__editingCount = (WebInspector.__editingCount || 0) + 1;
     } else {
         if (!element.__editing)
             return false;
+        element.removeStyleClass("being-edited");
         delete element.__editing;
         --WebInspector.__editingCount;
     }
@@ -469,6 +471,7 @@ WebInspector.startEditing = function(element, config)
             theme: config.theme,
             value: oldText
         });
+        codeMirror.getWrapperElement().addStyleClass("source-code");
     } else {
         element.addStyleClass("editing");
 

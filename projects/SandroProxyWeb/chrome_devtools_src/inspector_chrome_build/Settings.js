@@ -73,7 +73,7 @@ WebInspector.Settings = function()
     this.eventListenerBreakpoints = this.createSetting("eventListenerBreakpoints", []);
     this.domBreakpoints = this.createSetting("domBreakpoints", []);
     this.xhrBreakpoints = this.createSetting("xhrBreakpoints", []);
-    this.sourceMapsEnabled = this.createSetting("sourceMapsEnabled", false);
+    this.sourceMapsEnabled = this.createSetting("sourceMapsEnabled", true);
     this.cacheDisabled = this.createSetting("cacheDisabled", false);
     this.overrideUserAgent = this.createSetting("overrideUserAgent", "");
     this.userAgent = this.createSetting("userAgent", "");
@@ -198,20 +198,18 @@ WebInspector.ExperimentsSettings = function()
     this._enabledForTest = {};
 
     // Add currently running experiments here.
-    this.snippetsSupport = this._createExperiment("snippetsSupport", "Snippets support");
     this.nativeMemorySnapshots = this._createExperiment("nativeMemorySnapshots", "Native memory profiling");
     this.nativeMemoryTimeline = this._createExperiment("nativeMemoryTimeline", "Native memory timeline");
     this.fileSystemInspection = this._createExperiment("fileSystemInspection", "FileSystem inspection");
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
-    this.sass = this._createExperiment("sass", "Support for Sass");
+    this.sass = this._createExperiment("sass", "Sass stylesheet debugging");
     this.cssRegions = this._createExperiment("cssRegions", "CSS Regions Support");
     this.showOverridesInDrawer = this._createExperiment("showOverridesInDrawer", "Show Overrides in drawer");
-    this.fileSystemProject = this._createExperiment("fileSystemProject", "File system folders in Sources Panel");
     this.showWhitespaceInEditor = this._createExperiment("showWhitespaceInEditor", "Show whitespace characters in editor");
-    this.textEditorSmartBraces = this._createExperiment("textEditorSmartBraces", "Enable smart braces in text editor");
     this.customizableToolbar = this._createExperiment("customizableToolbar", "Enable toolbar customization");
-    this.cpuFlameChart = this._createExperiment("cpuFlameChart", "Show Flame Chart in CPU Profiler");
-    this.tethering = this._createExperiment("tethering", "Enable reverse port forwarding");
+    this.tethering = this._createExperiment("tethering", "Enable port forwarding");
+    this.drawerOverlay = this._createExperiment("drawerOverlay", "Open console as overlay");
+    this.heapObjectsTracking = this._createExperiment("heapObjectsTracking", "Enable heap objects tracking profile type");
 
     this._cleanUpSetting();
 }

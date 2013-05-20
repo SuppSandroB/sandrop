@@ -60,7 +60,7 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
         smartIndent: false,
         styleSelectedText: true,
         electricChars: false,
-        autoCloseBrackets: WebInspector.experimentsSettings.textEditorSmartBraces.isEnabled()
+        autoCloseBrackets: true
     });
 
     var extraKeys = {};
@@ -103,16 +103,32 @@ WebInspector.CodeMirrorTextEditor = function(url, delegate)
 }
 
 WebInspector.CodeMirrorTextEditor.prototype = {
+
+    undo: function()
+    {
+        this._codeMirror.undo();
+    },
+
+    redo: function()
+    {
+        this._codeMirror.redo();
+    },
+
     _setupSelectionColor: function()
     {
         if (WebInspector.CodeMirrorTextEditor._selectionStyleInjected)
             return;
-        var style = document.createElement("style");
-        var backgroundColor = ".CodeMirror .CodeMirror-selected { background-color: " + WebInspector.getSelectionBackgroundColor() + ";}";
-        var foregroundColor = ".CodeMirror .CodeMirror-selectedtext { color: " + WebInspector.getSelectionForegroundColor() + "!important;}";
-        style.textContent = backgroundColor + foregroundColor;
-        document.head.appendChild(style);
         WebInspector.CodeMirrorTextEditor._selectionStyleInjected = true;
+        var backgroundColor = WebInspector.getSelectionBackgroundColor();
+        var backgroundColorRule = backgroundColor ? ".CodeMirror .CodeMirror-selected { background-color: " + backgroundColor + ";}" : "";
+        var foregroundColor = WebInspector.getSelectionForegroundColor();
+        var foregroundColorRule = foregroundColor ? ".CodeMirror .CodeMirror-selectedtext { color: " + foregroundColor + "!important;}" : "";
+        if (!foregroundColorRule && !backgroundColorRule)
+            return;
+
+        var style = document.createElement("style");
+        style.textContent = backgroundColorRule + foregroundColorRule;
+        document.head.appendChild(style);
     },
 
     /**
@@ -153,6 +169,17 @@ WebInspector.CodeMirrorTextEditor.prototype = {
         return this._toRange(coords, coords);
     },
 
+    _convertTokenType: function(tokenType)
+    {
+        if (tokenType.startsWith("variable") || tokenType.startsWith("property") || tokenType === "def")
+            return "javascript-ident";
+        if (tokenType === "string-2")
+            return "javascript-regexp";
+        if (tokenType === "number" || tokenType === "comment" || tokenType === "string")
+            return "javascript-" + tokenType;
+        return null;
+    },
+
     /**
      * @param {number} lineNumber
      * @param {number} column
@@ -165,15 +192,14 @@ WebInspector.CodeMirrorTextEditor.prototype = {
         var token = this._codeMirror.getTokenAt(new CodeMirror.Pos(lineNumber, column || 1));
         if (!token || !token.type)
             return null;
-        var convertedType = null;
-        if (token.type.startsWith("variable") || token.type.startsWith("property") || token.type === "def") {
-            return {
-                startColumn: token.start,
-                endColumn: token.end - 1,
-                type: "javascript-ident"
-            };
-        }
-        return null;
+        var convertedType = this._convertTokenType(token.type);
+        if (!convertedType)
+            return null;
+        return {
+            startColumn: token.start,
+            endColumn: token.end - 1,
+            type: convertedType
+        };
     },
 
     /**
@@ -264,7 +290,7 @@ WebInspector.CodeMirrorTextEditor.prototype = {
      */
     defaultFocusedElement: function()
     {
-        return this.element.firstChild;
+        return this.element;
     },
 
     focus: function()
@@ -397,9 +423,16 @@ WebInspector.CodeMirrorTextEditor.prototype = {
 
     /**
      * @param {number} lineNumber
+     * @param {number=} columnNumber
      */
-    highlightLine: function(lineNumber)
+    highlightLine: function(lineNumber, columnNumber)
     {
+        if (typeof lineNumber !== "number" || lineNumber < 0)
+            return;
+        lineNumber = Math.min(lineNumber, this._codeMirror.lineCount());
+        if (typeof columnNumber !== "number" || columnNumber < 0 || columnNumber > this._codeMirror.getLine(lineNumber).length)
+            columnNumber = 0;
+
         this.clearLineHighlight();
         this._highlightedLine = this._codeMirror.getLineHandle(lineNumber);
         if (!this._highlightedLine)
@@ -407,6 +440,8 @@ WebInspector.CodeMirrorTextEditor.prototype = {
         this.revealLine(lineNumber);
         this._codeMirror.addLineClass(this._highlightedLine, null, "cm-highlight");
         this._clearHighlightTimeout = setTimeout(this.clearLineHighlight.bind(this), 2000);
+        if (!this.readOnly())
+            this._codeMirror.setSelection(new CodeMirror.Pos(lineNumber, columnNumber));
     },
 
     clearLineHighlight: function()

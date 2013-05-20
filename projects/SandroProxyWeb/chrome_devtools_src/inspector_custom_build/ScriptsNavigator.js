@@ -40,28 +40,31 @@ WebInspector.ScriptsNavigator = function()
 
     this._scriptsView = new WebInspector.NavigatorView();
     this._scriptsView.addEventListener(WebInspector.NavigatorView.Events.ItemSelected, this._scriptSelected, this);
+    this._scriptsView.addEventListener(WebInspector.NavigatorView.Events.ItemSearchStarted, this._itemSearchStarted, this);
+    this._scriptsView.addEventListener(WebInspector.NavigatorView.Events.ItemRenamingRequested, this._itemRenamingRequested, this);
 
     this._contentScriptsView = new WebInspector.NavigatorView();
     this._contentScriptsView.addEventListener(WebInspector.NavigatorView.Events.ItemSelected, this._scriptSelected, this);
+    this._contentScriptsView.addEventListener(WebInspector.NavigatorView.Events.ItemSearchStarted, this._itemSearchStarted, this);
+    this._contentScriptsView.addEventListener(WebInspector.NavigatorView.Events.ItemRenamingRequested, this._itemRenamingRequested, this);
 
     this._snippetsView = new WebInspector.SnippetsNavigatorView();
     this._snippetsView.addEventListener(WebInspector.NavigatorView.Events.ItemSelected, this._scriptSelected, this);
-    this._snippetsView.addEventListener(WebInspector.NavigatorView.Events.FileRenamed, this._fileRenamed, this);
+    this._snippetsView.addEventListener(WebInspector.NavigatorView.Events.ItemSearchStarted, this._itemSearchStarted, this);
+    this._snippetsView.addEventListener(WebInspector.NavigatorView.Events.ItemRenamingRequested, this._itemRenamingRequested, this);
     this._snippetsView.addEventListener(WebInspector.SnippetsNavigatorView.Events.SnippetCreationRequested, this._snippetCreationRequested, this);
-    this._snippetsView.addEventListener(WebInspector.SnippetsNavigatorView.Events.ItemRenamingRequested, this._itemRenamingRequested, this);
 
     this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.ScriptsTab, WebInspector.UIString("Sources"), this._scriptsView);
     this._tabbedPane.selectTab(WebInspector.ScriptsNavigator.ScriptsTab);
     this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.ContentScriptsTab, WebInspector.UIString("Content scripts"), this._contentScriptsView);
-    if (WebInspector.experimentsSettings.snippetsSupport.isEnabled())
-        this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.SnippetsTab, WebInspector.UIString("Snippets"), this._snippetsView);
+    this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.SnippetsTab, WebInspector.UIString("Snippets"), this._snippetsView);
 }
 
 WebInspector.ScriptsNavigator.Events = {
     ScriptSelected: "ScriptSelected",
     SnippetCreationRequested: "SnippetCreationRequested",
     ItemRenamingRequested: "ItemRenamingRequested",
-    FileRenamed: "FileRenamed"
+    ItemSearchStarted: "ItemSearchStarted",
 }
 
 WebInspector.ScriptsNavigator.ScriptsTab = "scripts";
@@ -139,9 +142,9 @@ WebInspector.ScriptsNavigator.prototype = {
     /**
      * @param {WebInspector.Event} event
      */
-    _fileRenamed: function(event)
-    {    
-        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.FileRenamed, event.data);
+    _itemSearchStarted: function(event)
+    {
+        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ItemSearchStarted, event.data);
     },
 
     /**
@@ -174,8 +177,7 @@ WebInspector.SnippetsNavigatorView = function()
 }
 
 WebInspector.SnippetsNavigatorView.Events = {
-    SnippetCreationRequested: "SnippetCreationRequested",
-    ItemRenamingRequested: "ItemRenamingRequested"
+    SnippetCreationRequested: "SnippetCreationRequested"
 }
 
 WebInspector.SnippetsNavigatorView.prototype = {
@@ -188,7 +190,7 @@ WebInspector.SnippetsNavigatorView.prototype = {
         var contextMenu = new WebInspector.ContextMenu(event);
         if (uiSourceCode) {
             contextMenu.appendItem(WebInspector.UIString("Run"), this._handleEvaluateSnippet.bind(this, uiSourceCode));
-            contextMenu.appendItem(WebInspector.UIString("Rename"), this._handleRenameSnippet.bind(this, uiSourceCode));
+            contextMenu.appendItem(WebInspector.UIString("Rename"), this.requestRename.bind(this, uiSourceCode));
             contextMenu.appendItem(WebInspector.UIString("Remove"), this._handleRemoveSnippet.bind(this, uiSourceCode));
             contextMenu.appendSeparator();
         }
@@ -204,14 +206,6 @@ WebInspector.SnippetsNavigatorView.prototype = {
         if (uiSourceCode.project().type() !== WebInspector.projectTypes.Snippets)
             return;
         WebInspector.scriptSnippetModel.evaluateScriptSnippet(uiSourceCode);
-    },
-
-    /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
-     */
-    _handleRenameSnippet: function(uiSourceCode)
-    {
-        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ItemRenamingRequested, uiSourceCode);
     },
 
     /**

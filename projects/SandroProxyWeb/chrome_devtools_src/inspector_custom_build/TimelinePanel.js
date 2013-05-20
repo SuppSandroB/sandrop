@@ -309,12 +309,18 @@ WebInspector.TimelinePanel.prototype = {
         labelContainer.addStyleClass("status-bar-item");
 
         var label = document.createElement("label");
-        var checkElement = document.createElement("input");
+        var checkBorder = label.createChild("div", "timeline-category-checkbox");
+        var checkElement = checkBorder.createChild("div", "timeline-category-checkbox-check timeline-category-checkbox-checked");
         checkElement.type = "checkbox";
-        checkElement.className = "timeline-category-checkbox";
         checkElement.checked = true;
-        checkElement.addEventListener("click", onCheckboxClicked, false);
-        label.appendChild(checkElement);
+        checkElement.addEventListener("click", listener, false);
+
+        function listener(event)
+        {
+            checkElement.checked = !checkElement.checked;
+            checkElement.enableStyleClass("timeline-category-checkbox-checked", checkElement.checked);
+            onCheckboxClicked(event);
+        }
 
         var typeElement = document.createElement("span");
         typeElement.className = "type";
@@ -838,18 +844,22 @@ WebInspector.TimelinePanel.prototype = {
     _revealRecord: function(recordToReveal)
     {
         // Expand all ancestors.
-        this._recordToHighlight = recordToReveal;
-        var treeUpdated = false;
         for (var parent = recordToReveal.parent; parent !== this._rootRecord(); parent = parent.parent) {
-            treeUpdated = treeUpdated || parent.collapsed;
+            if (!parent.collapsed)
+                continue;
+            this._presentationModel.invalidateFilteredRecords();
             parent.collapsed = false;
         }
-        if (treeUpdated)
-            this._invalidateAndScheduleRefresh(true, true);
-
         var recordsInWindow = this._presentationModel.filteredRecords();
         var index = recordsInWindow.indexOf(recordToReveal);
+        this._recordToHighlight = recordToReveal;
+        var oldScrollTop = this._containerElement.scrollTop;
         this._containerElement.scrollTop = index * WebInspector.TimelinePanel.rowHeight;
+        // The record to highlight will be only kept for one refresh cycle, so make sure
+        // refresh is only called once, either via scroll event handler or directly, if
+        // we're not about to scroll.
+        if (this._containerElement.scrollTop === oldScrollTop)
+            this._refresh();
     },
 
     _refreshRecords: function()
@@ -889,9 +899,10 @@ WebInspector.TimelinePanel.prototype = {
         this._itemsGraphsElement.removeChild(this._expandElements);
         this._expandElements.removeChildren();
 
-        this._clearRecordHighlight();
         var highlightedRecord = this._recordToHighlight;
         delete this._recordToHighlight;
+        var highlightedListRowElement;
+        var highlightedGraphRowElement;
 
         for (var i = 0; i < endIndex; ++i) {
             var record = recordsInWindow[i];
@@ -915,8 +926,8 @@ WebInspector.TimelinePanel.prototype = {
                 }
 
                 if (highlightedRecord === record) {
-                    this._highlightedListRowElement = listRowElement;
-                    this._highlightedGraphRowElement = graphRowElement;
+                    highlightedListRowElement = listRowElement;
+                    highlightedGraphRowElement = graphRowElement;
                 }
 
                 listRowElement.row.update(record, isEven, visibleTop);
@@ -944,22 +955,12 @@ WebInspector.TimelinePanel.prototype = {
         this._adjustScrollPosition((recordsInWindow.length + this._headerLineCount) * rowHeight);
         this._updateSearchHighlight(false);
 
-        if (this._highlightedListRowElement) {
-            this._highlightedListRowElement.addStyleClass("highlighted-timeline-record");
-            this._highlightedGraphRowElement.addStyleClass("highlighted-timeline-record");
+        if (highlightedListRowElement) {
+            highlightedListRowElement.addStyleClass("highlighted-timeline-record");
+            highlightedGraphRowElement.addStyleClass("highlighted-timeline-record");
         }
 
         return recordsInWindow.length;
-    },
-
-    _clearRecordHighlight: function()
-    {
-        if (!this._highlightedListRowElement)
-            return;
-        this._highlightedListRowElement.removeStyleClass("highlighted-timeline-record");
-        delete this._highlightedListRowElement;
-        this._highlightedGraphRowElement.removeStyleClass("highlighted-timeline-record");
-        delete this._highlightedGraphRowElement;
     },
 
     _refreshMainThreadBars: function()
@@ -1515,14 +1516,9 @@ WebInspector.TimelineRecordGraphRow.prototype = {
  */
 WebInspector.TimelineExpandableElement = function(container)
 {
-    this._element = document.createElement("div");
-    this._element.className = "timeline-expandable";
-
-    var leftBorder = document.createElement("div");
-    leftBorder.className = "timeline-expandable-left";
-    this._element.appendChild(leftBorder);
-
-    container.appendChild(this._element);
+    this._element = container.createChild("div", "timeline-expandable");
+    this._element.createChild("div", "timeline-expandable-left");
+    this._element.createChild("div", "timeline-expandable-arrow");
 }
 
 WebInspector.TimelineExpandableElement.prototype = {

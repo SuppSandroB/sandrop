@@ -101,6 +101,9 @@ WebInspector.StylesSidebarPane = function(computedStylePane, setPseudoClassCallb
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrModified, this._attributeChanged, this);
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrRemoved, this._attributeChanged, this);
     WebInspector.settings.showUserAgentStyles.addChangeListener(this._showUserAgentStylesSettingChanged.bind(this));
+    this.element.addEventListener("mousemove", this._mouseMovedOverElement.bind(this), false);
+    document.body.addEventListener("keydown", this._keyDown.bind(this), false);
+    document.body.addEventListener("keyup", this._keyUp.bind(this), false);
 }
 
 // Keep in sync with RenderStyleConstants.h PseudoId enum. Array below contains pseudo id names for corresponding enum indexes.
@@ -133,8 +136,8 @@ WebInspector.StylesSidebarPane.canonicalPropertyName = function(name)
 
 WebInspector.StylesSidebarPane.createExclamationMark = function(propertyName)
 {
-    var exclamationElement = document.createElement("img");
-    exclamationElement.className = "exclamation-mark";
+    var exclamationElement = document.createElement("div");
+    exclamationElement.className = "exclamation-mark warning-icon-small";
     exclamationElement.title = WebInspector.CSSMetadata.cssPropertiesMetainfo.keySet()[propertyName.toLowerCase()] ? WebInspector.UIString("Invalid property value.") : WebInspector.UIString("Unknown property name.");
     return exclamationElement;
 }
@@ -178,6 +181,7 @@ WebInspector.StylesSidebarPane.prototype = {
     update: function(node, forceUpdate)
     {
         this._spectrumHelper.hide();
+        this._discardElementUnderMouse();
 
         var refresh = false;
 
@@ -766,6 +770,40 @@ WebInspector.StylesSidebarPane.prototype = {
     willHide: function()
     {
         this._spectrumHelper.hide();
+        this._discardElementUnderMouse();
+    },
+
+    _discardElementUnderMouse: function()
+    {
+        if (this._elementUnderMouse)
+            this._elementUnderMouse.removeStyleClass("styles-panel-hovered");
+        delete this._elementUnderMouse;
+    },
+
+    _mouseMovedOverElement: function(e)
+    {
+        if (this._elementUnderMouse && e.target !== this._elementUnderMouse)
+            this._discardElementUnderMouse();
+        this._elementUnderMouse = e.target;
+        if (WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(e))
+            this._elementUnderMouse.addStyleClass("styles-panel-hovered");
+    },
+
+    _keyDown: function(e)
+    {
+        if ((!WebInspector.isMac() && e.keyCode === WebInspector.KeyboardShortcut.Keys.Ctrl.code) ||
+            (WebInspector.isMac() && e.keyCode === WebInspector.KeyboardShortcut.Keys.Meta.code)) {
+            if (this._elementUnderMouse)
+                this._elementUnderMouse.addStyleClass("styles-panel-hovered");
+        }
+    },
+
+    _keyUp: function(e)
+    {
+        if ((!WebInspector.isMac() && e.keyCode === WebInspector.KeyboardShortcut.Keys.Ctrl.code) ||
+            (WebInspector.isMac() && e.keyCode === WebInspector.KeyboardShortcut.Keys.Meta.code)) {
+            this._discardElementUnderMouse();
+        }
     },
 
     __proto__: WebInspector.SidebarPane.prototype
@@ -1082,7 +1120,7 @@ WebInspector.StylePropertiesSection.prototype = {
                 }
 
                 // Generate synthetic shorthand we have a value for.
-                var shorthandProperty = new WebInspector.CSSProperty(style, style.allProperties.length, shorthand, style.shorthandValue(shorthand), "", "style", true, true, undefined);
+                var shorthandProperty = new WebInspector.CSSProperty(style, style.allProperties.length, shorthand, style.shorthandValue(shorthand), "", "style", true, true);
                 var overloaded = property.inactive || this.isPropertyOverloaded(property.name, true);
                 var item = new WebInspector.StylePropertyTreeElement(this._parentPane, this.styleRule, style, shorthandProperty,  /* isShorthand */ true, /* inherited */ false, overloaded);
                 this.propertiesTreeOutline.appendChild(item);
@@ -1206,17 +1244,11 @@ WebInspector.StylePropertiesSection.prototype = {
             return document.createTextNode(WebInspector.UIString("user stylesheet"));
         if (this.rule.isViaInspector) {
             var element = document.createElement("span");
-            /**
-             * @param {?WebInspector.Resource} resource
-             */
-            function callback(resource)
-            {
-                if (resource)
-                    element.appendChild(linkifyUncopyable(resource.url, this.rule.sourceLine));
-                else
-                    element.textContent = WebInspector.UIString("via inspector");
-            }
-            WebInspector.cssModel.getViaInspectorResourceForRule(this.rule, callback.bind(this));
+            var resource = WebInspector.cssModel.viaInspectorResourceForRule(this.rule);
+            if (resource)
+                element.appendChild(linkifyUncopyable(resource.url, this.rule.sourceLine));
+            else
+                element.textContent = WebInspector.UIString("via inspector");
             return element;
         }
     },
@@ -1641,7 +1673,10 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
         if (index < 1)
             return this.property.name;
 
-        return text.substring(0, index).trim();
+        text = text.substring(0, index).trim();
+        if (text.startsWith("/*"))
+            text = text.substring(2).trim();
+        return text;
     },
 
     get priority()
@@ -1762,8 +1797,7 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
 
                 function spectrumChanged(e)
                 {
-                    color = e.data;
-                    var colorString = color.toString();
+                    var colorString = /** @type {string} */ (e.data);
                     spectrum.displayText = colorString;
                     colorValueElement.textContent = colorString;
                     colorSwatch.setColorString(colorString);

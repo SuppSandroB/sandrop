@@ -67,31 +67,13 @@
 }
 
 .help-close-button {
-    border: 0;
-    padding: 0;
-    font-size: 14px;
-    color: rgb(222, 222, 222);
-    background: -webkit-gradient(radial, 30% 30%, 1, 50% 50%, 8, from(rgb(144, 144, 144)), to(rgb(96, 96, 96)));
-    border-radius: 8px;
-    height: 16px;
-    width: 16px;
-    line-height: 12px;
     position: absolute;
-    top: 6px;
-    right: 6px;
-}
-
-#settings-screen .help-close-button {
     top: 8px;
     right: 8px;
 }
 
 body.dock-to-bottom .help-content {
     margin-bottom: 8px;
-}
-
-.help-close-button:hover {
-    color: white;
 }
 
 body.platform-mac .help-window-main .tabbed-pane-header-contents {
@@ -188,6 +170,10 @@ body.platform-mac .help-key {
 .help-content fieldset {
     border: none;
     margin-left: 7px;
+}
+
+#general-tab-content .help-content fieldset legend {
+    font-size: 14px;
 }
 
 body.platform-mac .settings-tab.help-content fieldset {
@@ -287,7 +273,7 @@ body.platform-mac .help-content input[type=radio] {
 .help-container-wrapper {
     position: absolute;
     top: 60px;
-    left: 5px;
+    left: 15px;
     right: 0;
     bottom: 0;
     overflow: auto;
@@ -434,13 +420,11 @@ body.platform-mac .help-content input[type=radio] {
     background-color: rgb(221, 221, 221);
 }
 
-
-
 .settings-tab .file-systems-editor input.file-system-path {
     width: 383px;
 }
 
-.settings-tab .file-mappings-editor .workspace-settings-row input {
+.settings-tab .workspace-settings-row input {
     width: 190px;
 }
 
@@ -490,4 +474,25 @@ body.platform-mac .help-content input[type=radio] {
 
 #workspace-tab-content .workspace-settings-error {
     color: red;
+}
+
+.tethering-help-info {
+    padding-bottom: 5px;
+}
+
+.tethering-help-title-left {
+    padding-top: 20px;
+    display: inline-block;
+    width: 100px;
+}
+
+
+.tethering-help-title-right {
+    padding-top: 20px;
+    display: inline-block;
+}
+
+.settings-tab .workspace-settings-row input.tethering-port-input {
+    width: 80px;
+    margin-right: 20px;
 }

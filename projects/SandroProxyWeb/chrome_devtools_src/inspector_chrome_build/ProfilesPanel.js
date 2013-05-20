@@ -401,7 +401,10 @@ WebInspector.ProfilesPanel = function(name, type)
         this._registerProfileType(new WebInspector.CPUProfileType());
         if (!WebInspector.WorkerManager.isWorkerFrontend())
             this._registerProfileType(new WebInspector.CSSSelectorProfileType());
-        this._registerProfileType(new WebInspector.HeapSnapshotProfileType());
+        var heapSnapshotProfileType = new WebInspector.HeapSnapshotProfileType();
+        this._registerProfileType(heapSnapshotProfileType);
+        if (WebInspector.experimentsSettings.heapObjectsTracking.isEnabled())
+            this._registerProfileType(new WebInspector.TrackingHeapSnapshotProfileType(this));
         if (!WebInspector.WorkerManager.isWorkerFrontend() && WebInspector.experimentsSettings.nativeMemorySnapshots.isEnabled()) {
             this._registerProfileType(new WebInspector.NativeSnapshotProfileType());
             this._registerProfileType(new WebInspector.NativeMemoryProfileType());
@@ -1056,7 +1059,7 @@ WebInspector.ProfilesPanel.prototype = {
 
     searchMatchFound: function(view, matches)
     {
-        view.profile._profilesTreeElement.searchMatches = matches;
+        view.profileHeader._profilesTreeElement.searchMatches = matches;
     },
 
     searchCanceled: function()
@@ -1343,10 +1346,25 @@ WebInspector.CSSSelectorProfilerPanel.prototype = {
  */
 WebInspector.HeapProfilerPanel = function()
 {
-    WebInspector.ProfilesPanel.call(this, "heap-profiler", new WebInspector.HeapSnapshotProfileType());
+    var heapSnapshotProfileType = new WebInspector.HeapSnapshotProfileType();
+    WebInspector.ProfilesPanel.call(this, "heap-profiler", heapSnapshotProfileType);
+    if (WebInspector.experimentsSettings.heapObjectsTracking.isEnabled()) {
+        this._singleProfileMode = false;
+        this._registerProfileType(new WebInspector.TrackingHeapSnapshotProfileType(this));
+        this._launcherView.addEventListener(WebInspector.MultiProfileLauncherView.EventTypes.ProfileTypeSelected, this._onProfileTypeSelected, this);
+        this._launcherView._profileTypeChanged(heapSnapshotProfileType);
+    }
 }
 
 WebInspector.HeapProfilerPanel.prototype = {
+    _createLauncherView: function()
+    {
+        if (WebInspector.experimentsSettings.heapObjectsTracking.isEnabled())
+            return new WebInspector.MultiProfileLauncherView(this);
+        else
+            return WebInspector.ProfilesPanel.prototype._createLauncherView.call(this);
+    },
+
     __proto__: WebInspector.ProfilesPanel.prototype
 }
 

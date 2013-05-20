@@ -110,6 +110,17 @@ WebInspector.DefaultTextEditor.EditInfo = function(range, text)
 }
 
 WebInspector.DefaultTextEditor.prototype = {
+
+    undo: function()
+    {
+        this._mainPanel.undo();
+    },
+
+    redo: function()
+    {
+        this._mainPanel.redo();
+    },
+
     /**
      * @return {boolean}
      */
@@ -325,14 +336,17 @@ WebInspector.DefaultTextEditor.prototype = {
 
     /**
      * @param {number} lineNumber
+     * @param {number=} columnNumber
      */
-    highlightLine: function(lineNumber)
+    highlightLine: function(lineNumber, columnNumber)
     {
         if (typeof lineNumber !== "number" || lineNumber < 0)
             return;
 
         lineNumber = Math.min(lineNumber, this._textModel.linesCount - 1);
-        this._mainPanel.highlightLine(lineNumber);
+        if (typeof columnNumber !== "number" || columnNumber < 0 || columnNumber > this._textModel.lineLength(lineNumber))
+            columnNumber = 0;
+        this._mainPanel.highlightLine(lineNumber, columnNumber);
     },
 
     clearLineHighlight: function()
@@ -1855,15 +1869,16 @@ WebInspector.TextEditorMainPanel.prototype = {
 
     /**
      * @param {number} lineNumber
+     * @param {number} columnNumber
      */
-    highlightLine: function(lineNumber)
+    highlightLine: function(lineNumber, columnNumber)
     {
         this.clearLineHighlight();
         this._highlightedLine = lineNumber;
         this.revealLine(lineNumber);
 
         if (!this._readOnly)
-            this._restoreSelection(WebInspector.TextRange.createFromLocation(lineNumber, 0), false);
+            this._restoreSelection(WebInspector.TextRange.createFromLocation(lineNumber, columnNumber), false);
 
         this.addDecoration(lineNumber, "webkit-highlighted-line");
     },
@@ -1881,6 +1896,16 @@ WebInspector.TextEditorMainPanel.prototype = {
         this._cachedSpans = [];
         this._cachedTextNodes = [];
         this._cachedRows = [];
+    },
+
+    undo: function()
+    {
+        this._handleUndoRedo(false);
+    },
+
+    redo: function()
+    {
+        this._handleUndoRedo(true);
     },
 
     /**
@@ -3659,9 +3684,6 @@ WebInspector.TextEditorMainPanel.SmartBraceController.prototype = {
      */
     registerShortcuts: function(shortcuts)
     {
-        if (!WebInspector.experimentsSettings.textEditorSmartBraces.isEnabled())
-            return;
-
         var keys = WebInspector.KeyboardShortcut.Keys;
         var modifiers = WebInspector.KeyboardShortcut.Modifiers;
 
@@ -3673,8 +3695,6 @@ WebInspector.TextEditorMainPanel.SmartBraceController.prototype = {
      */
     registerCharOverrides: function(charOverrides)
     {
-        if (!WebInspector.experimentsSettings.textEditorSmartBraces.isEnabled())
-            return;
         charOverrides["("] = this._handleBracePairInsertion.bind(this, "()");
         charOverrides[")"] = this._handleClosingBraceOverride.bind(this, ")");
         charOverrides["{"] = this._handleBracePairInsertion.bind(this, "{}");

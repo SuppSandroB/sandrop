@@ -837,7 +837,8 @@ WebInspector.DOMAgent.Events = {
     ChildNodeCountUpdated: "ChildNodeCountUpdated",
     InspectElementRequested: "InspectElementRequested",
     UndoRedoRequested: "UndoRedoRequested",
-    UndoRedoCompleted: "UndoRedoCompleted"
+    UndoRedoCompleted: "UndoRedoCompleted",
+    InspectNodeRequested: "InspectNodeRequested"
 }
 
 WebInspector.DOMAgent.prototype = {
@@ -906,6 +907,16 @@ WebInspector.DOMAgent.prototype = {
     {
         var callbackCast = /** @type {function(*)} */(callback);
         this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeByPathToFrontend.bind(DOMAgent, path), callbackCast);
+    },
+
+    /**
+     * @param {number} backendNodeId
+     * @param {function(?number)=} callback
+     */
+    pushNodeByBackendIdToFrontend: function(backendNodeId, callback)
+    {
+        var callbackCast = /** @type {function(*)} */(callback);
+        this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeByBackendIdToFrontend.bind(DOMAgent, backendNodeId), callbackCast);
     },
 
     /**
@@ -1147,6 +1158,14 @@ WebInspector.DOMAgent.prototype = {
     },
 
     /**
+     * @param {DOMAgent.NodeId} nodeId
+     */
+    _inspectNodeRequested: function(nodeId)
+    {
+        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.InspectNodeRequested, nodeId);
+    },
+
+    /**
      * @param {string} query
      * @param {function(number)} searchCallback
      */
@@ -1263,7 +1282,8 @@ WebInspector.DOMAgent.prototype = {
      */
     setInspectModeEnabled: function(enabled, callback)
     {
-        DOMAgent.setInspectModeEnabled(enabled, this._buildHighlightConfig(), callback);
+        var callbackCast = /** @type {function(*)} */ (callback);
+        this._dispatchWhenDocumentAvailable(DOMAgent.setInspectModeEnabled.bind(DOMAgent, enabled, this._buildHighlightConfig()), callbackCast);
     },
 
     /**
@@ -1284,6 +1304,9 @@ WebInspector.DOMAgent.prototype = {
 
         if (mode === "all" || mode === "margin")
             highlightConfig.marginColor = WebInspector.Color.PageHighlight.Margin.toProtocolRGBA();
+
+        if (mode === "all")
+            highlightConfig.eventTargetColor = WebInspector.Color.PageHighlight.EventTarget.toProtocolRGBA();
 
         return highlightConfig;
     },
@@ -1393,6 +1416,14 @@ WebInspector.DOMDispatcher.prototype = {
     documentUpdated: function()
     {
         this._domAgent._documentUpdated();
+    },
+
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     */
+    inspectNodeRequested: function(nodeId)
+    {
+        this._domAgent._inspectNodeRequested(nodeId);
     },
 
     /**

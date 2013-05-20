@@ -42,10 +42,10 @@ WebInspector.FlameChart = function(cpuProfileView)
 
     this._overviewContainer = this.element.createChild("div", "overview-container");
     this._overviewGrid = new WebInspector.OverviewGrid("flame-chart");
+    this._overviewCanvas = this._overviewContainer.createChild("canvas", "flame-chart-overview-canvas");
     this._overviewContainer.appendChild(this._overviewGrid.element);
     this._overviewCalculator = new WebInspector.FlameChart.OverviewCalculator();
     this._overviewGrid.addEventListener(WebInspector.OverviewGrid.Events.WindowChanged, this._onWindowChanged, this);
-    this._overviewCanvas = this._overviewContainer.createChild("canvas");
 
     this._chartContainer = this.element.createChild("div", "chart-container");
     this._timelineGrid = new WebInspector.TimelineGrid();
@@ -53,6 +53,7 @@ WebInspector.FlameChart = function(cpuProfileView)
     this._calculator = new WebInspector.FlameChart.Calculator();
 
     this._canvas = this._chartContainer.createChild("canvas");
+    this._canvas.addEventListener("mousemove", this._onMouseMove.bind(this));
     WebInspector.installDragHandle(this._canvas, this._startCanvasDragging.bind(this), this._canvasDragging.bind(this), this._endCanvasDragging.bind(this), "col-resize");
 
     this._cpuProfileView = cpuProfileView;
@@ -63,8 +64,6 @@ WebInspector.FlameChart = function(cpuProfileView)
     this._paddingLeft = 15;
     this._canvas.addEventListener("mousewheel", this._onMouseWheel.bind(this), false);
     this.element.addEventListener("click", this._onClick.bind(this), false);
-    this._popoverHelper = new WebInspector.PopoverHelper(this._chartContainer, this._getPopoverAnchor.bind(this), this._showPopover.bind(this));
-    this._popoverHelper.setTimeout(250);
     this._linkifier = new WebInspector.Linkifier();
     this._highlightedNodeIndex = -1;
 
@@ -73,8 +72,7 @@ WebInspector.FlameChart = function(cpuProfileView)
 }
 
 /**
- * @constructor            entries.push(new WebInspector.FlameChart.Entry(colorPair, level, node.totalTime, offset, node));
-/
+ * @constructor
  * @implements {WebInspector.TimelineGrid.Calculator}
  */
 WebInspector.FlameChart.Calculator = function()
@@ -241,7 +239,6 @@ WebInspector.FlameChart.prototype = {
 
     _onWindowChanged: function(event)
     {
-        this._hidePopover();
         this._scheduleUpdate();
     },
 
@@ -253,7 +250,6 @@ WebInspector.FlameChart.prototype = {
         this._dragStartPoint = event.pageX;
         this._dragStartWindowLeft = this._windowLeft;
         this._dragStartWindowRight = this._windowRight;
-        this._hidePopover();
         return true;
     },
 
@@ -402,56 +398,48 @@ WebInspector.FlameChart.prototype = {
         return this._timelineData;
     },
 
-    _getPopoverAnchor: function(element, event)
+    _onMouseMove: function(event)
     {
         if (this._isDragging)
-            return null;
+            return;
 
         var nodeIndex = this._coordinatesToNodeIndex(event.offsetX, event.offsetY);
 
+        if (this._highlightedNodeIndex === nodeIndex)
+            return;
+
         this._highlightedNodeIndex = nodeIndex;
-        this.update();
-
-        if (nodeIndex === -1)
-            return null;
-
-        var anchorBox = new AnchorBox();
-        this._entryToAnchorBox(this._timelineData.entries[nodeIndex], anchorBox);
-        anchorBox.x += event.pageX - event.offsetX;
-        anchorBox.y += event.pageY - event.offsetY;
-
-        return anchorBox;
+        this._scheduleUpdate();
     },
 
-    _showPopover: function(anchor, popover)
+    _prepareHighlightedEntryInfo: function()
     {
         if (this._isDragging)
-            return;
+            return null;
         var entry = this._timelineData.entries[this._highlightedNodeIndex];
+        if (!entry)
+            return null;
         var node = entry.node;
         if (!node)
-            return;
-        var contentHelper = new WebInspector.PopoverContentHelper(node.functionName);
+            return null;
+
+        var entryInfo = [];
+        function pushEntryInfoRow(title, text)
+        {
+            var row = {};
+            row.title = title;
+            row.text = text;
+            entryInfo.push(row);
+        }
+
+        pushEntryInfoRow(WebInspector.UIString("Name"), node.functionName);
         if (this._cpuProfileView.samples) {
-            contentHelper.appendTextRow(WebInspector.UIString("Self time"), Number.secondsToString(entry.selfTime / 1000, true));
-            contentHelper.appendTextRow(WebInspector.UIString("Total time"), Number.secondsToString(entry.duration / 1000, true));
+            pushEntryInfoRow(WebInspector.UIString("Self time"), Number.secondsToString(entry.selfTime / 1000, true));
+            pushEntryInfoRow(WebInspector.UIString("Total time"), Number.secondsToString(entry.duration / 1000, true));
         }
-        contentHelper.appendTextRow(WebInspector.UIString("Aggregated self time"), Number.secondsToString(node.selfTime / 1000, true));
-        contentHelper.appendTextRow(WebInspector.UIString("Aggregated total time"), Number.secondsToString(node.totalTime / 1000, true));
-        if (node.numberOfCalls)
-            contentHelper.appendTextRow(WebInspector.UIString("Number of calls"), node.numberOfCalls);
-        if (node.url) {
-            var link = this._linkifier.linkifyLocation(node.url, node.lineNumber);
-            contentHelper.appendElementRow("Location", link);
-        }
-
-        popover.show(contentHelper._contentTable, anchor);
-    },
-
-    _hidePopover: function()
-    {
-        this._popoverHelper.hidePopover();
-        this._linkifier.reset();
+        pushEntryInfoRow(WebInspector.UIString("Aggregated self time"), Number.secondsToString(node.selfTime / 1000, true));
+        pushEntryInfoRow(WebInspector.UIString("Aggregated total time"), Number.secondsToString(node.totalTime / 1000, true));
+        return entryInfo;
     },
 
     _onClick: function(e)
@@ -464,11 +452,17 @@ WebInspector.FlameChart.prototype = {
 
     _onMouseWheel: function(e)
     {
-        var zoomFactor = (e.wheelDelta > 0) ? 0.9 : 1.1;
-        var windowPoint = (this._pixelWindowLeft + e.offsetX) / this._totalPixels;
-        var overviewReferencePoint = Math.floor(windowPoint * this._pixelWindowWidth);
-        this._overviewGrid.zoom(zoomFactor, overviewReferencePoint);
-        this._hidePopover();
+        if (e.wheelDeltaY) {
+            const zoomFactor = 1.1;
+            const mouseWheelZoomSpeed = 1 / 120;
+
+            var zoom = Math.pow(zoomFactor, -e.wheelDeltaY * mouseWheelZoomSpeed);
+            var overviewReference = (this._pixelWindowLeft + e.offsetX - this._paddingLeft) / this._totalPixels;
+            this._overviewGrid.zoom(zoom, overviewReference);
+        } else {
+            var shift = Number.constrain(-1 * this._windowWidth / 4 * e.wheelDeltaX / 120, -this._windowLeft, 1 - this._windowRight);
+            this._overviewGrid.setWindow(this._windowLeft + shift, this._windowRight + shift);
+        }
     },
 
     /**
@@ -482,7 +476,7 @@ WebInspector.FlameChart.prototype = {
             return -1;
         var timelineEntries = timelineData.entries;
         var cursorTime = (x + this._pixelWindowLeft - this._paddingLeft) * this._pixelToTime;
-        var cursorLevel = Math.floor((this._canvas.height - y) / this._barHeight);
+        var cursorLevel = Math.floor((this._canvas.height / window.devicePixelRatio - y) / this._barHeight);
 
         for (var i = 0; i < timelineEntries.length; ++i) {
             if (cursorTime < timelineEntries[i].startTime)
@@ -497,15 +491,11 @@ WebInspector.FlameChart.prototype = {
     onResize: function()
     {
         this._updateOverviewCanvas = true;
-        this._hidePopover();
         this._scheduleUpdate();
     },
 
     _drawOverviewCanvas: function(width, height)
     {
-        this._overviewCanvas.width = width;
-        this._overviewCanvas.height = height;
-
         if (!this._timelineData)
             return;
 
@@ -513,25 +503,43 @@ WebInspector.FlameChart.prototype = {
 
         var drawData = new Uint8Array(width);
         var scaleFactor = width / this._totalTime;
+        var maxStackDepth = 5; // minimum stack depth for the case when we see no activity.
 
         for (var nodeIndex = 0; nodeIndex < timelineEntries.length; ++nodeIndex) {
             var entry = timelineEntries[nodeIndex];
             var start = Math.floor(entry.startTime * scaleFactor);
             var finish = Math.floor((entry.startTime + entry.duration) * scaleFactor);
-            for (var x = start; x < finish; ++x)
+            for (var x = start; x < finish; ++x) {
                 drawData[x] = Math.max(drawData[x], entry.depth + 1);
+                maxStackDepth = Math.max(maxStackDepth, entry.depth + 1);
+            }
         }
 
+        var ratio = window.devicePixelRatio;
+        var canvasWidth = width * ratio;
+        var canvasHeight = height * ratio;
+        this._overviewCanvas.width = canvasWidth;
+        this._overviewCanvas.height = canvasHeight;
+        this._overviewCanvas.style.width = width + "px";
+        this._overviewCanvas.style.height = height + "px";
+
         var context = this._overviewCanvas.getContext("2d");
-        var yScaleFactor = 2;
-        context.lineWidth = 0.5;
-        context.strokeStyle = "rgba(20,0,0,0.8)";
-        context.fillStyle="rgba(214,225,254, 0.8)";
-        context.moveTo(0, height - 1);
-        for (var x = 0; x < width; ++x)
-            context.lineTo(x, height - drawData[x] * yScaleFactor - 1);
-        context.lineTo(width - 1, height - 1);
-        context.lineTo(0, height - 1);
+
+        var yScaleFactor = canvasHeight / (maxStackDepth * 1.1);
+        context.lineWidth = 1;
+        context.translate(0.5, 0.5);
+        context.strokeStyle = "rgba(20,0,0,0.4)";
+        context.fillStyle = "rgba(214,225,254,0.8)";
+        context.moveTo(-1, canvasHeight - 1);
+        if (drawData)
+          context.lineTo(-1, Math.round(height - drawData[0] * yScaleFactor - 1));
+        var value;
+        for (var x = 0; x < width; ++x) {
+            value = Math.round(canvasHeight - drawData[x] * yScaleFactor - 1);
+            context.lineTo(x * ratio, value);
+        }
+        context.lineTo(canvasWidth + 1, value);
+        context.lineTo(canvasWidth + 1, canvasHeight - 1);
         context.fill();
         context.stroke();
         context.closePath();
@@ -544,7 +552,7 @@ WebInspector.FlameChart.prototype = {
     _entryToAnchorBox: function(entry, anchorBox)
     {
         anchorBox.x = Math.floor(entry.startTime * this._timeToPixel) - this._pixelWindowLeft + this._paddingLeft;
-        anchorBox.y = this._canvas.height - (entry.depth + 1) * this._barHeight;
+        anchorBox.y = this._canvas.height / window.devicePixelRatio - (entry.depth + 1) * this._barHeight;
         anchorBox.width = Math.floor(entry.duration * this._timeToPixel);
         anchorBox.height = this._barHeight;
         if (anchorBox.x < 0) {
@@ -564,14 +572,22 @@ WebInspector.FlameChart.prototype = {
         if (!timelineData)
             return;
         var timelineEntries = timelineData.entries;
-        this._canvas.height = height;
-        this._canvas.width = width;
+
+        var ratio = window.devicePixelRatio;
+        var canvasWidth = width * ratio;
+        var canvasHeight = height * ratio;
+        this._canvas.width = canvasWidth;
+        this._canvas.height = canvasHeight;
+        this._canvas.style.width = width + "px";
+        this._canvas.style.height = height + "px";
+
         var barHeight = this._barHeight;
 
         var context = this._canvas.getContext("2d");
         var textPaddingLeft = 2;
-        context.font = (barHeight - 3) + "px sans-serif";
-        context.textBaseline = "top";
+        context.scale(ratio, ratio);
+        context.font = (barHeight - 4) + "px " + window.getComputedStyle(this.element, null).getPropertyValue("font-family");
+        context.textBaseline = "alphabetic";
         this._dotsWidth = context.measureText("\u2026").width;
         var visibleTimeLeft = this._timeWindowLeft - this._paddingLeftTime;
 
@@ -601,15 +617,51 @@ WebInspector.FlameChart.prototype = {
 
             var xText = Math.max(0, anchorBox.x);
             var widthText = anchorBox.width - textPaddingLeft + anchorBox.x - xText;
-            var title = this._prepareTitle(context, entry.node.functionName, widthText);
+            var title = this._prepareText(context, entry.node.functionName, widthText);
             if (title) {
                 context.fillStyle = "#333";
-                context.fillText(title, xText + textPaddingLeft, anchorBox.y - 1);
+                context.fillText(title, xText + textPaddingLeft, anchorBox.y + barHeight - 4);
             }
+        }
+
+        var entryInfo = this._prepareHighlightedEntryInfo();
+        if (entryInfo)
+            this._printEntryInfo(context, entryInfo, 0, 25);
+    },
+
+    _printEntryInfo: function(context, entryInfo, x, y)
+    {
+        const lineHeight = 18;
+        const maxTextWidth = 290;
+        const paddingLeft = 10;
+        const paddingTop = 5;
+        const paddingLeftText = 10;
+        var maxTitleWidth = 0;
+        var basicFont = "100% " + window.getComputedStyle(this.element, null).getPropertyValue("font-family");
+        context.font = "bold " + basicFont;
+        context.textBaseline = "top";
+        for (var i = 0; i < entryInfo.length; ++i)
+            maxTitleWidth = Math.max(maxTitleWidth, context.measureText(entryInfo[i].title).width);
+
+        context.beginPath();
+        context.rect(x, y, maxTextWidth + 5, lineHeight * entryInfo.length + 5);
+        context.strokeStyle = "rgba(0,0,0,0)";
+        context.fillStyle = "rgba(254,254,254,0.8)";
+        context.fill();
+        context.stroke();
+
+        context.fillStyle = "#333";
+        for (var i = 0; i < entryInfo.length; ++i)
+            context.fillText(entryInfo[i].title, x + paddingLeft, y + lineHeight * i);
+
+        context.font = basicFont;
+        for (var i = 0; i < entryInfo.length; ++i) {
+            var text = this._prepareText(context, entryInfo[i].text, maxTextWidth - maxTitleWidth - 2 * paddingLeft);
+            context.fillText(text, x + paddingLeft + maxTitleWidth + paddingLeft, y + lineHeight * i);
         }
     },
 
-    _prepareTitle: function(context, title, maxSize)
+    _prepareText: function(context, title, maxSize)
     {
         if (maxSize < this._dotsWidth)
             return null;
@@ -639,6 +691,11 @@ WebInspector.FlameChart.prototype = {
                 return "\u2026" + substring;
             match = dotRegExp.exec(title);
         }
+        var i = 0;
+        do {
+            ++i;
+        } while (context.measureText(title.substring(0, i)).width < maxSize);
+        return title.substring(0, i - 1) + "\u2026";
     },
 
     _scheduleUpdate: function()
@@ -683,7 +740,7 @@ WebInspector.FlameChart.prototype = {
         this._timelineGrid.updateDividers(this._calculator);
         this._overviewGrid.updateDividers(this._overviewCalculator);
         if (this._updateOverviewCanvas) {
-            this._drawOverviewCanvas(this._overviewContainer.clientWidth, this._overviewContainer.clientHeight);
+            this._drawOverviewCanvas(this._overviewContainer.clientWidth, this._overviewContainer.clientHeight - 20);
             this._updateOverviewCanvas = false;
         }
     },

@@ -76,6 +76,10 @@
     opacity: 0.8;
 }
 
+.scripts-run-snippet .glyph {
+    -webkit-mask-position: -64px -48px;
+}
+
 .scripts-pause .glyph {
     -webkit-mask-position: -32px -72px;
 }
@@ -307,4 +311,11 @@ a.worker-item:hover {
 
 .source-frame-debugger-script {
     background-color: rgba(255, 255, 194, 0.5);
+}
+
+.tabbed-pane-placeholder {
+    font-size: 14px;
+    text-align: center;
+    margin-top: 20px;
+    text-shadow: rgba(255, 255, 255, 0.75) 0 1px 0;
 }

@@ -63,8 +63,7 @@ WebInspector.SourceFrame = function(contentProvider)
     this._shortcuts[WebInspector.KeyboardShortcut.makeKey("s", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)] = this._commitEditing.bind(this);
     this.element.addEventListener("keydown", this._handleKeyDown.bind(this), false);
 
-    this._sourcePositionElement = document.createElement("div");
-    this._sourcePositionElement.className = "source-frame-cursor-position";
+    this._sourcePosition = new WebInspector.StatusBarText("", "source-frame-cursor-position");
 }
 
 /**
@@ -126,7 +125,7 @@ WebInspector.SourceFrame.prototype = {
      */
     statusBarText: function()
     {
-        return this._sourcePositionElement;
+        return this._sourcePosition.element;
     },
 
     /**
@@ -202,7 +201,6 @@ WebInspector.SourceFrame.prototype = {
         this._clearLineToScrollTo();
         this._lineToHighlight = line;
         this._innerHighlightLineIfNeeded();
-        this._textEditor.setSelection(WebInspector.TextRange.createFromLocation(line, 0));
     },
 
     _innerHighlightLineIfNeeded: function()
@@ -305,6 +303,17 @@ WebInspector.SourceFrame.prototype = {
         this.clearMessages();
     },
 
+    _simplifyMimeType: function(mimeType)
+    {
+        if (!mimeType)
+            return "";
+        if (mimeType.indexOf("javascript") >= 0 ||
+            mimeType.indexOf("jscript") >= 0 ||
+            mimeType.indexOf("ecmascript") >= 0)
+            return "text/javascript";
+        return mimeType;
+    },
+
     /**
      * @param {?string} content
      * @param {boolean} contentEncoded
@@ -312,11 +321,12 @@ WebInspector.SourceFrame.prototype = {
      */
     setContent: function(content, contentEncoded, mimeType)
     {
-        this._textEditor.mimeType = mimeType;
+        this._textEditor.mimeType = this._simplifyMimeType(mimeType);
 
         if (!this._loaded) {
             this._loaded = true;
             this._textEditor.setText(content || "");
+            this._textEditor.markClean();
         } else
             this._textEditor.editRange(this._textEditor.range(), content || "");
 
@@ -545,15 +555,15 @@ WebInspector.SourceFrame.prototype = {
             this._textEditor.addDecoration(lineNumber, messageBubbleElement);
         }
 
-        var imageURL;
+        var imageElement = document.createElement("div");
         switch (msg.level) {
             case WebInspector.ConsoleMessage.MessageLevel.Error:
                 messageBubbleElement.addStyleClass("webkit-html-error-message");
-                imageURL = "Images/errorIcon.png";
+                imageElement.className = "error-icon-small";
                 break;
             case WebInspector.ConsoleMessage.MessageLevel.Warning:
                 messageBubbleElement.addStyleClass("webkit-html-warning-message");
-                imageURL = "Images/warningIcon.png";
+                imageElement.className = "warning-icon-small";
                 break;
         }
 
@@ -562,10 +572,7 @@ WebInspector.SourceFrame.prototype = {
         messageBubbleElement.appendChild(messageLineElement);
 
         // Create the image element in the Inspector's document so we can use relative image URLs.
-        var image = document.createElement("img");
-        image.src = imageURL;
-        image.className = "webkit-html-message-icon";
-        messageLineElement.appendChild(image);
+        messageLineElement.appendChild(imageElement);
         messageLineElement.appendChild(document.createTextNode(msg.message));
 
         rowMessage.element = messageLineElement;
@@ -665,16 +672,16 @@ WebInspector.SourceFrame.prototype = {
             return;
 
         if (textRange.isEmpty()) {
-            this._sourcePositionElement.textContent = WebInspector.UIString("Line %d, Column %d", textRange.endLine + 1, textRange.endColumn + 1);
+            this._sourcePosition.setText(WebInspector.UIString("Line %d, Column %d", textRange.endLine + 1, textRange.endColumn + 1));
             return;
         }
         textRange = textRange.normalize();
 
         var selectedText = this._textEditor.copyRange(textRange);
         if (textRange.startLine === textRange.endLine)
-            this._sourcePositionElement.textContent = WebInspector.UIString("%d characters selected", selectedText.length);
+            this._sourcePosition.setText(WebInspector.UIString("%d characters selected", selectedText.length));
         else
-            this._sourcePositionElement.textContent = WebInspector.UIString("%d lines, %d characters selected", textRange.endLine - textRange.startLine + 1, selectedText.length);
+            this._sourcePosition.setText(WebInspector.UIString("%d lines, %d characters selected", textRange.endLine - textRange.startLine + 1, selectedText.length));
     },
 
     /**

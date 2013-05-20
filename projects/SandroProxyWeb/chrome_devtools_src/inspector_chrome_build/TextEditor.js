@@ -42,6 +42,11 @@ WebInspector.TextEditor.Events = {
 WebInspector.TextEditor.GutterClickEventData;
 
 WebInspector.TextEditor.prototype = {
+
+    undo: function() { },
+
+    redo: function() { },
+
     /**
      * @return {boolean}
      */
@@ -152,8 +157,9 @@ WebInspector.TextEditor.prototype = {
 
     /**
      * @param {number} lineNumber
+     * @param {number=} columnNumber
      */
-    highlightLine: function(lineNumber) { },
+    highlightLine: function(lineNumber, columnNumber) { },
 
     clearLineHighlight: function() { },
 

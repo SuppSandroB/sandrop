@@ -35,7 +35,6 @@ importScript("RevisionHistoryView.js");
 importScript("ScopeChainSidebarPane.js");
 importScript("ScriptsNavigator.js");
 importScript("ScriptsSearchScope.js");
-importScript("SnippetJavaScriptSourceFrame.js");
 importScript("StyleSheetOutlineDialog.js");
 importScript("TabbedEditorContainer.js");
 importScript("WatchExpressionsSidebarPane.js");
@@ -91,15 +90,16 @@ WebInspector.ScriptsPanel = function(workspaceForTest)
     this._navigator = new WebInspector.ScriptsNavigator();
     this._navigator.view.show(this.editorView.sidebarElement);
 
-    this._editorContainer = new WebInspector.TabbedEditorContainer(this, "previouslyViewedFiles");
+    var tabbedEditorPlaceholderText = WebInspector.isMac() ? WebInspector.UIString("Hit Cmd+O to open a file") : WebInspector.UIString("Hit Ctrl+O to open a file");
+    this._editorContainer = new WebInspector.TabbedEditorContainer(this, "previouslyViewedFiles", tabbedEditorPlaceholderText);
     this._editorContainer.show(this.editorView.mainElement);
 
     this._navigatorController = new WebInspector.NavigatorOverlayController(this.editorView, this._navigator.view, this._editorContainer.view);
 
     this._navigator.addEventListener(WebInspector.ScriptsNavigator.Events.ScriptSelected, this._scriptSelected, this);
+    this._navigator.addEventListener(WebInspector.ScriptsNavigator.Events.ItemSearchStarted, this._itemSearchStarted, this);
     this._navigator.addEventListener(WebInspector.ScriptsNavigator.Events.SnippetCreationRequested, this._snippetCreationRequested, this);
     this._navigator.addEventListener(WebInspector.ScriptsNavigator.Events.ItemRenamingRequested, this._itemRenamingRequested, this);
-    this._navigator.addEventListener(WebInspector.ScriptsNavigator.Events.FileRenamed, this._fileRenamed, this);
 
     this._editorContainer.addEventListener(WebInspector.TabbedEditorContainer.Events.EditorSelected, this._editorSelected, this);
     this._editorContainer.addEventListener(WebInspector.TabbedEditorContainer.Events.EditorClosed, this._editorClosed, this);
@@ -431,6 +431,11 @@ WebInspector.ScriptsPanel.prototype = {
         this._editorContainer.showFile(uiSourceCode);
         this._updateScriptViewStatusBarItems();
 
+        if (this._currentUISourceCode.project().type() === WebInspector.projectTypes.Snippets)
+            this._runSnippetButton.element.removeStyleClass("hidden");
+        else
+            this._runSnippetButton.element.addStyleClass("hidden");
+
         return sourceFrame;
     },
 
@@ -443,10 +448,7 @@ WebInspector.ScriptsPanel.prototype = {
         var sourceFrame;
         switch (uiSourceCode.contentType()) {
         case WebInspector.resourceTypes.Script:
-            if (uiSourceCode.project().type() === WebInspector.projectTypes.Snippets)
-                sourceFrame = new WebInspector.SnippetJavaScriptSourceFrame(this, uiSourceCode);
-            else
-                sourceFrame = new WebInspector.JavaScriptSourceFrame(this, uiSourceCode);
+            sourceFrame = new WebInspector.JavaScriptSourceFrame(this, uiSourceCode);
             break;
         case WebInspector.resourceTypes.Document:
             sourceFrame = new WebInspector.JavaScriptSourceFrame(this, uiSourceCode);
@@ -553,7 +555,8 @@ WebInspector.ScriptsPanel.prototype = {
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
         var sourceFrame = this._showFile(uiSourceCode);
         this._navigatorController.hideNavigatorOverlay();
-        sourceFrame.focus();
+        if (!this._navigatorController.isNavigatorPinned())
+            sourceFrame.focus();
         WebInspector.searchController.resetSearch();
     },
 
@@ -562,8 +565,14 @@ WebInspector.ScriptsPanel.prototype = {
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data.uiSourceCode);
         var sourceFrame = this._showFile(uiSourceCode);
         this._navigatorController.hideNavigatorOverlay();
-        if (sourceFrame && event.data.focusSource)
+        if (sourceFrame && (!this._navigatorController.isNavigatorPinned() || event.data.focusSource))
             sourceFrame.focus();
+    },
+
+    _itemSearchStarted: function(event)
+    {
+        var searchText = /** @type {string} */ (event.data);
+        WebInspector.OpenResourceDialog.show(this, this.editorView.mainElement, searchText);
     },
 
     _pauseOnExceptionStateChanged: function()
@@ -640,6 +649,18 @@ WebInspector.ScriptsPanel.prototype = {
         nextStateMap[stateEnum.PauseOnAllExceptions] = stateEnum.PauseOnUncaughtExceptions;
         nextStateMap[stateEnum.PauseOnUncaughtExceptions] = stateEnum.DontPauseOnExceptions;
         WebInspector.settings.pauseOnExceptionStateString.set(nextStateMap[this._pauseOnExceptionButton.state]);
+    },
+
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _runSnippet: function(event)
+    {
+        if (this._currentUISourceCode.project().type() !== WebInspector.projectTypes.Snippets)
+            return false;
+        WebInspector.scriptSnippetModel.evaluateScriptSnippet(this._currentUISourceCode);
+        return true;
     },
 
     /**
@@ -757,6 +778,13 @@ WebInspector.ScriptsPanel.prototype = {
 
         var title, handler;
         var platformSpecificModifier = WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta;
+
+        // Run snippet.
+        title = WebInspector.UIString("Run snippet (%s).");
+        handler = this._runSnippet.bind(this);
+        this._runSnippetButton = this._createButtonAndRegisterShortcuts("scripts-run-snippet", title, handler, WebInspector.ScriptsPanelDescriptor.ShortcutKeys.RunSnippet);
+        debugToolbar.appendChild(this._runSnippetButton.element);
+        this._runSnippetButton.element.addStyleClass("hidden");
 
         // Continue.
         handler = this._togglePause.bind(this);
@@ -1028,16 +1056,6 @@ WebInspector.ScriptsPanel.prototype = {
         WebInspector.settings.debuggerSidebarHidden.set(true);
     },
 
-    _fileRenamed: function(event)
-    {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data.uiSourceCode);
-        var name = /** @type {string} */ (event.data.name);
-        if (uiSourceCode.project().type() !== WebInspector.projectTypes.Snippets)
-            return;
-        WebInspector.scriptSnippetModel.renameScriptSnippet(uiSourceCode, name);
-        uiSourceCode.rename(name);
-    },
-        
     /**
      * @param {WebInspector.Event} event
      */
@@ -1193,7 +1211,7 @@ WebInspector.ScriptsPanel.prototype = {
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (target);
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Local modifications\u2026" : "Local Modifications\u2026"), this._showLocalHistory.bind(this, uiSourceCode));
 
-        if (WebInspector.isolatedFileSystemManager.supportsFileSystems() && WebInspector.experimentsSettings.fileSystemProject.isEnabled())
+        if (WebInspector.isolatedFileSystemManager.supportsFileSystems())
             this._appendUISourceCodeMappingItems(contextMenu, uiSourceCode);
 
         var resource = WebInspector.resourceForURL(uiSourceCode.url);
