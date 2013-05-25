@@ -792,7 +792,7 @@ public class FileSystemStore implements SiteModelStore {
     }
 
     @Override
-    public long createNewConversation(Date when, int type, ClientDescriptor clientDescriptor) {
+    public long createNewConversation(Date when, int type, ConnectionDescriptor connectionDescriptor) {
         // TODO Auto-generated method stub
         return 0;
     }

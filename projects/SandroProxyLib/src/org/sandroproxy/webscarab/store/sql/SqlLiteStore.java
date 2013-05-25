@@ -10,7 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.sandrop.webscarab.model.ClientDescriptor;
+import org.sandrop.webscarab.model.ConnectionDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.Cookie;
 import org.sandrop.webscarab.model.FrameworkModel;
@@ -908,17 +908,17 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
 
     @Override
-    public long createNewConversation(Date when, int type, ClientDescriptor clientDescriptor){
+    public long createNewConversation(Date when, int type, ConnectionDescriptor connectionDescriptor){
         ContentValues convCV = new ContentValues();
         long timestamp = when.getTime();
         convCV.put(CONVERSATION_STATUS, FrameworkModel.CONVERSATION_STATUS_NEW);
         convCV.put(CONVERSATION_TYPE, type);
         convCV.put(CONVERSATION_TS_START, timestamp);
-        if (clientDescriptor != null){
-            convCV.put(CONVERSATION_CLIENT_ADDRESS, clientDescriptor.getAddress());
-            convCV.put(CONVERSATION_CLIENT_PORT, clientDescriptor.getPort());
-            convCV.put(CONVERSATION_CLIENT_APP_NAME, clientDescriptor.getNamespace());
-            convCV.put(CONVERSATION_CLIENT_UID, clientDescriptor.getId());
+        if (connectionDescriptor != null){
+            convCV.put(CONVERSATION_CLIENT_ADDRESS, connectionDescriptor.getLocalAddress());
+            convCV.put(CONVERSATION_CLIENT_PORT, connectionDescriptor.getLocalPort());
+            convCV.put(CONVERSATION_CLIENT_APP_NAME, connectionDescriptor.getNamespace());
+            convCV.put(CONVERSATION_CLIENT_UID, connectionDescriptor.getId());
         }
         long conversationId = mDatabase.insertOrThrow(mTableNames[TABLE_COVERSATION_ID], 
                 null, convCV);

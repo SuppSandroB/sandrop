@@ -2,8 +2,8 @@ package org.sandrop.webscarab.plugin.proxy;
 
 import java.net.Socket;
 
-import org.sandrop.webscarab.model.ClientDescriptor;
+import org.sandrop.webscarab.model.ConnectionDescriptor;
 
 public interface IClientResolver {
-    ClientDescriptor getClientDescriptorBySocket(Socket socket);
+    ConnectionDescriptor getClientDescriptorBySocket(Socket socket);
 }

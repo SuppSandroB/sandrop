@@ -46,7 +46,7 @@ import javax.net.ssl.SSLSocketFactory;
 
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
-import org.sandrop.webscarab.model.ClientDescriptor;
+import org.sandrop.webscarab.model.ConnectionDescriptor;
 import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
@@ -118,9 +118,9 @@ public class ConnectionHandler implements Runnable {
         boolean switchProtocol = false;
         try {
             
-            ClientDescriptor clientDescriptor = null;
+            ConnectionDescriptor connectionDescriptor = null;
             if (_clientResolver != null && _captureData){
-                clientDescriptor = _clientResolver.getClientDescriptorBySocket(_sock);
+                connectionDescriptor = _clientResolver.getClientDescriptorBySocket(_sock);
             }
             
             Request request = null;
@@ -348,7 +348,7 @@ public class ConnectionHandler implements Runnable {
                             response.setHeader("X-SandroProxy-Hack", "CONNECT_OVER_SSL_BUG http://code.google.com/p/android/issues/detail?id=55003");
                             response.setNoBody();
                             // store this conversation in store if enabled
-                            conversationId = _proxy.gotRequest(request, clientDescriptor);
+                            conversationId = _proxy.gotRequest(request, connectionDescriptor);
                             _proxy.gotResponse(conversationId, request, response, false);
                             request = null;
                             continue;
@@ -362,13 +362,13 @@ public class ConnectionHandler implements Runnable {
                 }
                 
                 String clientDesc = "";
-                if (clientDescriptor != null){
-                    clientDesc = clientDescriptor.getNamespace();
+                if (connectionDescriptor != null && connectionDescriptor.getNamespaces() != null && connectionDescriptor.getNamespaces().length > 0){
+                    clientDesc = connectionDescriptor.getNamespaces()[0];
                 }
                 _logger.fine( clientDesc + " requested : " + request.getMethod() + " "+ request.getURL().toString());
 
                 // report the request to the listener, and get the allocated ID
-                conversationId = _proxy.gotRequest(request, clientDescriptor);
+                conversationId = _proxy.gotRequest(request, connectionDescriptor);
 
                 // pass the request for possible modification or analysis
                 connection.setRequest(request);

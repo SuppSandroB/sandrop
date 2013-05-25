@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
-import org.sandrop.webscarab.model.ClientDescriptor;
+import org.sandrop.webscarab.model.ConnectionDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.FrameworkModel;
 import org.sandrop.webscarab.model.Message;
@@ -445,9 +445,9 @@ public class Framework {
         return true;
     }
     
-    public long createConversation(Request request, Date when, int type, ClientDescriptor clientDescriptor) {
+    public long createConversation(Request request, Date when, int type, ConnectionDescriptor connectionDescriptor) {
         if (!canStore(request)) return -1;
-        return _model.createNewConversation(when, type, clientDescriptor);
+        return _model.createNewConversation(when, type, connectionDescriptor);
     }
     
     public long gotRequest(long conversationId, Date when, Request request){

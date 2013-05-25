@@ -53,7 +53,7 @@ import java.util.logging.Logger;
 
 
 import org.sandrop.R;
-import org.sandrop.webscarab.model.ClientDescriptor;
+import org.sandrop.webscarab.model.ConnectionDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.FrameworkModel;
 import org.sandrop.webscarab.model.HttpUrl;
@@ -438,8 +438,8 @@ public class Proxy implements Plugin {
      *            the request to log
      * @return the conversation ID
      */
-    protected long gotRequest(Request request, ClientDescriptor clientDescriptor) {
-        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , clientDescriptor);
+    protected long gotRequest(Request request, ConnectionDescriptor connectionDescriptor) {
+        long id = _framework.createConversation(request, new Date(System.currentTimeMillis()), FrameworkModel.CONVERSATION_TYPE_PROXY , connectionDescriptor);
         _framework.gotRequest(id, new Date(System.currentTimeMillis()), request);
         return id;
     }
