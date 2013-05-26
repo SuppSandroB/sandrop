@@ -6,23 +6,29 @@ public class ConnectionDescriptor {
     private String[] versions;
     private String laddress;
     private int lport;
+    private String lportprotocol;
     private String raddress;
+    private String rhostname;
     private int rport;
+    private String rportprotocol;
     private int id;
     private int state;
     private String type;
     
-    public ConnectionDescriptor(String[] namespaces, String[] names, String[] versions, String type, int state, String laddress, int lport, String raddress, int rport, int id) {
+    public ConnectionDescriptor(String[] namespaces, String[] names, String[] versions, String type, int state, String laddress, int lport, String raddress, int rport, String rhostname,  int id) {
         this.namespaces = namespaces;
         this.names = names;
         this.versions = versions;
         this.laddress = laddress;
         this.lport = lport;
+        this.lportprotocol = getPortProtocol(lport);
         this.raddress = raddress;
         this.rport = rport;
+        this.rportprotocol = getPortProtocol(rport);
         this.id = id;
         this.state = state;
         this.type = type;
+        this.rhostname = rhostname;
     }
     
     public String[] getNamespaces() {
@@ -74,8 +80,20 @@ public class ConnectionDescriptor {
         return lport;
     }
     
+    public String  getLocalPortProtocol() {
+        return lportprotocol;
+    }
+    
     public int  getRemotePort() {
         return rport;
+    }
+    
+    public String  getRemotePortProtocol() {
+        return rportprotocol;
+    }
+    
+    public String getRemoteHostName() {
+        return rhostname;
     }
     
     public int  getId() {
@@ -88,6 +106,32 @@ public class ConnectionDescriptor {
     
     public String getRemoteAddress() {
         return raddress;
+    }
+    
+    public String getPortProtocol(int port){
+        if (port == 21){
+            return "ftp";
+        }else if (port == 22){
+            return "ssh";
+        }else if (port == 25){
+            return "smtp";
+        }else if (port == 53){
+            return "dns";
+        }else if (port == 80){
+            return "http";
+        }else if (port == 110){
+            return "pop3";
+        }else if (port == 143){
+            return "imap";
+        }else if (port == 443){
+            return "https";
+        }else if (port == 993){
+            return "imaps";
+        }else if (port == 995){
+            return "pop3s";
+        }else{
+            return String.valueOf(port);
+        }
     }
     
     public static String getStateShortDesc(int state){
