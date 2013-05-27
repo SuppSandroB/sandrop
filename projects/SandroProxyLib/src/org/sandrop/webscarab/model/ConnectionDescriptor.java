@@ -40,7 +40,7 @@ public class ConnectionDescriptor {
         {
             return namespaces[0];
         }
-        return null;
+        return "";
     }
     
     public String[] getNames() {
@@ -52,7 +52,7 @@ public class ConnectionDescriptor {
         {
             return names[0];
         }
-        return null;
+        return "";
     }
     
     public String[] getVersions() {
