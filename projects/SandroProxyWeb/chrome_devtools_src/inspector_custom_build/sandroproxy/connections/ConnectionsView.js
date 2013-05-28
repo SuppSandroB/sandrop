@@ -43,36 +43,9 @@ WebInspector.ConnectionsView = function(coulmnsVisibilitySetting)
     this._matchedConnections = [];
     this._highlightedSubstringChanges = [];
     
-    
-    /*
-    this._allowRequestSelection = false;
-    this._requests = [];
-    this._requestsById = {};
-    this._requestsByURL = {};
-    this._staleRequests = {};
-    this._requestGridNodes = {};
-    this._lastRequestGridNodeId = 0;
-    this._mainRequestLoadTime = -1;
-    this._mainRequestDOMContentLoadedTime = -1;
-    this._typeFilterElements = {};
-    this._typeFilter = WebInspector.ConnectionsView._trivialTypeFilter;
-    this._matchedRequests = [];
-    this._highlightedSubstringChanges = [];
-    
-    
-    this._matchedRequestsMap = {};
-    this._currentMatchedRequestIndex = -1;
-
-    this._createStatusbarButtons();
-    this._createStatusBarItems();
-    */
-
     this._createStatusBarItems();
     this._createStatusbarButtons();
     this._linkifier = new WebInspector.Linkifier();
-    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.MainFrameNavigated, this._mainFrameNavigated, this);
-    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.OnLoad, this._onLoadEventFired, this);
-    // WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.DOMContentLoaded, this._domContentLoadedEventFired, this);
     
     this._initializeView();
     
@@ -80,7 +53,6 @@ WebInspector.ConnectionsView = function(coulmnsVisibilitySetting)
     this._updateColumns();
     this._onAutorefreshClicked();
     
-    // NetworkAgent.sandroProxyStartSendingConnSnapshots("500", this._onStartSendingConnSnapshots.bind(this)); 
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.SandroProxyConnectionsSnapshot, this._onNewConnectionsSnapshot, this);
     
 }
@@ -190,23 +162,6 @@ WebInspector.ConnectionsView.prototype = {
         this._createTable();
         this._createSummaryBar();
         this._toggleStateFilter(WebInspector.ConnectionsView.ALL_TYPES, false);
-        /*
-        this._createTimelineGrid();
-        this._createSummaryBar();
-
-        if (!this.useLargeRows)
-            this._setLargerRequests(this.useLargeRows);
-
-        this._allowPopover = true;
-        this._popoverHelper = new WebInspector.PopoverHelper(this.element, this._getPopoverAnchor.bind(this), this._showPopover.bind(this), this._onHidePopover.bind(this));
-        // Enable faster hint.
-        this._popoverHelper.setTimeout(100);
-
-        this.calculator = new WebInspector.NetworkTransferTimeCalculator();
-        this._toggleTypeFilter(WebInspector.ConnectionsView.ALL_TYPES, false);
-
-        this.switchToDetailedView();
-        */
     },
     
     
@@ -242,24 +197,6 @@ WebInspector.ConnectionsView.prototype = {
         return WebInspector.settings.resourcesLargeRows.get();
     },
 
-    /*
-    set allowPopover(flag)
-    {
-        this._allowPopover = flag;
-    },
-
-    elementsToRestoreScrollPositionsFor: function()
-    {
-        if (!this._dataGrid) // Not initialized yet.
-            return [];
-        return [this._dataGrid.scrollContainer];
-    },
-
-    onResize: function()
-    {
-        this._updateOffscreenRows();
-    },
-    */
     _createTable: function()
     {
         var columns = [];
@@ -267,7 +204,7 @@ WebInspector.ConnectionsView.prototype = {
             id: "protocol", 
             title: WebInspector.UIString("Protocol"),
             sortable: true,
-            weight: 20,
+            weight: 6,
         });
         
         columns.push({
@@ -309,7 +246,7 @@ WebInspector.ConnectionsView.prototype = {
             id: "rhost",
             title: WebInspector.UIString("Remote Host"),
             sortable: true,
-            weight: 10
+            weight: 6
         });
 
         columns.push({
@@ -358,13 +295,6 @@ WebInspector.ConnectionsView.prototype = {
         this._dataGrid.addEventListener(WebInspector.DataGrid.Events.SortingChanged, this._sortItems, this);
         this._dataGrid.scrollContainer.addEventListener("scroll", this._updateOffscreenRows.bind(this));
         
-        /*
-        // Event listeners need to be added _after_ we attach to the document, so that owner document is properly update.
-        this._dataGrid.addEventListener(WebInspector.DataGrid.Events.SortingChanged, this._sortItems, this);
-        this._dataGrid.addEventListener(WebInspector.DataGrid.Events.ColumnsResized, this._updateDividersIfNeeded, this);
-        this._dataGrid.scrollContainer.addEventListener("scroll", this._updateOffscreenRows.bind(this));
-
-        */
     },
 
     _createSortingFunctions: function()
@@ -711,17 +641,6 @@ WebInspector.ConnectionsView.prototype = {
     __proto__: WebInspector.View.prototype
 }
 
-/**
- * @param {!WebInspector.NetworkRequest} request
- * @return {boolean}
- */
-/*
-WebInspector.ConnectionsView.HTTPRequestsFilter = function(request)
-{
-    return request.parsedURL.isValid && (request.parsedURL.scheme in WebInspector.ConnectionsView.HTTPSchemas);
-}
-*/
-
 
 WebInspector.ConnectionsView.EventTypes = {
     ViewCleared: "ViewCleared",
@@ -730,12 +649,6 @@ WebInspector.ConnectionsView.EventTypes = {
     SearchCountUpdated: "SearchCountUpdated",
     SearchIndexUpdated: "SearchIndexUpdated"
 };
-
-
-/**
- * @param {WebInspector.NetworkRequest} request
- * @return {boolean}
- */
 
 WebInspector.ConnectionsView._trivialStateFilter = function(connection)
 {
@@ -767,8 +680,3 @@ WebInspector.ConnectionsView._stateFilter = function(allowedStatesGroups, connec
     }
     return false;
 }
-//@ sourceURL=http://192.168.1.135/devtools/sandroproxy/connections/ConnectionsView.js
-//@ sourceURL=http://192.168.1.135/devtools/sandroproxy/connections/ConnectionsView.js
-//@ sourceURL=http://192.168.1.135/devtools/sandroproxy/connections/ConnectionsView.js
-//@ sourceURL=http://192.168.1.135/devtools/sandroproxy/connections/ConnectionsView.js
-//@ sourceURL=http://192.168.1.135/devtools/sandroproxy/connections/ConnectionsView.js
