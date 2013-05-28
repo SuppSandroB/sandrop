@@ -46,8 +46,10 @@ var WebInspector = {
         var audits = new WebInspector.PanelDescriptor("audits", WebInspector.UIString("Audits"), "AuditsPanel", "AuditsPanel.js");
         var console = new WebInspector.PanelDescriptor("console", WebInspector.UIString("Console"), "ConsolePanel");
         // sandrop added for 3T three panel
-        var threeDim = new WebInspector.PanelDescriptor("3D", WebInspector.UIString("3D"), "ThreeDimPanel", "ThreeDimPanel.js");
-        var allDescriptors = [elements, resources, network, scripts, timeline, profiles, audits, console, threeDim];
+        var threeDim = new WebInspector.PanelDescriptor("3D", WebInspector.UIString("3D"), "SandroProxyThreeDimPanel", "SandroProxyThreeDimPanel.js");
+        // android network connections panel
+        var connections = new WebInspector.PanelDescriptor("Connections", WebInspector.UIString("Connections"), "SandroProxyConnectionsPanel", "SandroProxyConnectionsPanel.js");
+        var allDescriptors = [elements, resources, network, scripts, timeline, profiles, audits, console, threeDim, connections];
         var allProfilers = [profiles];
         if (WebInspector.experimentsSettings.customizableToolbar.isEnabled()) {
             allProfilers = [];
@@ -478,6 +480,9 @@ WebInspector._doLoadedDoneWithCapabilities = function()
     this.domAgent = new WebInspector.DOMAgent();
     this.domAgent.addEventListener(WebInspector.DOMAgent.Events.InspectNodeRequested, this._inspectNodeRequested, this);
     this.runtimeModel = new WebInspector.RuntimeModel(this.resourceTreeModel);
+    
+    // SandroProxy manager registration
+    // this.sandroProxyManager = new WebInspector.SandroProxyManager();
 
     this.consoleView = new WebInspector.ConsoleView(WebInspector.WorkerManager.isWorkerFrontend());
 

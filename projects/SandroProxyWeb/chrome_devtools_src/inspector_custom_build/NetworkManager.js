@@ -48,7 +48,8 @@ WebInspector.NetworkManager.EventTypes = {
     RequestStarted: "RequestStarted",
     RequestUpdated: "RequestUpdated",
     RequestFinished: "RequestFinished",
-    RequestUpdateDropped: "RequestUpdateDropped"
+    RequestUpdateDropped: "RequestUpdateDropped",
+    SandroProxyConnectionsSnapshot: "ConnectionsSnapshot"
 }
 
 WebInspector.NetworkManager._MIMETypes = {
@@ -500,7 +501,13 @@ WebInspector.NetworkDispatcher.prototype = {
             return;
         this._finishNetworkRequest(networkRequest, time);
     },
-
+    
+    sandroProxyConnectionsSnapshot: function(snapshot)
+    {
+        // TODO add validations
+        this._connectionsSnapshot(snapshot);
+    },
+    
     /**
      * @param {NetworkAgent.RequestId} requestId
      * @param {NetworkAgent.Timestamp} time
@@ -552,14 +559,19 @@ WebInspector.NetworkDispatcher.prototype = {
         delete this._inflightRequestsById[networkRequest.requestId];
         delete this._inflightRequestsByURL[networkRequest.url];
     },
+    
+    _connectionsSnapshot: function(snapshot)
+    {
+      this._dispatchEventToListeners(WebInspector.NetworkManager.EventTypes.SandroProxyConnectionsSnapshot, snapshot);     
+    },
 
     /**
      * @param {string} eventType
      * @param {WebInspector.NetworkRequest} networkRequest
      */
-    _dispatchEventToListeners: function(eventType, networkRequest)
+    _dispatchEventToListeners: function(eventType, eventData)
     {
-        this._manager.dispatchEventToListeners(eventType, networkRequest);
+        this._manager.dispatchEventToListeners(eventType, eventData);
     },
 
     /**

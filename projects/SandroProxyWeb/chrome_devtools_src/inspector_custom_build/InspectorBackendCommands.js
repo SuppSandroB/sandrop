@@ -128,6 +128,13 @@ InspectorBackend.registerCommand("Network.canClearBrowserCookies", [], ["result"
 InspectorBackend.registerCommand("Network.clearBrowserCookies", [], []);
 InspectorBackend.registerCommand("Network.setCacheDisabled", [{"name": "cacheDisabled", "type": "boolean", "optional": false}], []);
 
+// SandroProxy
+// InspectorBackend.registerSandroProxyDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "SandroProxy");
+InspectorBackend.registerEvent("Network.sandroProxyConnectionsSnapshot", ["snapshot"]);
+InspectorBackend.registerCommand("Network.sandroProxyStartSendingConnSnapshots", [{"name": "interval", "type": "string", "optional": false}], ["result"]);
+InspectorBackend.registerCommand("Network.sandroProxyStopSendingConnSnapshots", [], ["result"]);
+
+
 // Database.
 InspectorBackend.registerDatabaseDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Database");
 InspectorBackend.registerEvent("Database.addDatabase", ["database"]);
