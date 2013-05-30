@@ -317,7 +317,7 @@ public class URLFetcher implements HTTPClient {
                 // do NOT close the socket itself, since the message body has not yet been read!
             } else {
                 connection = _response.getHeader("Connection");
-                String version = request.getVersion();
+                String version = _response.getVersion();
                 if (version.equals("HTTP/1.0") && "Keep-alive".equalsIgnoreCase(connection)) {
                     _lastRequestTime = System.currentTimeMillis();
                     _response.setSocket(_socket);
@@ -441,6 +441,10 @@ public class URLFetcher implements HTTPClient {
                             if (val != null && val.trim().equalsIgnoreCase("close")){
                                 startNewConnection = true;
                             }
+                        }
+                        String httpVersion = response.getVersion();
+                        if (httpVersion != null && headerConnection == null && headerProxyConnection == null && httpVersion.trim().equalsIgnoreCase("HTTP/1.0")){
+                            startNewConnection = true;
                         }
                     }
                     loopCount++;
