@@ -44,6 +44,8 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.SSLContext;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jcifs.ntlmssp.NtlmFlags;
@@ -95,12 +97,21 @@ public class URLFetcher implements HTTPClient {
     private String _authCreds = null;
     private String _proxyAuthCreds = null;
     
+    private static Map<String, String> _proxyAuthCredsBasic;
+    
     private static boolean LOGD = false;
 
     /** Creates a new instance of URLFetcher
      */
     public URLFetcher() {
         _logger.setLevel(Level.FINEST);
+        if (_proxyAuthCredsBasic == null){
+            _proxyAuthCredsBasic = new HashMap<String, String>();
+        }
+    }
+    
+    public static void cleanCachedBasicCredentials(){
+        _proxyAuthCredsBasic = new HashMap<String, String>();
     }
 
     /** Tells URLFetcher which HTTP proxy to use, if any
@@ -179,14 +190,39 @@ public class URLFetcher implements HTTPClient {
         }
 
         // if the previous auth method was not "Basic", force a new connection
-        if (_authCreds != null && !_authCreds.startsWith("Basic"))
-            _lastRequestTime = 0;
-        if (_proxyAuthCreds != null && !_proxyAuthCreds.startsWith("Basic"))
-            _lastRequestTime = 0;
-
+        // we try to keep previous auth header so on basic we send it on first request
+        if (_authCreds != null){
+            if(_authCreds.startsWith("Basic")){
+                if (request.getHeader("Authorization") != null){
+                    _authCreds = request.getHeader("Authorization");
+                }
+            }else{
+                _lastRequestTime = 0;
+                _authCreds = request.getHeader("Authorization");
+            }
+            
+        }
+        
+        if (_proxyAuthCreds != null){
+            if(_proxyAuthCreds.startsWith("Basic")){
+                if (request.getHeader("Proxy-Authorization") != null){
+                    _proxyAuthCreds = request.getHeader("Proxy-Authorization");
+                }
+            }else{
+                _lastRequestTime = 0;
+                _proxyAuthCreds = request.getHeader("Proxy-Authorization");
+            }
+            
+        }
+        
+        if (!_direct &&  _proxyAuthCreds == null && _proxyAuthCredsBasic.containsKey(_httpProxy + _httpProxyPort)){
+            _proxyAuthCreds = _proxyAuthCredsBasic.get(_httpProxy + _httpProxyPort);
+        }
+        
         // Get any provided credentials from the request
-        _authCreds = request.getHeader("Authorization");
-        _proxyAuthCreds = request.getHeader("Proxy-Authorization");
+//        _authCreds = request.getHeader("Authorization");
+//        _proxyAuthCreds = request.getHeader("Proxy-Authorization");
+        
         String keyFingerprint = request.getHeader("X-SSLClientCertificate");
         request.deleteHeader("X-SSLClientCertificate");
         if (keyFingerprint == null && _keyFingerprint == null) {
@@ -276,6 +312,10 @@ public class URLFetcher implements HTTPClient {
             }
 
             if (status.equals("407")) {
+                if ( _proxyAuthCredsBasic.containsKey(_httpProxy + _httpProxyPort) && proxyAuthHeader != null &&proxyAuthHeader.startsWith("Basic")){
+                    _proxyAuthCredsBasic.remove(_httpProxy + _httpProxyPort);
+                }
+                
                 _response.flushContentStream();
                 oldProxyAuthHeader = proxyAuthHeader;
                 String[] challenges = _response.getHeaders("Proxy-Authenticate");
@@ -342,6 +382,9 @@ public class URLFetcher implements HTTPClient {
         if (_keyFingerprint != null)
             request.setHeader("X-SSLClientCertificate", _keyFingerprint);
 
+        if (!_direct && !status.equals("407") && !status.equals("401") && _proxyAuthCreds != null && _proxyAuthCreds.startsWith("Basic") && !_proxyAuthCredsBasic.containsKey(_httpProxy + _httpProxyPort) ){
+            _proxyAuthCredsBasic.put(_httpProxy + _httpProxyPort, proxyAuthHeader);
+        }
         return _response;
     }
     
@@ -376,6 +419,9 @@ public class URLFetcher implements HTTPClient {
                 _out = _socket.getOutputStream();
                 String oldAuthHeader = null;
                 String connectMethod = "CONNECT";
+                if (_proxyAuthCreds == null && _proxyAuthCredsBasic.containsKey(_httpsProxy+_httpsProxyPort)){
+                    _proxyAuthCreds = _proxyAuthCredsBasic.get(_httpsProxy+_httpsProxyPort);
+                }
                 String authHeader = constructAuthenticationHeader(null, _proxyAuthCreds, _host + ":" + _port, connectMethod);
                 String status;
                 int loopCountMax = 10;
@@ -451,6 +497,7 @@ public class URLFetcher implements HTTPClient {
                 } while (status.equals("407") && authHeader != null && loopCount < loopCountMax);
                 if (loopCount >= loopCountMax){
                     _logger.finest("HTTPS CONNECT looping count reached " + loopCountMax);
+                    _proxyAuthCredsBasic.remove(_httpsProxy+_httpsProxyPort);
                 }else{
                     _logger.fine("HTTPS CONNECT successful");
                 }

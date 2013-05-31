@@ -143,6 +143,7 @@ public class HTTPClientFactory {
     }
     
     public static void invalidateInstance(){
+        URLFetcher.cleanCachedBasicCredentials();
         _instance = null;
     }
     

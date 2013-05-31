@@ -236,6 +236,12 @@ public class CredentialManager implements Authenticator {
         Map<String, BasicCredential> realms = _basicCredentials.get(host);
         if (realms == null) return null;
         BasicCredential cred = realms.get(realm);
+        if (cred == null){
+            // we should return what we have not searching that realm is the same
+            if (realms.size() > 0){
+                cred = realms.entrySet().iterator().next().getValue();
+            }
+        }
         if (cred == null) return null;
         //String credRealm = cred.getRealm();
         //String addRealm = credRealm != null && credRealm.length() > 0 ? credRealm.toUpperCase() + "\\" : "";

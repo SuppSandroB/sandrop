@@ -44,16 +44,13 @@ import org.sandrop.webscarab.httpclient.HTTPClientFactory;
 import org.sandrop.webscarab.model.ConnectionDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.FrameworkModel;
-import org.sandrop.webscarab.model.Message;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.fragments.Fragments;
-import org.sandrop.websockets.ExtensionWebSocket;
 import org.sandroproxy.utils.NetworkUtils;
 import org.sandroproxy.utils.PreferenceUtils;
-import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 import EDU.oswego.cs.dl.util.concurrent.QueuedExecutor;
 import EDU.oswego.cs.dl.util.concurrent.ThreadFactory;
