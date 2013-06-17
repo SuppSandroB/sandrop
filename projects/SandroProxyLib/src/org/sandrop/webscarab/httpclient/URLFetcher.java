@@ -191,17 +191,20 @@ public class URLFetcher implements HTTPClient {
 
         // if the previous auth method was not "Basic", force a new connection
         // we try to keep previous auth header so on basic we send it on first request
-        if (_authCreds != null){
-            if(_authCreds.startsWith("Basic")){
-                if (request.getHeader("Authorization") != null){
-                    _authCreds = request.getHeader("Authorization");
-                }
-            }else{
-                _lastRequestTime = 0;
-                _authCreds = request.getHeader("Authorization");
-            }
-            
-        }
+//        if (_authCreds != null){
+//            if(_authCreds.startsWith("Basic")){
+//                if (request.getHeader("Authorization") != null){
+//                    _authCreds = request.getHeader("Authorization");
+//                }
+//            }else{
+//                _lastRequestTime = 0;
+//                _authCreds = request.getHeader("Authorization");
+//            }
+//            
+//        }
+        
+        if (_authCreds != null && !_authCreds.startsWith("Basic"))
+            _lastRequestTime = 0;
         
         if (_proxyAuthCreds != null){
             if(_proxyAuthCreds.startsWith("Basic")){
@@ -220,7 +223,7 @@ public class URLFetcher implements HTTPClient {
         }
         
         // Get any provided credentials from the request
-//        _authCreds = request.getHeader("Authorization");
+        _authCreds = request.getHeader("Authorization");
 //        _proxyAuthCreds = request.getHeader("Proxy-Authorization");
         
         String keyFingerprint = request.getHeader("X-SSLClientCertificate");
