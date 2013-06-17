@@ -67,11 +67,20 @@ public class CredentialManager implements Authenticator {
         boolean prompt = Boolean.valueOf(Preferences.getPreference("WebScarab.promptForCredentials", "false")).booleanValue();
         if (prompt && _ui != null && challenges != null && challenges.length > 0) {
             boolean ask = false;
-            for (int i=0; i<challenges.length; i++)
-                if (challenges[i].startsWith("Basic") || challenges[i].startsWith("NTLM") || challenges[i].startsWith("Negotiate") || challenges[i].startsWith("Digest"))
-                    ask = true;
-            if (ask)
+            for (int i=0; i<challenges.length; i++){
+                if (challenges[i] != null){
+                    String challengeLowerCase = challenges[i].toLowerCase();
+                    if (challengeLowerCase.startsWith("basic") || 
+                            challengeLowerCase.startsWith("ntlm") || 
+                            challengeLowerCase.startsWith("negotiate") || 
+                            challengeLowerCase.startsWith("digest")){
+                        ask = true;
+                    }
+                }
+            }
+            if (ask){
                 _ui.requestCredentials(url.getHost(), challenges);
+            }
         }
         return getPreferredCredentials(url.getHost(), challenges);
     }
@@ -82,9 +91,18 @@ public class CredentialManager implements Authenticator {
         boolean prompt = Boolean.valueOf(Preferences.getPreference("WebScarab.promptForCredentials", "false")).booleanValue();
         if (prompt && _ui != null && challenges != null && challenges.length > 0) {
             boolean ask = false;
-            for (int i=0; i<challenges.length; i++)
-                if (challenges[i].startsWith("Basic") || challenges[i].startsWith("NTLM") || challenges[i].startsWith("Negotiate") || challenges[i].startsWith("Digest"))
-                    ask = true;
+            for (int i=0; i<challenges.length; i++){
+                if (challenges[i] != null){
+                    String challengeLowerCase = challenges[i].toLowerCase();
+                    if (challengeLowerCase.startsWith("basic") || 
+                            challengeLowerCase.startsWith("ntlm") || 
+                            challengeLowerCase.startsWith("negotiate") || 
+                            challengeLowerCase.startsWith("digest")){
+                        ask = true;
+                    }
+                }
+                
+            }
             if (ask)
                 _ui.requestCredentials(hostname, challenges);
         }
@@ -179,27 +197,39 @@ public class CredentialManager implements Authenticator {
         if (challenges == null || challenges.length == 0)
             return null;
         for (int i=0; i<challenges.length; i++) {
-            if (challenges[i].startsWith("Basic")) {
-                String creds = getBasicCredentials(host, challenges[i]);
-                if (creds != null) return "Basic " + creds;
+            if (challenges[i] != null){
+                String challengeLowerCase = challenges[i].toLowerCase();
+                if (challengeLowerCase.startsWith("basic")) {
+                    String creds = getBasicCredentials(host, challengeLowerCase);
+                    if (creds != null) return "Basic " + creds;
+                }
             }
         }
         for (int i=0; i<challenges.length; i++) {
-            if (challenges[i].startsWith("NTLM")) {
-                String creds = getDomainCredentials(host);
-                if (creds != null) return "NTLM " + creds;
+            if (challenges[i] != null){
+                String challengeLowerCase = challenges[i].toLowerCase();
+                if (challengeLowerCase.startsWith("ntlm")) {
+                    String creds = getDomainCredentials(host);
+                    if (creds != null) return "NTLM " + creds;
+                }
             }
         }
         for (int i=0; i<challenges.length; i++) {
-            if (challenges[i].startsWith("Negotiate")) {
-                String creds = getDomainCredentials(host);
-                if (creds != null) return "Negotiate " + creds;
+            if (challenges[i] != null){
+                String challengeLowerCase = challenges[i].toLowerCase();
+                if (challengeLowerCase.startsWith("negotiate")) {
+                    String creds = getDomainCredentials(host);
+                    if (creds != null) return "Negotiate " + creds;
+                }
             }
         }
         for (int i=0; i<challenges.length; i++) {
-            if (challenges[i].startsWith("Digest")) {
-                String creds = getDigestCredentials(host, challenges[i]);
-                if (creds != null) return "Digest " + creds;
+            if (challenges[i] != null){
+                String challengeLowerCase = challenges[i].toLowerCase();
+                if (challengeLowerCase.startsWith("digest")) {
+                    String creds = getDigestCredentials(host, challenges[i]);
+                    if (creds != null) return "Digest " + creds;
+                }
             }
         }
         return null;
@@ -232,7 +262,7 @@ public class CredentialManager implements Authenticator {
     }
     
     private String getBasicCredentials(String host, String challenge) {
-        String realm = challenge.substring("Basic Realm=\"".length(), challenge.length()-1);
+        String realm = challenge.substring("basic realm=\"".length(), challenge.length()-1);
         Map<String, BasicCredential> realms = _basicCredentials.get(host);
         if (realms == null) return null;
         BasicCredential cred = realms.get(realm);
