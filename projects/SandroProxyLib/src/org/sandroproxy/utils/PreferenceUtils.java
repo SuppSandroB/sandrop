@@ -65,6 +65,8 @@ public class PreferenceUtils {
     public static String chainProxyUsername = "preference_chain_proxy_username";
     public static String chainProxyPassword = "preference_chain_proxy_password";
     
+    public static String localDomainName = "preference_local_domain_name";
+    
     public static String ssTrustAllManager = "preference_ssl_trust_all_manager";
     
     

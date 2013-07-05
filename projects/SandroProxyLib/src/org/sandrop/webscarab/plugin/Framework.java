@@ -548,6 +548,15 @@ public class Framework {
             colon = value.indexOf(":");
             factory.setHttpProxy(value.substring(0,colon), Integer.parseInt(value.substring(colon+1).trim()));
 
+            String domainName = Preferences.getPreference(PreferenceUtils.localDomainName, null);
+            factory.setLocalDomainName(domainName);
+
+            if (value == null || value.equals("")) value = ":3128";
+            colon = value.indexOf(":");
+            factory.setHttpProxy(value.substring(0,colon), Integer.parseInt(value.substring(colon+1).trim()));
+            
+            
+            
             value = null;
             if (Preferences.getPreferenceBoolean(PreferenceUtils.chainProxyEnabled, false)){
                 value = Preferences.getPreference(PreferenceUtils.chainProxyHttps);

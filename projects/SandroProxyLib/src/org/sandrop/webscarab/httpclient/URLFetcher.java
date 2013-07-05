@@ -34,8 +34,10 @@ package org.sandrop.webscarab.httpclient;
 
 import java.io.IOException;
 
+import java.net.InetAddress;
 import java.net.Socket;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -79,6 +81,8 @@ public class URLFetcher implements HTTPClient {
     private int _httpsProxyPort = -1;
     private String[] _noProxy = new String[0];
 
+    private String _localDomainName = null;
+    
     private Socket _socket = null;
     private boolean _direct = false;
     private Response _response = null;
@@ -98,6 +102,7 @@ public class URLFetcher implements HTTPClient {
     private String _proxyAuthCreds = null;
     
     private static Map<String, String> _proxyAuthCredsBasic;
+    private static Map<String, InetAddress> _cachedLocalAddresses;
     
     private static boolean LOGD = false;
 
@@ -108,10 +113,18 @@ public class URLFetcher implements HTTPClient {
         if (_proxyAuthCredsBasic == null){
             _proxyAuthCredsBasic = new HashMap<String, String>();
         }
+        if (_cachedLocalAddresses == null){
+            _cachedLocalAddresses = new HashMap<String, InetAddress>();
+        }
     }
     
     public static void cleanCachedBasicCredentials(){
         _proxyAuthCredsBasic = new HashMap<String, String>();
+        _cachedLocalAddresses = new HashMap<String, InetAddress>();
+    }
+    
+    public void setLocalDomainName(String domainName){
+        _localDomainName = domainName;
     }
 
     /** Tells URLFetcher which HTTP proxy to use, if any
@@ -396,6 +409,39 @@ public class URLFetcher implements HTTPClient {
         connect(url, false);
         return _socket;
     }
+    
+    private InetSocketAddress getSocketAddress(String host, int port) throws UnknownHostException {
+        InetSocketAddress hostSocketAddress = null;
+        InetAddress address = null;
+        UnknownHostException hostException = null;
+        try {
+            if (_cachedLocalAddresses.containsKey(host)){
+                address = _cachedLocalAddresses.get(host);
+            }else{
+                address = InetAddress.getByName(host);
+            }
+
+        } catch (UnknownHostException e) {
+            hostException = e;
+            if (_localDomainName != null && _localDomainName.length() > 0){
+                String hostDomainName = host + "." + _localDomainName;
+                address = InetAddress.getByName(hostDomainName);
+                try{
+                    _cachedLocalAddresses.put(host, address);
+                }catch(Exception ex){
+                }
+            }
+            e.printStackTrace();
+        }
+        if (address != null){
+            hostSocketAddress = new InetSocketAddress(address, port);
+        }else{
+            if (hostException != null){
+                throw hostException;
+            }
+        }
+        return hostSocketAddress;
+    }
 
     private void connect(HttpUrl url, boolean makeSslHandshake) throws IOException {
         if (! invalidSocket(url)) return;
@@ -412,12 +458,12 @@ public class URLFetcher implements HTTPClient {
         if (useProxy(url)) {
             if (!ssl) {
                 _logger.fine("Connect to " + _httpProxy + ":" + _httpProxyPort);
-                _socket.connect(new InetSocketAddress(_httpProxy, _httpProxyPort), _connectTimeout);
+                _socket.connect(getSocketAddress(_httpProxy, _httpProxyPort), _connectTimeout);
                 _in = _socket.getInputStream();
                 _out = _socket.getOutputStream();
                 _direct = false;
             } else {
-                _socket.connect(new InetSocketAddress(_httpsProxy, _httpsProxyPort), _connectTimeout);
+                _socket.connect(getSocketAddress(_httpsProxy, _httpsProxyPort), _connectTimeout);
                 _in = _socket.getInputStream();
                 _out = _socket.getOutputStream();
                 String oldAuthHeader = null;
@@ -443,7 +489,7 @@ public class URLFetcher implements HTTPClient {
                         // creating new socket to proxy
                         _socket = new Socket();
                         _socket.setSoTimeout(_timeout);
-                        _socket.connect(new InetSocketAddress(_httpsProxy, _httpsProxyPort), _connectTimeout);
+                        _socket.connect(getSocketAddress(_httpsProxy, _httpsProxyPort), _connectTimeout);
                         _in = _socket.getInputStream();
                         _out = _socket.getOutputStream();
                         startNewConnection = false;
@@ -507,7 +553,7 @@ public class URLFetcher implements HTTPClient {
             }
         } else {
             _logger.fine("Connect to " + _host + ":" + _port );
-            _socket.connect(new InetSocketAddress(_host, _port), _connectTimeout);
+            _socket.connect(getSocketAddress(_host, _port), _connectTimeout);
         }
 
         if (ssl && makeSslHandshake) {

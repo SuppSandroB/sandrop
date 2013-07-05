@@ -74,6 +74,8 @@ public class HTTPClientFactory {
     private int _httpsProxyPort = 80;
     private String[] _noProxy = new String[0];
     
+    private String _localDomainName = null;
+    
     private int _connectTimeout = 30000;
     private int _readTimeout = 0;
     
@@ -191,6 +193,10 @@ public class HTTPClientFactory {
         return _noProxy;
     }
     
+    public void setLocalDomainName(String domain){
+        _localDomainName = domain;
+    }
+    
     public void setTimeouts(int connectTimeout, int readTimeout) {
         _connectTimeout = connectTimeout;
         _readTimeout = readTimeout;
@@ -210,6 +216,7 @@ public class HTTPClientFactory {
         uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
         uf.setNoProxy(_noProxy);
         uf.setSSLContextManager(_sslContextManager);
+        uf.setLocalDomainName(_localDomainName);
         uf.setTimeouts(_connectTimeout, _readTimeout);
         uf.setAuthenticator(_authenticator);
         return uf;
@@ -221,6 +228,7 @@ public class HTTPClientFactory {
         uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
         uf.setNoProxy(_noProxy);
         uf.setSSLContextManager(_sslContextManager);
+        uf.setLocalDomainName(_localDomainName);
         uf.setTimeouts(_connectTimeout, _readTimeout);
         uf.setAuthenticator(_authenticator);
         return uf.getConnectedSocket(url);
@@ -232,6 +240,7 @@ public class HTTPClientFactory {
         uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
         uf.setNoProxy(_noProxy);
         uf.setSSLContextManager(_sslContextManager);
+        uf.setLocalDomainName(_localDomainName);
         int connectTime = connectTimeout > -1 ? connectTimeout : _connectTimeout;
         int readTime = readTimeout > -1 ? readTimeout : _readTimeout;
         uf.setTimeouts(connectTime, readTime);
