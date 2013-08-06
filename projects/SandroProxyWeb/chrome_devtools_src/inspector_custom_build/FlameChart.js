@@ -60,12 +60,12 @@ WebInspector.FlameChart = function(cpuProfileView)
     this._windowLeft = 0.0;
     this._windowRight = 1.0;
     this._barHeight = 15;
-    this._minWidth = 1;
+    this._minWidth = 2;
     this._paddingLeft = 15;
     this._canvas.addEventListener("mousewheel", this._onMouseWheel.bind(this), false);
     this.element.addEventListener("click", this._onClick.bind(this), false);
     this._linkifier = new WebInspector.Linkifier();
-    this._highlightedNodeIndex = -1;
+    this._highlightedEntryIndex = -1;
 
     if (!WebInspector.FlameChart._colorGenerator)
         WebInspector.FlameChart._colorGenerator = new WebInspector.FlameChart.ColorGenerator();
@@ -102,7 +102,7 @@ WebInspector.FlameChart.Calculator.prototype = {
 
     formatTime: function(value)
     {
-        return Number.secondsToString((value + this._minimumBoundaries) / 1000);
+        return WebInspector.UIString("%s\u2009ms", Number.withThousandsSeparator(Math.round(value + this._minimumBoundaries)));
     },
 
     maximumBoundary: function()
@@ -190,6 +190,9 @@ WebInspector.FlameChart.ColorGenerator = function()
 {
     this._colorPairs = {};
     this._currentColorIndex = 0;
+    this._colorPairs["(idle)::0"] = this._createPair(0, 50);
+    this._colorPairs["(program)::0"] = this._createPair(5, 50);
+    this._colorPairs["(garbage collector)::0"] = this._createPair(10, 50);
 }
 
 WebInspector.FlameChart.ColorGenerator.prototype = {
@@ -200,12 +203,21 @@ WebInspector.FlameChart.ColorGenerator.prototype = {
     {
         var colorPairs = this._colorPairs;
         var colorPair = colorPairs[id];
-        if (!colorPair) {
-            var currentColorIndex = ++this._currentColorIndex;
-            var hue = (currentColorIndex * 5 + 11 * (currentColorIndex % 2)) % 360;
-            colorPairs[id] = colorPair = {highlighted: "hsla(" + hue + ", 100%, 33%, 0.7)", normal: "hsla(" + hue + ", 100%, 66%, 0.7)"};
-        }
+        if (!colorPair)
+            colorPairs[id] = colorPair = this._createPair(++this._currentColorIndex);
         return colorPair;
+    },
+
+    /**
+     * @param {!number} index
+     * @param {number=} sat
+     */
+    _createPair: function(index, sat)
+    {
+        var hue = (index * 7 + 12 * (index % 2)) % 360;
+        if (typeof sat !== "number")
+            sat = 100;
+        return {highlighted: "hsla(" + hue + ", " + sat + "%, 33%, 0.7)", normal: "hsla(" + hue + ", " + sat + "%, 66%, 0.7)"}
     }
 }
 
@@ -344,6 +356,7 @@ WebInspector.FlameChart.prototype = {
 
         var samples = this._cpuProfileView.samples;
         var idToNode = this._cpuProfileView._idToNode;
+        var gcNode = this._cpuProfileView._gcNode;
         var samplesCount = samples.length;
 
         var index = 0;
@@ -364,6 +377,21 @@ WebInspector.FlameChart.prototype = {
             var depth = 0;
             node = stackTrace.pop();
             var intervalIndex;
+
+            // GC samples have no stack, so we just put GC node on top of the last recoreded sample.
+            if (node === gcNode) {
+                while (depth < openIntervals.length) {
+                    intervalIndex = openIntervals[depth].index;
+                    entries[intervalIndex].duration += 1;
+                    ++depth;
+                }
+                // If previous stack is also GC then just continue.
+                if (openIntervals.length > 0 && openIntervals.peekLast().node === node) {
+                    entries[intervalIndex].selfTime += 1;
+                    continue;
+                }
+            }
+
             while (node && depth < openIntervals.length && node === openIntervals[depth].node) {
                 intervalIndex = openIntervals[depth].index;
                 entries[intervalIndex].duration += 1;
@@ -403,12 +431,17 @@ WebInspector.FlameChart.prototype = {
         if (this._isDragging)
             return;
 
-        var nodeIndex = this._coordinatesToNodeIndex(event.offsetX, event.offsetY);
+        var entryIndex = this._coordinatesToEntryIndex(event.offsetX, event.offsetY);
 
-        if (this._highlightedNodeIndex === nodeIndex)
+        if (this._highlightedEntryIndex === entryIndex)
             return;
 
-        this._highlightedNodeIndex = nodeIndex;
+        if (entryIndex === -1 || this._timelineData.entries[entryIndex].node.scriptId === "0")
+            this._canvas.style.cursor = "default";
+        else
+            this._canvas.style.cursor = "pointer";
+
+        this._highlightedEntryIndex = entryIndex;
         this._scheduleUpdate();
     },
 
@@ -416,7 +449,7 @@ WebInspector.FlameChart.prototype = {
     {
         if (this._isDragging)
             return null;
-        var entry = this._timelineData.entries[this._highlightedNodeIndex];
+        var entry = this._timelineData.entries[this._highlightedEntryIndex];
         if (!entry)
             return null;
         var node = entry.node;
@@ -437,6 +470,8 @@ WebInspector.FlameChart.prototype = {
             pushEntryInfoRow(WebInspector.UIString("Self time"), Number.secondsToString(entry.selfTime / 1000, true));
             pushEntryInfoRow(WebInspector.UIString("Total time"), Number.secondsToString(entry.duration / 1000, true));
         }
+        if (node.url)
+            pushEntryInfoRow(WebInspector.UIString("URL"), node.url + ":" + node.lineNumber);
         pushEntryInfoRow(WebInspector.UIString("Aggregated self time"), Number.secondsToString(node.selfTime / 1000, true));
         pushEntryInfoRow(WebInspector.UIString("Aggregated total time"), Number.secondsToString(node.totalTime / 1000, true));
         return entryInfo;
@@ -444,9 +479,9 @@ WebInspector.FlameChart.prototype = {
 
     _onClick: function(e)
     {
-        if (this._highlightedNodeIndex === -1)
+        if (this._highlightedEntryIndex === -1)
             return;
-        var node = this._timelineData.entries[this._highlightedNodeIndex].node;
+        var node = this._timelineData.entries[this._highlightedEntryIndex].node;
         this.dispatchEventToListeners(WebInspector.FlameChart.Events.SelectedNode, node);
     },
 
@@ -469,7 +504,7 @@ WebInspector.FlameChart.prototype = {
      * @param {!number} x
      * @param {!number} y
      */
-    _coordinatesToNodeIndex: function(x, y)
+    _coordinatesToEntryIndex: function(x, y)
     {
         var timelineData = this._timelineData;
         if (!timelineData)
@@ -505,8 +540,8 @@ WebInspector.FlameChart.prototype = {
         var scaleFactor = width / this._totalTime;
         var maxStackDepth = 5; // minimum stack depth for the case when we see no activity.
 
-        for (var nodeIndex = 0; nodeIndex < timelineEntries.length; ++nodeIndex) {
-            var entry = timelineEntries[nodeIndex];
+        for (var entryIndex = 0; entryIndex < timelineEntries.length; ++entryIndex) {
+            var entry = timelineEntries[entryIndex];
             var start = Math.floor(entry.startTime * scaleFactor);
             var finish = Math.floor((entry.startTime + entry.duration) * scaleFactor);
             for (var x = start; x < finish; ++x) {
@@ -553,7 +588,7 @@ WebInspector.FlameChart.prototype = {
     {
         anchorBox.x = Math.floor(entry.startTime * this._timeToPixel) - this._pixelWindowLeft + this._paddingLeft;
         anchorBox.y = this._canvas.height / window.devicePixelRatio - (entry.depth + 1) * this._barHeight;
-        anchorBox.width = Math.floor(entry.duration * this._timeToPixel);
+        anchorBox.width = Math.max(Math.ceil(entry.duration * this._timeToPixel), this._minWidth);
         anchorBox.height = this._barHeight;
         if (anchorBox.x < 0) {
             anchorBox.width += anchorBox.x;
@@ -600,12 +635,10 @@ WebInspector.FlameChart.prototype = {
             if ((startTime + entry.duration) < visibleTimeLeft)
                 continue;
             this._entryToAnchorBox(entry, anchorBox);
-            if (anchorBox.width < this._minWidth)
-                continue;
 
             var colorPair = entry.colorPair;
             var color;
-            if (this._highlightedNodeIndex === i)
+            if (this._highlightedEntryIndex === i)
                 color =  colorPair.highlighted;
             else
                 color = colorPair.normal;
@@ -626,16 +659,14 @@ WebInspector.FlameChart.prototype = {
 
         var entryInfo = this._prepareHighlightedEntryInfo();
         if (entryInfo)
-            this._printEntryInfo(context, entryInfo, 0, 25);
+            this._printEntryInfo(context, entryInfo, 0, 25, width);
     },
 
-    _printEntryInfo: function(context, entryInfo, x, y)
+    _printEntryInfo: function(context, entryInfo, x, y, width)
     {
         const lineHeight = 18;
-        const maxTextWidth = 290;
         const paddingLeft = 10;
         const paddingTop = 5;
-        const paddingLeftText = 10;
         var maxTitleWidth = 0;
         var basicFont = "100% " + window.getComputedStyle(this.element, null).getPropertyValue("font-family");
         context.font = "bold " + basicFont;
@@ -643,8 +674,13 @@ WebInspector.FlameChart.prototype = {
         for (var i = 0; i < entryInfo.length; ++i)
             maxTitleWidth = Math.max(maxTitleWidth, context.measureText(entryInfo[i].title).width);
 
+        var maxTextWidth = 0;
+        for (var i = 0; i < entryInfo.length; ++i)
+            maxTextWidth = Math.max(maxTextWidth, context.measureText(entryInfo[i].text).width);
+        maxTextWidth = Math.min(maxTextWidth, width - 2 * paddingLeft - maxTitleWidth);
+
         context.beginPath();
-        context.rect(x, y, maxTextWidth + 5, lineHeight * entryInfo.length + 5);
+        context.rect(x, y, maxTitleWidth + maxTextWidth + 5, lineHeight * entryInfo.length + 5);
         context.strokeStyle = "rgba(0,0,0,0)";
         context.fillStyle = "rgba(254,254,254,0.8)";
         context.fill();
@@ -656,7 +692,7 @@ WebInspector.FlameChart.prototype = {
 
         context.font = basicFont;
         for (var i = 0; i < entryInfo.length; ++i) {
-            var text = this._prepareText(context, entryInfo[i].text, maxTextWidth - maxTitleWidth - 2 * paddingLeft);
+            var text = this._prepareText(context, entryInfo[i].text, maxTextWidth);
             context.fillText(text, x + paddingLeft + maxTitleWidth + paddingLeft, y + lineHeight * i);
         }
     },

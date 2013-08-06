@@ -488,6 +488,7 @@ WebInspector.HeapSnapshot = function(profile)
     this._metaNode = profile.snapshot.meta;
     this._strings = profile.strings;
 
+    this._noDistance = -5;
     this._rootNodeIndex = 0;
     if (profile.snapshot.root_index)
         this._rootNodeIndex = profile.snapshot.root_index;
@@ -774,40 +775,71 @@ WebInspector.HeapSnapshot.prototype = {
         return this._aggregatesForDiff;
     },
 
-    distanceForUserRoot: function(node)
+    /**
+     * @param {!WebInspector.HeapSnapshotNode} node
+     * @return {!boolean}
+     */
+    _isUserRoot: function(node)
     {
-        return 1;
+        return true;
+    },
+
+    /**
+     * @param {function(!WebInspector.HeapSnapshotNode)} action
+     * @param {boolean=} userRootsOnly
+     */
+    forEachRoot: function(action, userRootsOnly)
+    {
+        for (var iter = this.rootNode().edges(); iter.hasNext(); iter.next()) {
+            var node = iter.edge.node();
+            if (!userRootsOnly || this._isUserRoot(node))
+                action(node);
+        }
     },
 
     _calculateDistances: function()
     {
         var nodeFieldCount = this._nodeFieldCount;
-        var distances = new Uint32Array(this.nodeCount);
+        var nodeCount = this.nodeCount;
+        var distances = new Int32Array(nodeCount);
+        var noDistance = this._noDistance;
+        for (var i = 0; i < nodeCount; ++i)
+            distances[i] = noDistance;
 
-        // bfs for Window roots
         var nodesToVisit = new Uint32Array(this.nodeCount);
         var nodesToVisitLength = 0;
-        for (var iter = this.rootNode().edges(); iter.hasNext(); iter.next()) {
-            var node = iter.edge.node();
-            var distance = this.distanceForUserRoot(node);
-            if (distance !== -1) {
-                nodesToVisit[nodesToVisitLength++] = node.nodeIndex;
-                distances[node.nodeIndex / nodeFieldCount] = distance;
-            }
+
+        /**
+         * @param {!WebInspector.HeapSnapshotNode} node
+         */
+        function enqueueNode(node)
+        {
+            var ordinal = node._ordinal();
+            if (distances[ordinal] !== noDistance)
+                return;
+            distances[ordinal] = 0;
+            nodesToVisit[nodesToVisitLength++] = node.nodeIndex;
         }
+
+        this.forEachRoot(enqueueNode, true);
         this._bfs(nodesToVisit, nodesToVisitLength, distances);
 
-        // bfs for root
+        // bfs for the rest of objects
         nodesToVisitLength = 0;
-        nodesToVisit[nodesToVisitLength++] = this._rootNodeIndex;
-        distances[this._rootNodeIndex / nodeFieldCount] = 1;
+        this.forEachRoot(enqueueNode);
         this._bfs(nodesToVisit, nodesToVisitLength, distances);
+
         this._nodeDistances = distances;
     },
 
+    /**
+     * @param {!Uint32Array} nodesToVisit
+     * @param {!number} nodesToVisitLength
+     * @param {!Int32Array} distances
+     */
     _bfs: function(nodesToVisit, nodesToVisitLength, distances)
     {
-        // Peload fields into local variables for better performance.
+        // Preload fields into local variables for better performance.
         var edgeFieldsCount = this._edgeFieldsCount;
         var nodeFieldCount = this._nodeFieldCount;
         var containmentEdges = this._containmentEdges;
@@ -818,6 +850,7 @@ WebInspector.HeapSnapshot.prototype = {
         var nodeCount = this.nodeCount;
         var containmentEdgesLength = containmentEdges.length;
         var edgeWeakType = this._edgeWeakType;
+        var noDistance = this._noDistance;
 
         var index = 0;
         while (index < nodesToVisitLength) {
@@ -832,7 +865,7 @@ WebInspector.HeapSnapshot.prototype = {
                     continue;
                 var childNodeIndex = containmentEdges[edgeIndex + edgeToNodeOffset];
                 var childNodeOrdinal = childNodeIndex / nodeFieldCount;
-                if (distances[childNodeOrdinal])
+                if (distances[childNodeOrdinal] !== noDistance)
                     continue;
                 distances[childNodeOrdinal] = distance;
                 nodesToVisit[nodesToVisitLength++] = childNodeIndex;
@@ -1028,19 +1061,19 @@ WebInspector.HeapSnapshot.prototype = {
         }
 
         if (postOrderIndex !== nodeCount) {
+            console.log("Error: Corrupted snapshot. " + (nodeCount - postOrderIndex) + " nodes are unreachable from the root:");
             var dumpNode = this.rootNode();
             for (var i = 0; i < nodeCount; ++i) {
                 if (painted[i] !== black) {
+                    // Fix it by giving the node a postorder index anyway.
+                    nodeOrdinal2PostOrderIndex[i] = postOrderIndex;
+                    postOrderIndex2NodeOrdinal[postOrderIndex++] = i;
                     dumpNode.nodeIndex = i * nodeFieldCount;
                     console.log(JSON.stringify(dumpNode.serialize()));
-                    var retainers = dumpNode.retainers();
-                    while (retainers) {
-                        console.log("edgeName: " + retainers.item().name() + " nodeClassName: " + retainers.item().node().className());
-                        retainers = retainers.item().node().retainers();
-                    }
+                    for (var retainers = dumpNode.retainers(); retainers.hasNext(); retainers = retainers.item().node().retainers())
+                        console.log("  edgeName: " + retainers.item().name() + " nodeClassName: " + retainers.item().node().className());
                 }
             }
-            throw new Error("Postordering failed. " + (nodeCount - postOrderIndex) + " hanging nodes");
         }
 
         return {postOrderIndex2NodeOrdinal: postOrderIndex2NodeOrdinal, nodeOrdinal2PostOrderIndex: nodeOrdinal2PostOrderIndex};
@@ -1240,11 +1273,6 @@ WebInspector.HeapSnapshot.prototype = {
     _markInvisibleEdges: function()
     {
         throw new Error("Not implemented");
-    },
-
-    _numbersComparator: function(a, b)
-    {
-        return a < b ? -1 : (a > b ? 1 : 0);
     },
 
     _calculateFlags: function()
@@ -1587,7 +1615,7 @@ WebInspector.HeapSnapshotFilteredOrderedIterator.prototype = {
 
 WebInspector.HeapSnapshotFilteredOrderedIterator.prototype.createComparator = function(fieldNames)
 {
-    return {fieldName1:fieldNames[0], ascending1:fieldNames[1], fieldName2:fieldNames[2], ascending2:fieldNames[3]};
+    return {fieldName1: fieldNames[0], ascending1: fieldNames[1], fieldName2: fieldNames[2], ascending2: fieldNames[3]};
 }
 
 /**

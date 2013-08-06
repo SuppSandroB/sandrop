@@ -81,6 +81,7 @@ function defineCommonExtensionSymbols(apiPrivate)
         CreateSidebarPane: "createSidebarPane",
         CreateStatusBarButton: "createStatusBarButton",
         EvaluateOnInspectedPage: "evaluateOnInspectedPage",
+        ForwardKeyboardEvent: "_forwardKeyboardEvent",
         GetConsoleMessages: "getConsoleMessages",
         GetHAR: "getHAR",
         GetPageResources: "getPageResources",
@@ -95,6 +96,7 @@ function defineCommonExtensionSymbols(apiPrivate)
         SetSidebarPage: "setSidebarPage",
         ShowPanel: "showPanel",
         StopAuditCategoryRun: "stopAuditCategoryRun",
+        OpenResource: "openResource",
         Reload: "Reload",
         Unsubscribe: "unsubscribe",
         UpdateAuditProgress: "updateAuditProgress",
@@ -319,6 +321,11 @@ Panels.prototype = {
         // Only send command if we either removed an existing handler or added handler and had none before.
         if (hadHandler === !callback)
             extensionServer.sendRequest({ command: commands.SetOpenResourceHandler, "handlerPresent": !!callback });
+    },
+
+    openResource: function(url, lineNumber, callback)
+    {
+        extensionServer.sendRequest({ command: commands.OpenResource, "url": url, "lineNumber": lineNumber }, callback);
     },
 
     get SearchAction()
@@ -718,6 +725,27 @@ function TimelineImpl()
 {
     this.onEventRecorded = new EventSink(events.TimelineEventRecorded);
 }
+
+function forwardKeyboardEvent(event)
+{
+    const Esc = "U+001B";
+    // We only care about global hotkeys, not about random text
+    if (!event.ctrlKey && !event.altKey && !event.metaKey && !/^F\d+$/.test(event.keyIdentifier) && event.keyIdentifier !== Esc)
+        return;
+    var request = {
+        command: commands.ForwardKeyboardEvent,
+        eventType: event.type,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+        keyIdentifier: event.keyIdentifier,
+        location: event.location
+    };
+    extensionServer.sendRequest(request);
+}
+
+document.addEventListener("keydown", forwardKeyboardEvent, false);
+document.addEventListener("keypress", forwardKeyboardEvent, false);
 
 /**
  * @constructor

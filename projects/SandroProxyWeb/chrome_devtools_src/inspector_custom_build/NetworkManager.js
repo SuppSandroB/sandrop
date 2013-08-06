@@ -71,8 +71,14 @@ WebInspector.NetworkManager._MIMETypes = {
     "image/x-icon":                {"image": true},
     "image/x-xbitmap":             {"image": true},
     "font/ttf":                    {"font": true},
+    "font/otf":                    {"font": true},
+    "font/woff":                   {"font": true},
+    "font/woff2":                  {"font": true},
+    "font/truetype":               {"font": true},
     "font/opentype":               {"font": true},
+    "application/octet-stream":    {"font": true, "image": true},
     "application/font-woff":       {"font": true},
+    "application/x-font-woff":     {"font": true},
     "application/x-font-type1":    {"font": true},
     "application/x-font-ttf":      {"font": true},
     "application/x-truetype-font": {"font": true},
@@ -186,6 +192,7 @@ WebInspector.NetworkDispatcher.prototype = {
                 WebInspector.UIString("Resource interpreted as %s but transferred with MIME type %s: \"%s\".", networkRequest.type.title(), networkRequest.mimeType, networkRequest.url),
                 WebInspector.ConsoleMessage.MessageType.Log,
                 "",
+                0,
                 0,
                 1,
                 [],
@@ -569,9 +576,9 @@ WebInspector.NetworkDispatcher.prototype = {
      * @param {string} eventType
      * @param {WebInspector.NetworkRequest} networkRequest
      */
-    _dispatchEventToListeners: function(eventType, eventData)
+    _dispatchEventToListeners: function(eventType, networkRequest)
     {
-        this._manager.dispatchEventToListeners(eventType, eventData);
+        this._manager.dispatchEventToListeners(eventType, networkRequest);
     },
 
     /**

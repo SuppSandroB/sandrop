@@ -27,6 +27,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @param {Object} obj
+ * @return {boolean}
+ */
 Object.isEmpty = function(obj)
 {
     for (var i in obj)
@@ -34,23 +38,24 @@ Object.isEmpty = function(obj)
     return true;
 }
 
+/**
+ * @param {!Object.<string,T>} obj
+ * @return {!Array.<T>}
+ * @template T
+ */
 Object.values = function(obj)
 {
-    var keys = Object.keys(obj);
-    var result = [];
-
-    for (var i = 0; i < keys.length; ++i)
-        result.push(obj[keys[i]]);
+    var result = Object.keys(obj);
+    var length = result.length;
+    for (var i = 0; i < length; ++i)
+        result[i] = obj[result[i]];
     return result;
 }
 
-String.prototype.hasSubstring = function(string, caseInsensitive)
-{
-    if (!caseInsensitive)
-        return this.indexOf(string) !== -1;
-    return this.match(new RegExp(string.escapeForRegExp(), "i"));
-}
-
+/**
+ * @param {string} string
+ * @return {!Array.<number>}
+ */
 String.prototype.findAll = function(string)
 {
     var matches = [];
@@ -62,6 +67,9 @@ String.prototype.findAll = function(string)
     return matches;
 }
 
+/**
+ * @return {!Array.<number>}
+ */
 String.prototype.lineEndings = function()
 {
     if (!this._lineEndings) {
@@ -71,6 +79,10 @@ String.prototype.lineEndings = function()
     return this._lineEndings;
 }
 
+/**
+ * @param {string} chars
+ * @return {string}
+ */
 String.prototype.escapeCharacters = function(chars)
 {
     var foundChar = false;
@@ -94,26 +106,42 @@ String.prototype.escapeCharacters = function(chars)
     return result;
 }
 
+/**
+ * @return {string}
+ */
 String.regexSpecialCharacters = function()
 {
     return "^[]{}()\\.$*+?|-,";
 }
 
+/**
+ * @return {string}
+ */
 String.prototype.escapeForRegExp = function()
 {
-    return this.escapeCharacters(String.regexSpecialCharacters);
+    return this.escapeCharacters(String.regexSpecialCharacters());
 }
 
+/**
+ * @return {string}
+ */
 String.prototype.escapeHTML = function()
 {
     return this.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); //" doublequotes just for editor
 }
 
+/**
+ * @return {string}
+ */
 String.prototype.collapseWhitespace = function()
 {
     return this.replace(/[\s\xA0]+/g, " ");
 }
 
+/**
+ * @param {number} maxLength
+ * @return {string}
+ */
 String.prototype.trimMiddle = function(maxLength)
 {
     if (this.length <= maxLength)
@@ -123,6 +151,10 @@ String.prototype.trimMiddle = function(maxLength)
     return this.substr(0, leftHalf) + "\u2026" + this.substr(this.length - rightHalf, rightHalf);
 }
 
+/**
+ * @param {number} maxLength
+ * @return {string}
+ */
 String.prototype.trimEnd = function(maxLength)
 {
     if (this.length <= maxLength)
@@ -130,6 +162,10 @@ String.prototype.trimEnd = function(maxLength)
     return this.substr(0, maxLength - 1) + "\u2026";
 }
 
+/**
+ * @param {?string=} baseURLDomain
+ * @return {string}
+ */
 String.prototype.trimURL = function(baseURLDomain)
 {
     var result = this.replace(/^(https|http|file):\/\//i, "");
@@ -138,6 +174,9 @@ String.prototype.trimURL = function(baseURLDomain)
     return result;
 }
 
+/**
+ * @return {string}
+ */
 String.prototype.toTitleCase = function()
 {
     return this.substring(0, 1).toUpperCase() + this.substring(1);
@@ -165,6 +204,9 @@ function sanitizeHref(href)
     return href && href.trim().toLowerCase().startsWith("javascript:") ? "" : href;
 }
 
+/**
+ * @return {string}
+ */
 String.prototype.removeURLFragment = function()
 {
     var fragmentIndex = this.indexOf("#");
@@ -173,16 +215,72 @@ String.prototype.removeURLFragment = function()
     return this.substring(0, fragmentIndex);
 }
 
+/**
+ * @return {boolean}
+ */
 String.prototype.startsWith = function(substring)
 {
     return !this.lastIndexOf(substring, 0);
 }
 
+/**
+ * @return {boolean}
+ */
 String.prototype.endsWith = function(substring)
 {
     return this.indexOf(substring, this.length - substring.length) !== -1;
 }
 
+/**
+ * @param {string} a
+ * @param {string} b
+ * @return {number}
+ */
+String.naturalOrderComparator = function(a, b)
+{
+    var chunk = /^\d+|^\D+/;
+    var chunka, chunkb, anum, bnum;
+    while (1) {
+        if (a) {
+            if (!b)
+                return 1;
+        } else {
+            if (b)
+                return -1;
+            else
+                return 0;
+        }
+        chunka = a.match(chunk)[0];
+        chunkb = b.match(chunk)[0];
+        anum = !isNaN(chunka);
+        bnum = !isNaN(chunkb);
+        if (anum && !bnum)
+            return -1;
+        if (bnum && !anum)
+            return 1;
+        if (anum && bnum) {
+            var diff = chunka - chunkb;
+            if (diff)
+                return diff;
+            if (chunka.length !== chunkb.length) {
+                if (!+chunka && !+chunkb) // chunks are strings of all 0s (special case)
+                    return chunka.length - chunkb.length;
+                else
+                    return chunkb.length - chunka.length;
+            }
+        } else if (chunka !== chunkb)
+            return (chunka < chunkb) ? -1 : 1;
+        a = a.substring(chunka.length);
+        b = b.substring(chunkb.length);
+    }
+}
+
+/**
+ * @param {number} num
+ * @param {number} min
+ * @param {number} max
+ * @return {number}
+ */
 Number.constrain = function(num, min, max)
 {
     if (num < min)
@@ -192,15 +290,47 @@ Number.constrain = function(num, min, max)
     return num;
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @return {number}
+ */
+Number.gcd = function(a, b)
+{
+    if (b === 0)
+        return a;
+    else
+        return Number.gcd(b, a % b);
+}
+
+/**
+ * @param {string} value
+ * @return {string}
+ */
+Number.toFixedIfFloating = function(value)
+{
+    if (!value || isNaN(value))
+        return value;
+    var number = Number(value);
+    return number % 1 ? number.toFixed(3) : String(number);
+}
+
+/**
+ * @return {string}
+ */
 Date.prototype.toISO8601Compact = function()
 {
+    /**
+     * @param {number} x
+     * @return {string}
+     */
     function leadZero(x)
     {
-        return x > 9 ? '' + x : '0' + x
+        return (x > 9 ? "" : "0") + x;
     }
     return this.getFullYear() +
            leadZero(this.getMonth() + 1) +
-           leadZero(this.getDate()) + 'T' +
+           leadZero(this.getDate()) + "T" +
            leadZero(this.getHours()) +
            leadZero(this.getMinutes()) +
            leadZero(this.getSeconds());
@@ -209,7 +339,10 @@ Date.prototype.toISO8601Compact = function()
 Object.defineProperty(Array.prototype, "remove",
 {
     /**
-     * @this {Array.<*>}
+     * @param {T} value
+     * @param {boolean=} onlyFirst
+     * @this {Array.<T>}
+     * @template T
      */
     value: function(value, onlyFirst)
     {
@@ -231,6 +364,7 @@ Object.defineProperty(Array.prototype, "remove",
 Object.defineProperty(Array.prototype, "keySet",
 {
     /**
+     * @return {!Object.<string, boolean>}
      * @this {Array.<*>}
      */
     value: function()
@@ -242,34 +376,13 @@ Object.defineProperty(Array.prototype, "keySet",
     }
 });
 
-Object.defineProperty(Array.prototype, "upperBound",
-{
-    /**
-     * @this {Array.<number>}
-     */
-    value: function(value)
-    {
-        var first = 0;
-        var count = this.length;
-        while (count > 0) {
-          var step = count >> 1;
-          var middle = first + step;
-          if (value >= this[middle]) {
-              first = middle + 1;
-              count -= step + 1;
-          } else
-              count = step;
-        }
-        return first;
-    }
-});
-
 Object.defineProperty(Array.prototype, "rotate",
 {
     /**
-     * @this {Array.<*>}
      * @param {number} index
-     * @return {Array.<*>}
+     * @return {!Array.<T>}
+     * @this {Array.<T>}
+     * @template T
      */
     value: function(index)
     {
@@ -288,7 +401,7 @@ Object.defineProperty(Uint32Array.prototype, "sort", {
 var partition = {
     /**
      * @this {Array.<number>}
-     * @param {function(number,number):number} comparator
+     * @param {function(number, number): number} comparator
      * @param {number} left
      * @param {number} right
      * @param {number} pivotIndex
@@ -320,11 +433,12 @@ Object.defineProperty(Uint32Array.prototype, "partition", partition);
 
 var sortRange = {
     /**
-     * @this {Array.<number>}
-     * @param {function(number,number):number} comparator
+     * @param {function(number, number): number} comparator
      * @param {number} leftBound
      * @param {number} rightBound
      * @param {number} k
+     * @return {!Array.<number>}
+     * @this {Array.<number>}
      */
     value: function(comparator, leftBound, rightBound, k)
     {
@@ -353,9 +467,10 @@ Object.defineProperty(Uint32Array.prototype, "sortRange", sortRange);
 Object.defineProperty(Array.prototype, "qselect",
 {
     /**
-     * @this {Array.<number>}
      * @param {number} k
-     * @param {function(number,number):boolean=} comparator
+     * @param {function(number, number): number=} comparator
+     * @return {number|undefined}
+     * @this {Array.<number>}
      */
     value: function(k, comparator)
     {
@@ -378,50 +493,97 @@ Object.defineProperty(Array.prototype, "qselect",
     }
 });
 
-/**
- * @param {*} object
- * @param {Array.<*>} array
- * @param {function(*, *):number} comparator
- */
-function binarySearch(object, array, comparator)
+Object.defineProperty(Array.prototype, "lowerBound",
 {
-    var first = 0;
-    var last = array.length - 1;
-
-    while (first <= last) {
-        var mid = (first + last) >> 1;
-        var c = comparator(object, array[mid]);
-        if (c > 0)
-            first = mid + 1;
-        else if (c < 0)
-            last = mid - 1;
-        else
-            return mid;
+    /**
+     * Return index of the leftmost element that is equal or greater
+     * than the specimen object. If there's no such element (i.e. all
+     * elements are smaller than the specimen) returns array.length.
+     * The function works for sorted array.
+     *
+     * @param {T} object
+     * @param {function(T,S):number=} comparator
+     * @return {number}
+     * @this {Array.<S>}
+     * @template T,S
+     */
+    value: function(object, comparator)
+    {
+        function defaultComparator(a, b)
+        {
+            return a < b ? -1 : (a > b ? 1 : 0);
+        }
+        comparator = comparator || defaultComparator;
+        var l = 0;
+        var r = this.length;
+        while (l < r) {
+            var m = (l + r) >> 1;
+            if (comparator(object, this[m]) > 0)
+                l = m + 1;
+            else
+                r = m;
+        }
+        return r;
     }
+});
 
-    // Return the nearest lesser index, "-1" means "0, "-2" means "1", etc.
-    return -(first + 1);
-}
+Object.defineProperty(Array.prototype, "upperBound",
+{
+    /**
+     * Return index of the leftmost element that is greater
+     * than the specimen object. If there's no such element (i.e. all
+     * elements are smaller than the specimen) returns array.length.
+     * The function works for sorted array.
+     *
+     * @param {T} object
+     * @param {function(T,S):number=} comparator
+     * @return {number}
+     * @this {Array.<S>}
+     * @template T,S
+     */
+    value: function(object, comparator)
+    {
+        function defaultComparator(a, b)
+        {
+            return a < b ? -1 : (a > b ? 1 : 0);
+        }
+        comparator = comparator || defaultComparator;
+        var l = 0;
+        var r = this.length;
+        while (l < r) {
+            var m = (l + r) >> 1;
+            if (comparator(object, this[m]) >= 0)
+                l = m + 1;
+            else
+                r = m;
+        }
+        return r;
+    }
+});
 
 Object.defineProperty(Array.prototype, "binaryIndexOf",
 {
     /**
-     * @this {Array.<*>}
-     * @param {function(*, *):number} comparator
+     * @param {T} value
+     * @param {function(T,S):number} comparator
+     * @return {number}
+     * @this {Array.<S>}
+     * @template T,S
      */
     value: function(value, comparator)
     {
-        var result = binarySearch(value, this, comparator);
-        return result >= 0 ? result : -1;
+        var index = this.lowerBound(value, comparator);
+        return index < this.length && comparator(value, this[index]) === 0 ? index : -1;
     }
 });
 
 Object.defineProperty(Array.prototype, "select",
 {
     /**
-     * @this {Array.<*>}
      * @param {string} field
-     * @return {Array.<*>}
+     * @return {!Array.<T>}
+     * @this {Array.<Object.<string,T>>}
+     * @template T
      */
     value: function(field)
     {
@@ -435,8 +597,9 @@ Object.defineProperty(Array.prototype, "select",
 Object.defineProperty(Array.prototype, "peekLast",
 {
     /**
-     * @this {Array.<*>}
-     * @return {*}
+     * @return {T|undefined}
+     * @this {Array.<T>}
+     * @template T
      */
     value: function()
     {
@@ -445,27 +608,25 @@ Object.defineProperty(Array.prototype, "peekLast",
 });
 
 /**
- * @param {*} anObject
- * @param {Array.<*>} aList
- * @param {function(*, *)} aFunction
+ * @param {T} object
+ * @param {Array.<S>} list
+ * @param {function(T,S):number=} comparator
+ * @param {boolean=} insertionIndexAfter
+ * @return {number}
+ * @template T,S
  */
-function insertionIndexForObjectInListSortedByFunction(anObject, aList, aFunction)
+function insertionIndexForObjectInListSortedByFunction(object, list, comparator, insertionIndexAfter)
 {
-    var index = binarySearch(anObject, aList, aFunction);
-    if (index < 0)
-        // See binarySearch implementation.
-        return -index - 1;
-    else {
-        // Return the first occurance of an item in the list.
-        while (index > 0 && aFunction(anObject, aList[index - 1]) === 0)
-            index--;
-        return index;
-    }
+    if (insertionIndexAfter)
+        return list.upperBound(object, comparator);
+    else
+        return list.lowerBound(object, comparator);
 }
 
 /**
  * @param {string} format
  * @param {...*} var_arg
+ * @return {string}
  */
 String.sprintf = function(format, var_arg)
 {
@@ -560,6 +721,11 @@ String.standardFormatters = {
     }
 }
 
+/**
+ * @param {string} format
+ * @param {Array.<*>} substitutions
+ * @return {string}
+ */
 String.vsprintf = function(format, substitutions)
 {
     return String.format(format, substitutions, String.standardFormatters, "", function(a, b) { return a + b; }).formattedResult;
@@ -708,29 +874,30 @@ function numberToStringWithSpacesPadding(value, symbolsCount)
 }
 
 /**
-  * @return {string}
-  */
+ * @return {string}
+ */
 var createObjectIdentifier = function()
 {
     // It has to be string for better performance.
-    return '_' + ++createObjectIdentifier._last;
+    return "_" + ++createObjectIdentifier._last;
 }
 
 createObjectIdentifier._last = 0;
 
 /**
  * @constructor
+ * @template T
  */
 var Set = function()
 {
-    /** @type !Object.<string, Object> */
+    /** @type {!Object.<string, !T>} */
     this._set = {};
     this._size = 0;
 }
 
 Set.prototype = {
     /**
-     * @param {!Object} item
+     * @param {!T} item
      */
     add: function(item)
     {
@@ -743,9 +910,9 @@ Set.prototype = {
             ++this._size;
         this._set[objectIdentifier] = item;
     },
-    
+
     /**
-     * @param {!Object} item
+     * @param {!T} item
      * @return {boolean}
      */
     remove: function(item)
@@ -759,7 +926,7 @@ Set.prototype = {
     },
 
     /**
-     * @return {!Array.<Object>}
+     * @return {!Array.<!T>}
      */
     items: function()
     {
@@ -771,7 +938,7 @@ Set.prototype = {
     },
 
     /**
-     * @param {!Object} item
+     * @param {!T} item
      * @return {boolean}
      */
     hasItem: function(item)
@@ -796,17 +963,19 @@ Set.prototype = {
 
 /**
  * @constructor
+ * @template K,V
  */
 var Map = function()
 {
+    /** @type {!Object.<string, !Array.<K|V>>} */
     this._map = {};
     this._size = 0;
 }
 
 Map.prototype = {
     /**
-     * @param {Object} key
-     * @param {*=} value
+     * @param {!K} key
+     * @param {V=} value
      */
     put: function(key, value)
     {
@@ -819,9 +988,9 @@ Map.prototype = {
             ++this._size;
         this._map[objectIdentifier] = [key, value];
     },
-    
+
     /**
-     * @param {Object} key
+     * @param {!K} key
      */
     remove: function(key)
     {
@@ -834,7 +1003,7 @@ Map.prototype = {
     },
 
     /**
-     * @return {Array.<Object>}
+     * @return {!Array.<!K>}
      */
     keys: function()
     {
@@ -842,7 +1011,7 @@ Map.prototype = {
     },
 
     /**
-     * @return {Array.<*>}
+     * @return {!Array.<V>}
      */
     values: function()
     {
@@ -851,7 +1020,7 @@ Map.prototype = {
 
     /**
      * @param {number} index
-     * @return {Array.<Array>}
+     * @return {!Array.<K|V>}
      */
     _list: function(index)
     {
@@ -863,7 +1032,8 @@ Map.prototype = {
     },
 
     /**
-     * @param {Object} key
+     * @param {!K} key
+     * @return {V|undefined}
      */
     get: function(key)
     {
@@ -872,7 +1042,7 @@ Map.prototype = {
     },
 
     /**
-     * @param {Object} key
+     * @param {!K} key
      * @return {boolean}
      */
     contains: function(key)
@@ -898,9 +1068,11 @@ Map.prototype = {
 
 /**
  * @constructor
+ * @template T
  */
 var StringMap = function()
 {
+    /** @type {!Object.<string, T>} */
     this._map = {};
     this._size = 0;
 }
@@ -908,7 +1080,7 @@ var StringMap = function()
 StringMap.prototype = {
     /**
      * @param {string} key
-     * @param {*=} value
+     * @param {T} value
      */
     put: function(key, value)
     {
@@ -917,6 +1089,7 @@ StringMap.prototype = {
                 ++this._size;
                 this._hasProtoKey = true;
             }
+            /** @type {T} */
             this._protoValue = value;
             return;
         }
@@ -949,18 +1122,18 @@ StringMap.prototype = {
     },
 
     /**
-     * @return {Array.<string>}
+     * @return {!Array.<string>}
      */
     keys: function()
     {
-        var result = Object.keys(this._map);
+        var result = Object.keys(this._map) || [];
         if (this._hasProtoKey)
             result.push("__proto__");
         return result;
     },
 
     /**
-     * @return {Array.<*>}
+     * @return {!Array.<T>}
      */
     values: function()
     {
@@ -1035,7 +1208,7 @@ function loadXHR(url, async, callback)
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url, async);
     if (async)
-        xhr.onreadystatechange = onReadyStateChanged;        
+        xhr.onreadystatechange = onReadyStateChanged;
     xhr.send(null);
 
     if (!async) {
@@ -1128,7 +1301,7 @@ function importScript(scriptName)
     if (!xhr.responseText)
         throw "empty response arrived for script '" + scriptName + "'";
     var sourceURL = WebInspector.ParsedURL.completeURL(window.location.href, scriptName); 
-    window.eval(xhr.responseText + "\n//@ sourceURL=" + sourceURL);
+    window.eval(xhr.responseText + "\n//# sourceURL=" + sourceURL);
 }
 
 var loadScript = importScript;
@@ -1143,7 +1316,7 @@ function CallbackBarrier()
 
 CallbackBarrier.prototype = {
     /**
-     * @param {*} userCallback
+     * @param {function(...)=} userCallback
      * @return {function()}
      */
     createCallback: function(userCallback)
@@ -1164,6 +1337,9 @@ CallbackBarrier.prototype = {
             this._outgoingCallback();
     },
 
+    /**
+     * @param {function(...)=} userCallback
+     */
     _incomingCallback: function(userCallback)
     {
         console.assert(this._pendingIncomingCallbacksCount > 0);
@@ -1175,4 +1351,3 @@ CallbackBarrier.prototype = {
             this._outgoingCallback();
     }
 }
-

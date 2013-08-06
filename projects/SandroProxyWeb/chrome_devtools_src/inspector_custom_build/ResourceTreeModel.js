@@ -63,7 +63,7 @@ WebInspector.ResourceTreeModel.EventTypes = {
     WillLoadCachedResources: "WillLoadCachedResources",
     CachedResourcesLoaded: "CachedResourcesLoaded",
     DOMContentLoaded: "DOMContentLoaded",
-    OnLoad: "OnLoad",
+    Load: "Load",
     InspectedURLChanged: "InspectedURLChanged",
     SecurityOriginAdded: "SecurityOriginAdded",
     SecurityOriginRemoved: "SecurityOriginRemoved"
@@ -189,7 +189,7 @@ WebInspector.ResourceTreeModel.prototype = {
             addedOrigin = frame.securityOrigin;
         } else {
             // Either a new frame or a main frame navigation to the new backend process. 
-            var parentFrame = this._frames[framePayload.parentId];
+            var parentFrame = framePayload.parentId ? this._frames[framePayload.parentId] : null;
             frame = new WebInspector.ResourceTreeFrame(this, parentFrame, framePayload);
             if (frame.isMainFrame() && this.mainFrame) {
                 this._handleMainFrameDetached(this.mainFrame);
@@ -665,7 +665,7 @@ WebInspector.PageDispatcher.prototype = {
 
     loadEventFired: function(time)
     {
-        this._resourceTreeModel.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.OnLoad, time);
+        this._resourceTreeModel.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.Load, time);
     },
 
     frameNavigated: function(frame)

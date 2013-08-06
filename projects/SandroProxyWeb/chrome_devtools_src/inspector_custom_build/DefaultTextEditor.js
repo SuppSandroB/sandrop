@@ -110,6 +110,10 @@ WebInspector.DefaultTextEditor.EditInfo = function(range, text)
 }
 
 WebInspector.DefaultTextEditor.prototype = {
+    indent: function()
+    {
+        return WebInspector.settings.textEditorIndent.get();
+    },
 
     undo: function()
     {
@@ -120,6 +124,11 @@ WebInspector.DefaultTextEditor.prototype = {
     {
         this._mainPanel.redo();
     },
+
+    /**
+     * @param {WebInspector.CompletionDictionary} dictionary
+     */
+    setCompletionDictionary: function(dictionary) { },
 
     /**
      * @return {boolean}
@@ -203,9 +212,9 @@ WebInspector.DefaultTextEditor.prototype = {
     /**
      * @param {string} mimeType
      */
-    set mimeType(mimeType)
+    setMimeType: function(mimeType)
     {
-        this._mainPanel.mimeType = mimeType;
+        this._mainPanel.setMimeType(mimeType);
     },
 
     /**
@@ -325,9 +334,10 @@ WebInspector.DefaultTextEditor.prototype = {
     },
 
     /**
+     * @param {!RegExp} regex
      * @param {WebInspector.TextRange} range
      */
-    markAndRevealRange: function(range)
+    highlightSearchResults: function(regex, range)
     {
         if (range)
             this.setSelection(range);
@@ -338,20 +348,20 @@ WebInspector.DefaultTextEditor.prototype = {
      * @param {number} lineNumber
      * @param {number=} columnNumber
      */
-    highlightLine: function(lineNumber, columnNumber)
+    highlightPosition: function(lineNumber, columnNumber)
     {
-        if (typeof lineNumber !== "number" || lineNumber < 0)
+        if (lineNumber < 0)
             return;
 
         lineNumber = Math.min(lineNumber, this._textModel.linesCount - 1);
         if (typeof columnNumber !== "number" || columnNumber < 0 || columnNumber > this._textModel.lineLength(lineNumber))
             columnNumber = 0;
-        this._mainPanel.highlightLine(lineNumber, columnNumber);
+        this._mainPanel.highlightPosition(lineNumber, columnNumber);
     },
 
-    clearLineHighlight: function()
+    clearPositionHighlight: function()
     {
-        this._mainPanel.clearLineHighlight();
+        this._mainPanel.clearPositionHighlight();
     },
 
     /**
@@ -527,6 +537,15 @@ WebInspector.DefaultTextEditor.prototype = {
     scrollToLine: function(lineNumber)
     {
         this._mainPanel.scrollToLine(lineNumber);
+    },
+
+    /**
+     * @return {number}
+     */
+    firstVisibleLine: function()
+    {
+        var visibleFrom = this._mainPanel.scrollTop();
+        return this._mainPanel.lineNumberAtOffset(visibleFrom);
     },
 
     /**
@@ -1272,7 +1291,7 @@ WebInspector.TextEditorGutterChunk.prototype = {
             parentElement.insertBefore(lineRow, this.element);
             this._expandedLineRows.push(lineRow);
         }
-        parentElement.removeChild(this.element);
+        this.element.remove();
         this._chunkedPanel._syncLineHeightListener(this._expandedLineRows[0]);
 
         this._chunkedPanel.endDomUpdates();
@@ -1302,7 +1321,7 @@ WebInspector.TextEditorGutterChunk.prototype = {
                     elementInserted = true;
                     parentElement.insertBefore(this.element, lineRow);
                 }
-                parentElement.removeChild(lineRow);
+                lineRow.remove();
             }
             this._chunkedPanel._cachedRows.push(lineRow);
         }
@@ -1377,7 +1396,7 @@ WebInspector.TextEditorMainPanel = function(delegate, textModel, url, syncScroll
     this.element.addEventListener("cut", this._handleCut.bind(this), false);
     this.element.addEventListener("keypress", this._handleKeyPress.bind(this), false);
 
-    this._showWhitespace = WebInspector.experimentsSettings.showWhitespaceInEditor.isEnabled();
+    this._showWhitespace = WebInspector.settings.showWhitespacesInEditor.get();
 
     this._container.addEventListener("focus", this._handleFocused.bind(this), false);
 
@@ -1423,7 +1442,7 @@ WebInspector.TextEditorMainPanel.prototype = {
                 return 0;
             return value - object.startColumn;
         }
-        var index = binarySearch(column, highlight.ranges, compare);
+        var index = highlight.ranges.binaryIndexOf(column, compare);
         if (index >= 0) {
             var range = highlight.ranges[index];
             return {
@@ -1761,9 +1780,10 @@ WebInspector.TextEditorMainPanel.prototype = {
     /**
      * @param {string} mimeType
      */
-    set mimeType(mimeType)
+    setMimeType: function(mimeType)
     {
         this._highlighter.mimeType = mimeType;
+        this._updateHighlightsForRange(this._textModel.range());
     },
 
     get mimeType()
@@ -1871,9 +1891,9 @@ WebInspector.TextEditorMainPanel.prototype = {
      * @param {number} lineNumber
      * @param {number} columnNumber
      */
-    highlightLine: function(lineNumber, columnNumber)
+    highlightPosition: function(lineNumber, columnNumber)
     {
-        this.clearLineHighlight();
+        this.clearPositionHighlight();
         this._highlightedLine = lineNumber;
         this.revealLine(lineNumber);
 
@@ -1883,7 +1903,7 @@ WebInspector.TextEditorMainPanel.prototype = {
         this.addDecoration(lineNumber, "webkit-highlighted-line");
     },
 
-    clearLineHighlight: function()
+    clearPositionHighlight: function()
     {
         if (typeof this._highlightedLine === "number") {
             this.removeDecoration(this._highlightedLine, "webkit-highlighted-line");
@@ -3259,7 +3279,7 @@ WebInspector.TextEditorMainChunk.prototype = {
             parentElement.insertBefore(lineRow, this.element);
             this._expandedLineRows.push(lineRow);
         }
-        parentElement.removeChild(this.element);
+        this.element.remove();
         this._chunkedPanel._paintLines(this.startLine, this.startLine + this.linesCount);
 
         this._chunkedPanel.endDomUpdates();
@@ -3285,7 +3305,7 @@ WebInspector.TextEditorMainChunk.prototype = {
                     elementInserted = true;
                     parentElement.insertBefore(this.element, lineRow);
                 }
-                parentElement.removeChild(lineRow);
+                lineRow.remove();
             }
             this._chunkedPanel._releaseLinesHighlight(lineRow);
         }

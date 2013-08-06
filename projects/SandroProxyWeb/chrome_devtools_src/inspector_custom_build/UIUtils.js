@@ -145,9 +145,97 @@ WebInspector.GlassPane.prototype = {
     {
         delete WebInspector._glassPane;
         WebInspector.inspectorView.focus();
-        if (this.element.parentElement)
-            this.element.parentElement.removeChild(this.element);
+        this.element.remove();
     }
+}
+
+WebInspector.animateStyle = function(animations, duration, callback)
+{
+    var startTime = new Date().getTime();
+    var hasCompleted = false;
+
+    const animationsLength = animations.length;
+    const propertyUnit = {opacity: ""};
+    const defaultUnit = "px";
+
+    // Pre-process animations.
+    for (var i = 0; i < animationsLength; ++i) {
+        var animation = animations[i];
+        var element = null, start = null, end = null, key = null;
+        for (key in animation) {
+            if (key === "element")
+                element = animation[key];
+            else if (key === "start")
+                start = animation[key];
+            else if (key === "end")
+                end = animation[key];
+        }
+
+        if (!element || !end)
+            continue;
+
+        if (!start) {
+            var computedStyle = element.ownerDocument.defaultView.getComputedStyle(element);
+            start = {};
+            for (key in end)
+                start[key] = parseInt(computedStyle.getPropertyValue(key), 10);
+            animation.start = start;
+        } else
+            for (key in start)
+                element.style.setProperty(key, start[key] + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
+    }
+
+    function animateLoop()
+    {
+        if (hasCompleted)
+            return;
+
+        var complete = new Date().getTime() - startTime;
+
+        // Make style changes.
+        for (var i = 0; i < animationsLength; ++i) {
+            var animation = animations[i];
+            var element = animation.element;
+            var start = animation.start;
+            var end = animation.end;
+            if (!element || !end)
+                continue;
+
+            var style = element.style;
+            for (key in end) {
+                var endValue = end[key];
+                if (complete < duration) {
+                    var startValue = start[key];
+                    // Linear animation.
+                    var newValue = startValue + (endValue - startValue) * complete / duration;
+                    style.setProperty(key, newValue + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
+                } else
+                    style.setProperty(key, endValue + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
+            }
+        }
+
+        // End condition.
+        if (complete >= duration)
+            hasCompleted = true;
+        if (callback)
+            callback(hasCompleted);
+        if (!hasCompleted)
+            window.requestAnimationFrame(animateLoop);
+    }
+
+    function forceComplete()
+    {
+        if (hasCompleted)
+            return;
+
+        duration = 0;
+        animateLoop();
+    }
+
+    window.requestAnimationFrame(animateLoop);
+    return {
+        forceComplete: forceComplete
+    };
 }
 
 WebInspector.isBeingEdited = function(element)
@@ -462,7 +550,7 @@ WebInspector.startEditing = function(element, config)
         cssLoadView = new WebInspector.CodeMirrorCSSLoadView();
         cssLoadView.show(element);
         WebInspector.setCurrentFocusElement(element);
-        element.addEventListener("copy", consumeCopy, true);
+        element.addEventListener("copy", consumeCopy, false);
         codeMirror = window.CodeMirror(element, {
             mode: config.mode,
             lineWrapping: config.lineWrapping,
@@ -472,6 +560,9 @@ WebInspector.startEditing = function(element, config)
             value: oldText
         });
         codeMirror.getWrapperElement().addStyleClass("source-code");
+        codeMirror.on("cursorActivity", function(cm) {
+            cm.display.cursor.scrollIntoViewIfNeeded(false);
+        });
     } else {
         element.addStyleClass("editing");
 
@@ -512,7 +603,7 @@ WebInspector.startEditing = function(element, config)
         WebInspector.restoreFocusFromElement(element);
 
         if (isMultiline) {
-            element.removeEventListener("copy", consumeCopy, true);
+            element.removeEventListener("copy", consumeCopy, false);
             cssLoadView.detach();
             return;
         }
@@ -894,7 +985,7 @@ WebInspector.highlightSearchResult = function(element, offset, length, domChange
  */
 WebInspector.highlightSearchResults = function(element, resultRanges, changes)
 {
-    return WebInspector.highlightRangesWithStyleClass(element, resultRanges, "webkit-search-result", changes);
+    return WebInspector.highlightRangesWithStyleClass(element, resultRanges, "highlighted-search-result", changes);
 }
 
 /**
@@ -1003,8 +1094,7 @@ WebInspector.revertDomChanges = function(domChanges)
         var entry = domChanges[i];
         switch (entry.type) {
         case "added":
-            if (entry.node.parentElement)
-                entry.node.parentElement.removeChild(entry.node);
+            entry.node.remove();
             break;
         case "changed":
             entry.node.textContent = entry.oldText;

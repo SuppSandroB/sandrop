@@ -85,10 +85,9 @@ WebInspector.JSHeapSnapshot.prototype = {
     retainingEdgesFilter: function(showHiddenData)
     {
         var containmentEdgesFilter = this.containmentEdgesFilter(showHiddenData);
-        function filter(edge) {
-            if (!containmentEdgesFilter(edge))
-                return false;
-            return edge.node().id() !== 1 && !edge.node().isSynthetic() && !edge.isWeak();
+        function filter(edge)
+        {
+            return containmentEdgesFilter(edge) && !edge.node().isRoot() && !edge.isWeak();
         }
         return filter;
     },
@@ -134,13 +133,91 @@ WebInspector.JSHeapSnapshot.prototype = {
         this._markPageOwnedNodes();
     },
 
-    distanceForUserRoot: function(node)
+    /**
+     * @param {!WebInspector.HeapSnapshotNode} node
+     * @return {!boolean}
+     */
+    _isUserRoot: function(node)
     {
-        if (node.isWindow())
-            return 1;
-        if (node.isDocumentDOMTreesRoot())
-            return 0;
-        return -1;
+        return node.isUserRoot() || node.isDocumentDOMTreesRoot();
+    },
+
+    /**
+     * @param {function(!WebInspector.HeapSnapshotNode)} action
+     * @param {boolean=} userRootsOnly
+     */
+    forEachRoot: function(action, userRootsOnly)
+    {
+        /**
+         * @param {!WebInspector.HeapSnapshotNode} node
+         * @param {!string} name
+         * @return {!WebInspector.HeapSnapshotNode|null}
+         */
+        function getChildNodeByName(node, name)
+        {
+            for (var iter = node.edges(); iter.hasNext(); iter.next()) {
+                var child = iter.edge.node();
+                if (child.name() === name)
+                    return child;
+            }
+            return null;
+        }
+
+        /**
+         * @param {!WebInspector.HeapSnapshotNode} node
+         * @param {!string} name
+         * @return {!WebInspector.HeapSnapshotNode|null}
+         */
+        function getChildNodeByLinkName(node, name)
+        {
+            for (var iter = node.edges(); iter.hasNext(); iter.next()) {
+                var edge = iter.edge;
+                if (edge.name() === name)
+                    return edge.node();
+            }
+            return null;
+        }
+
+        var visitedNodes = {};
+        /**
+         * @param {!WebInspector.HeapSnapshotNode} node
+         */
+        function doAction(node)
+        {
+            var ordinal = node._ordinal();
+            if (!visitedNodes[ordinal]) {
+                action(node);
+                visitedNodes[ordinal] = true;
+            }
+        }
+
+        var gcRoots = getChildNodeByName(this.rootNode(), "(GC roots)");
+        if (!gcRoots)
+            return;
+
+        if (userRootsOnly) {
+            for (var iter = this.rootNode().edges(); iter.hasNext(); iter.next()) {
+                var node = iter.edge.node();
+                if (node.isDocumentDOMTreesRoot())
+                    doAction(node);
+                else if (node.isUserRoot()) {
+                    var nativeContextNode = getChildNodeByLinkName(node, "native_context");
+                    if (nativeContextNode)
+                        doAction(nativeContextNode);
+                    else
+                        doAction(node);
+                }
+            }
+        } else {
+            for (var iter = gcRoots.edges(); iter.hasNext(); iter.next()) {
+                var subRoot = iter.edge.node();
+                for (var iter2 = subRoot.edges(); iter2.hasNext(); iter2.next())
+                    doAction(iter2.edge.node());
+                doAction(subRoot);
+            }
+            for (var iter = this.rootNode().edges(); iter.hasNext(); iter.next())
+                doAction(iter.edge.node())
+        }
     },
 
     userObjectsMapAndFlag: function()
@@ -204,7 +281,7 @@ WebInspector.JSHeapSnapshot.prototype = {
         var list = [];
 
         for (var iter = this.rootNode().edges(); iter.hasNext(); iter.next()) {
-            if (iter.edge.node().isWindow())
+            if (iter.edge.node().isUserRoot())
                 list.push(iter.edge.node().nodeIndex / nodeFieldCount);
         }
 
@@ -359,12 +436,17 @@ WebInspector.JSHeapSnapshotNode.prototype = {
         return this._type() === this._snapshot._nodeSyntheticType;
     },
 
-    isWindow: function()
+    /**
+     * @return {!boolean}
+     */
+    isUserRoot: function()
     {
-        const windowRE = /^Window/;
-        return windowRE.test(this.name());
+        return !this.isSynthetic();
     },
 
+    /**
+     * @return {!boolean}
+     */
     isDocumentDOMTreesRoot: function()
     {
         return this.isSynthetic() && this.name() === "(Document DOM trees)";

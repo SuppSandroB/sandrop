@@ -162,8 +162,9 @@ WebInspector.DataGrid.Align = {
 }
 
 /**
- * @param {Array.<string>} columnNames
- * @param {Array.<string>} values
+ * @param {!Array.<string>} columnNames
+ * @param {!Array.<string>} values
+ * @return {WebInspector.DataGrid}
  */
 WebInspector.DataGrid.createSortableDataGrid = function(columnNames, values)
 {
@@ -1732,8 +1733,8 @@ WebInspector.DataGridNode.prototype = {
 
         this._attached = false;
 
-        if (this._element && this._element.parentNode)
-            this._element.parentNode.removeChild(this._element);
+        if (this._element)
+            this._element.remove();
 
         for (var i = 0; i < this.children.length; ++i)
             this.children[i]._detach();
