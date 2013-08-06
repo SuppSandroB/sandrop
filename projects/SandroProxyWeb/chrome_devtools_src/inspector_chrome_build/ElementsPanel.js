@@ -48,14 +48,12 @@ WebInspector.ElementsPanel = function()
     this.setHideOnDetach();
 
     const initialSidebarWidth = 325;
-    const minimumContentWidthPercent = 34;
+    const minimumContentWidthPercent = 0.34;
     const initialSidebarHeight = 325;
-    const minimumContentHeightPercent = 34;
+    const minimumContentHeightPercent = 0.34;
     this.createSidebarView(this.element, WebInspector.SidebarView.SidebarPosition.End, initialSidebarWidth, initialSidebarHeight);
-    this.splitView.setMinimumSidebarWidth(Preferences.minElementsSidebarWidth);
-    this.splitView.setMinimumMainWidthPercent(minimumContentWidthPercent);
-    this.splitView.setMinimumSidebarHeight(Preferences.minElementsSidebarHeight);
-    this.splitView.setMinimumMainHeightPercent(minimumContentHeightPercent);
+    this.splitView.setSidebarElementConstraints(Preferences.minElementsSidebarWidth, Preferences.minElementsSidebarHeight);
+    this.splitView.setMainElementConstraints(minimumContentWidthPercent, minimumContentHeightPercent);
 
     this.contentElement = this.splitView.mainElement;
     this.contentElement.id = "elements-content";
@@ -106,7 +104,7 @@ WebInspector.ElementsPanel = function()
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrRemoved, this._updateBreadcrumbIfNeeded, this);
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.NodeRemoved, this._nodeRemoved, this);
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.DocumentUpdated, this._documentUpdatedEvent, this);
-    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.InspectElementRequested, this._inspectElementRequested, this);
+    WebInspector.settings.showShadowDOM.addChangeListener(this._showShadowDOMChanged.bind(this));
 
     if (WebInspector.domAgent.existingDocument())
         this._documentUpdated(WebInspector.domAgent.existingDocument());
@@ -302,8 +300,9 @@ WebInspector.ElementsPanel.prototype = {
 
     /**
      * @param {string} query
+     * @param {boolean} shouldJump
      */
-    performSearch: function(query)
+    performSearch: function(query, shouldJump)
     {
         // Call searchCanceled since it will reset everything we need before doing a new search.
         this.searchCanceled();
@@ -325,7 +324,8 @@ WebInspector.ElementsPanel.prototype = {
 
             this._searchResults = new Array(resultCount);
             this._currentSearchResultIndex = -1;
-            this.jumpToNextSearchResult();
+            if (shouldJump)
+                this.jumpToNextSearchResult();
         }
         WebInspector.domAgent.performSearch(whitespaceTrimmedQuery, resultCountCallback.bind(this));
     },
@@ -516,7 +516,7 @@ WebInspector.ElementsPanel.prototype = {
         if (treeElement) {
             treeElement.highlightSearchResults(this._searchQuery);
             treeElement.reveal();
-            var matches = treeElement.listItemElement.getElementsByClassName("webkit-search-result");
+            var matches = treeElement.listItemElement.getElementsByClassName("highlighted-search-result");
             if (matches.length)
                 matches[0].scrollIntoViewIfNeeded();
         }
@@ -785,13 +785,19 @@ WebInspector.ElementsPanel.prototype = {
         crumbs.firstChild.addStyleClass("end");
         crumbs.lastChild.addStyleClass("start");
 
+        var rightPadding = 20;
+        var crumbsTotalOffsetLeft = crumbs.totalOffsetLeft();
+        var windowInnerWidth = window.innerWidth;
+        var errorWarningElement = document.getElementById("error-warning-count");
+        if (!WebInspector.drawer.visible) {
+            if (errorWarningElement)
+                rightPadding += errorWarningElement.offsetWidth;
+            rightPadding += WebInspector.settingsController.statusBarItem.offsetWidth;
+        }
+
         function crumbsAreSmallerThanContainer()
         {
-            var rightPadding = 20;
-            var errorWarningElement = document.getElementById("error-warning-count");
-            if (!WebInspector.drawer.visible && errorWarningElement)
-                rightPadding += errorWarningElement.offsetWidth;
-            return ((crumbs.totalOffsetLeft() + crumbs.offsetWidth + rightPadding) < window.innerWidth);
+            return (crumbsTotalOffsetLeft + crumbs.offsetWidth + rightPadding) < windowInnerWidth;
         }
 
         if (crumbsAreSmallerThanContainer())
@@ -1051,12 +1057,6 @@ WebInspector.ElementsPanel.prototype = {
         this.treeOutline.updateSelection();
     },
 
-    _inspectElementRequested: function(event)
-    {
-        var node = event.data;
-        this.revealAndSelectNode(node.id);
-    },
-
     revealAndSelectNode: function(nodeId)
     {
         WebInspector.inspectorView.setCurrentPanel(this);
@@ -1064,6 +1064,9 @@ WebInspector.ElementsPanel.prototype = {
         var node = WebInspector.domAgent.nodeForId(nodeId);
         if (!node)
             return;
+
+        while (!WebInspector.ElementsTreeOutline.showShadowDOM() && node && node.isInShadowTree())
+            node = node.parentNode;
 
         WebInspector.domAgent.highlightDOMNodeForTwoSeconds(nodeId);
         this.selectDOMNode(node, true);
@@ -1108,6 +1111,11 @@ WebInspector.ElementsPanel.prototype = {
         this._splitVertically(vertically);
     },
 
+    _showShadowDOMChanged: function()
+    {
+        this.treeOutline.update();
+    },
+
     /**
      * @param {boolean} vertically
      */
@@ -1121,11 +1129,20 @@ WebInspector.ElementsPanel.prototype = {
 
         this.splitView.setVertical(!vertically);
 
-        if (!vertically) {
-            this.sidebarPaneView = new WebInspector.SidebarPaneStack();
-            for (var pane in this.sidebarPanes)
-                this.sidebarPaneView.addPane(this.sidebarPanes[pane]);
-        } else {
+        var computedPane = new WebInspector.SidebarPane(WebInspector.UIString("Computed"));
+        computedPane.element.addStyleClass("composite");
+        computedPane.element.addStyleClass("fill");
+        var expandComputed = computedPane.expand.bind(computedPane);
+
+        this.sidebarPanes.metrics.show(computedPane.bodyElement);
+        this.sidebarPanes.metrics.setExpandCallback(expandComputed);
+
+        computedPane.bodyElement.appendChild(this.sidebarPanes.computedStyle.titleElement);
+        computedPane.bodyElement.addStyleClass("metrics-and-computed");
+        this.sidebarPanes.computedStyle.show(computedPane.bodyElement);
+        this.sidebarPanes.computedStyle.setExpandCallback(expandComputed);
+
+        if (vertically) {
             this.sidebarPaneView = new WebInspector.SidebarTabbedPane();
 
             var compositePane = new WebInspector.SidebarPane(this.sidebarPanes.styles.title());
@@ -1140,18 +1157,22 @@ WebInspector.ElementsPanel.prototype = {
             splitView.firstElement().appendChild(this.sidebarPanes.styles.titleElement);
             this.sidebarPanes.styles.setExpandCallback(expandComposite);
 
-            this.sidebarPanes.metrics.show(splitView.secondElement());
-            this.sidebarPanes.metrics.setExpandCallback(expandComposite);
-
-            splitView.secondElement().appendChild(this.sidebarPanes.computedStyle.titleElement);
-            splitView.secondElement().addStyleClass("metrics-and-computed");
-            this.sidebarPanes.computedStyle.show(splitView.secondElement());
-            this.sidebarPanes.computedStyle.setExpandCallback(expandComposite);
+            computedPane.show(splitView.secondElement());
+            computedPane.setExpandCallback(expandComposite);
 
             this.sidebarPaneView.addPane(compositePane);
             this.sidebarPaneView.addPane(this.sidebarPanes.properties);
             this.sidebarPaneView.addPane(this.sidebarPanes.domBreakpoints);
             this.sidebarPaneView.addPane(this.sidebarPanes.eventListeners);
+        } else {
+            this.sidebarPaneView = new WebInspector.SidebarTabbedPane();
+
+            this.sidebarPaneView.addPane(this.sidebarPanes.styles);
+            this.sidebarPaneView.addPane(computedPane);
+
+            this.sidebarPaneView.addPane(this.sidebarPanes.eventListeners);
+            this.sidebarPaneView.addPane(this.sidebarPanes.domBreakpoints);
+            this.sidebarPaneView.addPane(this.sidebarPanes.properties);
         }
         this.sidebarPaneView.show(this.splitView.sidebarElement);
         this.sidebarPanes.styles.expand();

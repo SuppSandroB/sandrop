@@ -31,7 +31,6 @@
 
 importScript("MemoryStatistics.js");
 importScript("DOMCountersGraph.js");
-importScript("NativeMemoryGraph.js");
 importScript("TimelineModel.js");
 importScript("TimelineOverviewPane.js");
 importScript("TimelinePresentationModel.js");
@@ -78,14 +77,8 @@ WebInspector.TimelinePanel = function()
     WebInspector.installDragHandle(this._timelineMemorySplitter, this._startSplitterDragging.bind(this), this._splitterDragging.bind(this), this._endSplitterDragging.bind(this), "ns-resize");
     this._timelineMemorySplitter.addStyleClass("hidden");
     this._includeDomCounters = false;
-    this._includeNativeMemoryStatistics = false;
-    if (WebInspector.experimentsSettings.nativeMemoryTimeline.isEnabled()) {
-        this._memoryStatistics = new WebInspector.NativeMemoryGraph(this, this._model, this.splitView.sidebarWidth());
-        this._includeNativeMemoryStatistics = true;
-    } else {
-        this._memoryStatistics = new WebInspector.DOMCountersGraph(this, this._model, this.splitView.sidebarWidth());
-        this._includeDomCounters = true;
-    }
+    this._memoryStatistics = new WebInspector.DOMCountersGraph(this, this._model, this.splitView.sidebarWidth());
+    this._includeDomCounters = true;
     WebInspector.settings.memoryCounterGraphsHeight = WebInspector.settings.createSetting("memoryCounterGraphsHeight", 150);
 
     var itemsTreeElement = new WebInspector.SidebarSectionTreeElement(WebInspector.UIString("RECORDS"), {}, true);
@@ -594,7 +587,7 @@ WebInspector.TimelinePanel.prototype = {
             this._model.stopRecord();
             this.toggleTimelineButton.title = WebInspector.UIString("Record");
         } else {
-            this._model.startRecord(this._includeDomCounters, this._includeNativeMemoryStatistics);
+            this._model.startRecord(this._includeDomCounters);
             this.toggleTimelineButton.title = WebInspector.UIString("Stop");
             WebInspector.userMetrics.TimelineStarted.record();
         }
@@ -632,7 +625,7 @@ WebInspector.TimelinePanel.prototype = {
         var records = this._model.records;
         for (var i = 0; i < records.length; ++i)
             this._innerAddRecordToTimeline(records[i]);
-        this._invalidateAndScheduleRefresh(false, true);
+        this._invalidateAndScheduleRefresh(false, false);
     },
 
     _onTimelineEventRecorded: function(event)
@@ -953,7 +946,7 @@ WebInspector.TimelinePanel.prototype = {
         this._itemsGraphsElement.insertBefore(this._graphRowsElement, this._bottomGapElement);
         this._itemsGraphsElement.appendChild(this._expandElements);
         this._adjustScrollPosition((recordsInWindow.length + this._headerLineCount) * rowHeight);
-        this._updateSearchHighlight(false);
+        this._updateSearchHighlight(false, true);
 
         if (highlightedListRowElement) {
             highlightedListRowElement.addStyleClass("highlighted-timeline-record");
@@ -979,6 +972,11 @@ WebInspector.TimelinePanel.prototype = {
 
         var tasks = this._mainThreadMonitoringEnabled ? this._mainThreadTasks : [];
 
+        /**
+         * @param {number} value
+         * @param {{startTime: number, endTime: number}} task
+         * @return {number}
+         */
         function compareEndTime(value, task)
         {
             return value < task.endTime ? -1 : 1;
@@ -1139,21 +1137,23 @@ WebInspector.TimelinePanel.prototype = {
 
     jumpToNextSearchResult: function()
     {
-        this._jumpToAdjacentRecord(1);
+        if (!this._searchResults || !this._searchResults.length)
+            return;
+        var index = this._selectedSearchResult ? this._searchResults.indexOf(this._selectedSearchResult) : -1;
+        this._jumpToSearchResult(index + 1);
     },
 
     jumpToPreviousSearchResult: function()
     {
-        this._jumpToAdjacentRecord(-1);
+        if (!this._searchResults || !this._searchResults.length)
+            return;
+        var index = this._selectedSearchResult ? this._searchResults.indexOf(this._selectedSearchResult) : 0;
+        this._jumpToSearchResult(index - 1);
     },
 
-    _jumpToAdjacentRecord: function(offset)
+    _jumpToSearchResult: function(index)
     {
-        if (!this._searchResults || !this._searchResults.length || !this._selectedSearchResult)
-            return;
-        var index = this._searchResults.indexOf(this._selectedSearchResult);
-        index = (index + offset + this._searchResults.length) % this._searchResults.length;
-        this._selectSearchResult(index);
+        this._selectSearchResult((index + this._searchResults.length) % this._searchResults.length);
         this._highlightSelectedSearchResult(true);
     },
 
@@ -1193,8 +1193,9 @@ WebInspector.TimelinePanel.prototype = {
 
     /**
      * @param {boolean} revealRecord
+     * @param {boolean} shouldJump
      */
-    _updateSearchHighlight: function(revealRecord)
+    _updateSearchHighlight: function(revealRecord, shouldJump)
     {
         if (this._searchFilter || !this._searchRegExp) {
             this._clearHighlight();
@@ -1202,12 +1203,11 @@ WebInspector.TimelinePanel.prototype = {
         }
 
         if (!this._searchResults)
-            this._updateSearchResults();
-
+            this._updateSearchResults(shouldJump);
         this._highlightSelectedSearchResult(revealRecord);
     },
 
-    _updateSearchResults: function()
+    _updateSearchResults: function(shouldJump)
     {
         var searchRegExp = this._searchRegExp;
         if (!searchRegExp)
@@ -1230,7 +1230,7 @@ WebInspector.TimelinePanel.prototype = {
             WebInspector.searchController.updateSearchMatchesCount(matchesCount, this);
 
             var selectedIndex = matches.indexOf(this._selectedSearchResult);
-            if (selectedIndex === -1)
+            if (shouldJump && selectedIndex === -1)
                 selectedIndex = 0;
             this._selectSearchResult(selectedIndex);
         } else {
@@ -1267,11 +1267,15 @@ WebInspector.TimelinePanel.prototype = {
         this._invalidateAndScheduleRefresh(true, true);
     },
 
-    performSearch: function(searchQuery)
+    /**
+     * @param {string} query
+     * @param {boolean} shouldJump
+     */
+    performSearch: function(query, shouldJump)
     {
-        this._searchRegExp = createPlainTextSearchRegex(searchQuery, "i");
+        this._searchRegExp = createPlainTextSearchRegex(query, "i");
         delete this._searchResults;
-        this._updateSearchHighlight(true);
+        this._updateSearchHighlight(true, shouldJump);
     },
 
     __proto__: WebInspector.Panel.prototype
@@ -1316,8 +1320,7 @@ WebInspector.TimelineCalculator.prototype = {
         var width = (percentages.end - percentages.start) / 100 * this._workingArea;
         if (width < WebInspector.TimelineCalculator._minWidth) {
             widthAdjustment = WebInspector.TimelineCalculator._minWidth - width;
-            left -= widthAdjustment / 2;
-            width += widthAdjustment;
+            width = WebInspector.TimelineCalculator._minWidth;
         }
         var widthWithChildren = (percentages.endWithChildren - percentages.start) / 100 * this._workingArea + widthAdjustment;
         var cpuWidth = percentages.cpuWidth / 100 * this._workingArea + widthAdjustment;
@@ -1429,7 +1432,7 @@ WebInspector.TimelineRecordListRow.prototype = {
 
     dispose: function()
     {
-        this.element.parentElement.removeChild(this.element);
+        this.element.remove();
     }
 }
 
@@ -1506,7 +1509,7 @@ WebInspector.TimelineRecordGraphRow.prototype = {
 
     dispose: function()
     {
-        this.element.parentElement.removeChild(this.element);
+        this.element.remove();
         this._expandElement._dispose();
     }
 }
@@ -1545,7 +1548,7 @@ WebInspector.TimelineExpandableElement.prototype = {
 
     _dispose: function()
     {
-        this._element.parentElement.removeChild(this._element);
+        this._element.remove();
     }
 }
 

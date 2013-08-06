@@ -61,10 +61,30 @@ WebInspector.JavaScriptSourceFrame = function(scriptsPanel, uiSourceCode)
     this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyChanged, this._workingCopyChanged, this);
     this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyCommitted, this._workingCopyCommitted, this);
 
+    this._registerShortcuts();
     this._updateScriptFile();
 }
 
 WebInspector.JavaScriptSourceFrame.prototype = {
+    _registerShortcuts: function()
+    {
+        var modifiers = WebInspector.KeyboardShortcut.Modifiers;
+        this.addShortcut(WebInspector.KeyboardShortcut.makeKey("e", modifiers.Shift | modifiers.Ctrl), this._evaluateSelectionInConsole.bind(this));
+    },
+
+    /**
+     * @param {Event=} event
+     * @return {boolean}
+     */
+    _evaluateSelectionInConsole: function(event)
+    {
+        var selection = this.textEditor.selection();
+        if (!selection || selection.isEmpty())
+            return false;
+        WebInspector.evaluateInConsole(this.textEditor.copyRange(selection));
+        return true;
+    },
+
     // View events
     wasShown: function()
     {
@@ -105,12 +125,13 @@ WebInspector.JavaScriptSourceFrame.prototype = {
 
     populateTextAreaContextMenu: function(contextMenu, lineNumber)
     {
-        var selection = window.getSelection();
-        if (selection.type === "Range" && !selection.isCollapsed) {
+        var textSelection = this.textEditor.selection();
+        if (textSelection && !textSelection.isEmpty()) {
+            var selection = this.textEditor.copyRange(textSelection);
             var addToWatchLabel = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Add to watch" : "Add to Watch");
-            contextMenu.appendItem(addToWatchLabel, this._scriptsPanel.addToWatch.bind(this._scriptsPanel, selection.toString()));
+            contextMenu.appendItem(addToWatchLabel, this._scriptsPanel.addToWatch.bind(this._scriptsPanel, selection));
             var evaluateLabel = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Evaluate in console" : "Evaluate in Console");
-            contextMenu.appendItem(evaluateLabel, WebInspector.evaluateInConsole.bind(WebInspector, selection.toString()));
+            contextMenu.appendItem(evaluateLabel, WebInspector.evaluateInConsole.bind(WebInspector, selection));
             contextMenu.appendSeparator();
         } else if (!this._uiSourceCode.isEditable() && this._uiSourceCode.contentType() === WebInspector.resourceTypes.Script) {
             function liveEdit(event)
@@ -216,12 +237,28 @@ WebInspector.JavaScriptSourceFrame.prototype = {
     {
         if (!WebInspector.debuggerModel.isPaused())
             return null;
-        if (window.getSelection().type === "Range")
-            return null;
 
         var textPosition = this.textEditor.coordinatesToCursorPosition(event.x, event.y);
         if (!textPosition)
             return null;
+        var mouseLine = textPosition.startLine;
+        var mouseColumn = textPosition.startColumn;
+        var textSelection = this.textEditor.selection();
+        if (textSelection && !textSelection.isEmpty()) {
+            if (textSelection.startLine !== textSelection.endLine || textSelection.startLine !== mouseLine || mouseColumn < textSelection.startColumn || mouseColumn > textSelection.endColumn)
+                return null;
+
+            var leftCorner = this.textEditor.cursorPositionToCoordinates(textSelection.startLine, textSelection.startColumn);
+            var rightCorner = this.textEditor.cursorPositionToCoordinates(textSelection.endLine, textSelection.endColumn);
+            var anchorBox = new AnchorBox(leftCorner.x, leftCorner.y, rightCorner.x - leftCorner.x, leftCorner.height);
+            anchorBox.highlight = {
+                lineNumber: textSelection.startLine,
+                startColumn: textSelection.startColumn,
+                endColumn: textSelection.endColumn - 1
+            };
+            anchorBox.forSelection = true;
+            return anchorBox;
+        }
 
         var token = this.textEditor.tokenAtTextPosition(textPosition.startLine, textPosition.startColumn);
         if (!token)
@@ -236,8 +273,11 @@ WebInspector.JavaScriptSourceFrame.prototype = {
         var rightCorner = this.textEditor.cursorPositionToCoordinates(lineNumber, token.endColumn + 1);
         var anchorBox = new AnchorBox(leftCorner.x, leftCorner.y, rightCorner.x - leftCorner.x, leftCorner.height);
 
-        anchorBox.token = token;
-        anchorBox.lineNumber = lineNumber;
+        anchorBox.highlight = {
+            lineNumber: lineNumber,
+            startColumn: token.startColumn,
+            endColumn: token.endColumn
+        };
 
         return anchorBox;
     },
@@ -258,7 +298,7 @@ WebInspector.JavaScriptSourceFrame.prototype = {
             showCallback(WebInspector.RemoteObject.fromPayload(result), wasThrown, this._popoverAnchorBox);
             // Popover may have been removed by showCallback().
             if (this._popoverAnchorBox) {
-                var highlightRange = new WebInspector.TextRange(anchorBox.lineNumber, startHighlight, anchorBox.lineNumber, endHighlight);
+                var highlightRange = new WebInspector.TextRange(lineNumber, startHighlight, lineNumber, endHighlight);
                 this._popoverAnchorBox._highlightDescriptor = this.textEditor.highlightRange(highlightRange, "source-frame-eval-expression");
             }
         }
@@ -267,14 +307,15 @@ WebInspector.JavaScriptSourceFrame.prototype = {
             this._popoverHelper.hidePopover();
             return;
         }
-
-        var startHighlight = anchorBox.token.startColumn;
-        var endHighlight = anchorBox.token.endColumn;
-        var line = this.textEditor.line(anchorBox.lineNumber);
-        while (startHighlight > 1 && line.charAt(startHighlight - 1) === '.')
-            startHighlight = this.textEditor.tokenAtTextPosition(anchorBox.lineNumber, startHighlight - 2).startColumn;
+        var lineNumber = anchorBox.highlight.lineNumber;
+        var startHighlight = anchorBox.highlight.startColumn;
+        var endHighlight = anchorBox.highlight.endColumn;
+        var line = this.textEditor.line(lineNumber);
+        if (!anchorBox.forSelection) {
+            while (startHighlight > 1 && line.charAt(startHighlight - 1) === '.')
+                startHighlight = this.textEditor.tokenAtTextPosition(lineNumber, startHighlight - 2).startColumn;
+        }
         var evaluationText = line.substring(startHighlight, endHighlight + 1);
-
         var selectedCallFrame = WebInspector.debuggerModel.selectedCallFrame();
         selectedCallFrame.evaluate(evaluationText, objectGroupName, false, true, false, false, showObjectPopover.bind(this));
     },
@@ -337,6 +378,9 @@ WebInspector.JavaScriptSourceFrame.prototype = {
             this.textEditor.removeDecoration(lineNumber, this._conditionElement);
             delete this._conditionEditorElement;
             delete this._conditionElement;
+            if (!committed)
+                return;
+
             if (breakpoint)
                 breakpoint.setCondition(newText);
             else
@@ -490,7 +534,7 @@ WebInspector.JavaScriptSourceFrame.prototype = {
         if (this._scriptFile) {
             this._scriptFile.addEventListener(WebInspector.ScriptFile.Events.DidMergeToVM, this._didMergeToVM, this);
             this._scriptFile.addEventListener(WebInspector.ScriptFile.Events.DidDivergeFromVM, this._didDivergeFromVM, this);
-    
+
             if (this.loaded)
                 this._scriptFile.checkMapping();
         }
@@ -510,7 +554,7 @@ WebInspector.JavaScriptSourceFrame.prototype = {
             var message = messages[i];
             this.addMessageToSource(message.lineNumber, message.originalMessage);
         }
-        
+
         if (this._scriptFile)
             this._scriptFile.checkMapping();
     },

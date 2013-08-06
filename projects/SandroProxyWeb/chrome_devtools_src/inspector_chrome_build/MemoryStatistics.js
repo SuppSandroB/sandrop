@@ -260,23 +260,16 @@ WebInspector.MemoryStatistics.prototype = {
         var calculator = this._timelinePanel.calculator;
         var start = calculator.minimumBoundary() * 1000;
         var end = calculator.maximumBoundary() * 1000;
-        var firstIndex = 0;
-        var lastIndex = this._counters.length - 1;
-        for (var i = 0; i < this._counters.length; i++) {
-            var time = this._counters[i].time;
-            if (time <= start) {
-                firstIndex = i;
-            } else {
-                if (end < time)
-                    break;
-                lastIndex = i;
-            }
+        function comparator(value, sample)
+        {
+            return value - sample.time;
         }
-        // Maximum index of element whose time <= start.
-        this._minimumIndex = firstIndex;
 
-        // Maximum index of element whose time <= end.
-        this._maximumIndex = lastIndex;
+        // Maximum index of element whose time <= start.
+        this._minimumIndex = Number.constrain(this._counters.upperBound(start, comparator) - 1, 0, this._counters.length - 1);
+
+        // Minimum index of element whose time >= end.
+        this._maximumIndex = Number.constrain(this._counters.lowerBound(end, comparator), 0, this._counters.length - 1);
 
         // Current window bounds.
         this._minTime = start;

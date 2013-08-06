@@ -189,7 +189,7 @@
 }
 
 .styles-section .properties li.not-parsed-ok {
-    margin-left: 0px;
+    margin-left: 0;
 }
 
 .styles-section.computed-style .properties li.not-parsed-ok {
@@ -197,8 +197,10 @@
 }
 
 .styles-section .properties li.not-parsed-ok .exclamation-mark {
+    display: inline-block;
     position: relative;
     width: 12px;
+    height: 10px;
     margin: 0 6px 0 0;
     top: 1px;
     left: -36px; /* outdent to compensate for the top-level property indent */
@@ -218,7 +220,8 @@
     white-space: normal;
 }
 
-.styles-section .header .title .media, .styles-section .header .title .media .subtitle {
+.styles-section .header .title .media,
+.styles-section .header .title .media .subtitle {
     color: rgb(128, 128, 128);
     overflow: hidden;
 }
@@ -353,7 +356,7 @@
 .styles-section.matched-styles .properties li.parent .expand-element {
     background-image: url(Images/statusbarButtonGlyphs2x.png);
 }
-}
+} /* media */
 
 .styles-section.matched-styles .properties li.parent .expand-element {
     background-position: -4px -96px;
@@ -393,11 +396,15 @@
     margin-left: 16px;
 }
 
-.styles-section .properties .overloaded,
+.styles-section .properties .overloaded:not(.has-ignorable-error),
 .styles-section .properties .inactive,
 .styles-section .properties .disabled,
-.styles-section .properties .not-parsed-ok {
+.styles-section .properties .not-parsed-ok:not(.has-ignorable-error) {
     text-decoration: line-through;
+}
+
+.styles-section .properties .has-ignorable-error .webkit-css-property {
+    color: inherit;
 }
 
 .styles-section.computed-style .properties .disabled {
@@ -405,14 +412,21 @@
     opacity: 0.5;
 }
 
-.styles-section .properties .implicit, .styles-section .properties .inherited {
+.styles-section .properties .implicit,
+.styles-section .properties .inherited {
     opacity: 0.5;
+}
+
+.styles-section .properties .has-ignorable-error {
+    color: gray;
 }
 
 .styles-element-state-pane {
     background-color: rgb(240, 240, 240);
     overflow: hidden;
-    margin-top: -38px;
+    margin-top: -56px;
+    padding-top: 18px;
+    height: 56px;
     -webkit-transition: margin-top 0.1s ease-in-out;
     padding-left: 2px;
 }
@@ -503,7 +517,7 @@
 .event-bars .event-bar .header::before {
     background-image: url(Images/statusbarButtonGlyphs2x.png);
 }
-}
+} /* media */
 
 .event-bars .event-bar .header::before {
     background-position: -4px -96px;
@@ -575,11 +589,11 @@
 }
 
 .panel.elements .sidebar-pane-toolbar > select:hover {
-    background-position: -23px 0px;
+    background-position: -23px 0;
 }
 
 .panel.elements .sidebar-pane-toolbar > select:active {
-    background-position: -46px 0px;
+    background-position: -46px 0;
 }
 
 .panel.elements .sidebar-pane-toolbar > select.select-settings {
@@ -589,7 +603,8 @@
 .panel.elements .sidebar-pane-toolbar > select.select-filter {
     background-image: url(Images/paneFilterButtons.png);
 }
-.panel.elements .sidebar-pane-toolbar > select > option, .panel.elements .sidebar-pane-toolbar > select > hr {
+.panel.elements .sidebar-pane-toolbar > select > option,
+.panel.elements .sidebar-pane-toolbar > select > hr {
     color: black;
 }
 

@@ -36,7 +36,9 @@
     height: 22px;
 }
 
-.network-log-grid.data-grid th, .network-log-grid.data-grid th.sort-descending, .network-log-grid.data-grid th.sort-ascending {
+.network-log-grid.data-grid th,
+.network-log-grid.data-grid th.sort-descending,
+.network-log-grid.data-grid th.sort-ascending {
     background: -webkit-gradient(linear, left top, left bottom, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));
 }
 
@@ -53,7 +55,6 @@
     background-color: transparent;
     border: none;
     width: 100%;
-    font-size: inherit;
     color: inherit;
 }
 
@@ -94,7 +95,8 @@
     color: gray;
 }
 
-.network-error-row, .network-error-row .network-cell-subtitle {
+.network-error-row,
+.network-error-row .network-cell-subtitle {
     color: rgb(230, 0, 0);
 }
 
@@ -111,8 +113,8 @@
 }
 
 @-webkit-keyframes network-row-highlight-fadeout {
-    from {background-color: rgba(56, 121, 217, 1); }
-    to { background-color: rgba(56, 121, 217, 0); }
+    from {background-color: rgba(255, 255, 120, 1); }
+    to { background-color: rgba(255, 255, 120, 0); }
 }
 
 .network-header-subtitle {
@@ -120,8 +122,7 @@
 }
 
 .network-log-grid.data-grid.small .network-cell-subtitle,
-.network-log-grid.data-grid.small .network-header-subtitle
-{
+.network-log-grid.data-grid.small .network-header-subtitle {
     display: none;
 }
 
@@ -303,7 +304,8 @@
     -webkit-border-image: url(Images/timelinePillGray.png) 7 7 7 7;
 }
 
-.network-graph-bar.waiting, .network-graph-bar.waiting-right {
+.network-graph-bar.waiting,
+.network-graph-bar.waiting-right {
     opacity: 0.35;
 }
 
@@ -507,7 +509,7 @@
     overflow-x: hidden;
 }
 
-// Brief mode peculiarities.
+/* Brief mode peculiarities. */
 #network-container.brief-mode .network-timeline-grid {
     display: none;
 }

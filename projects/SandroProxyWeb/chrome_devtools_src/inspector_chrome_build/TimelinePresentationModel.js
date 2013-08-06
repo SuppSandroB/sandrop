@@ -75,6 +75,7 @@ WebInspector.TimelinePresentationModel._initRecordStyles = function()
     recordStyles[recordTypes.RecalculateStyles] = { title: WebInspector.UIString("Recalculate Style"), category: categories["rendering"] };
     recordStyles[recordTypes.InvalidateLayout] = { title: WebInspector.UIString("Invalidate Layout"), category: categories["rendering"] };
     recordStyles[recordTypes.Layout] = { title: WebInspector.UIString("Layout"), category: categories["rendering"] };
+    recordStyles[recordTypes.PaintSetup] = { title: WebInspector.UIString("Paint Setup"), category: categories["painting"] };
     recordStyles[recordTypes.Paint] = { title: WebInspector.UIString("Paint"), category: categories["painting"] };
     recordStyles[recordTypes.Rasterize] = { title: WebInspector.UIString("Rasterize"), category: categories["painting"] };
     recordStyles[recordTypes.ScrollLayer] = { title: WebInspector.UIString("Scroll"), category: categories["rendering"] };
@@ -404,11 +405,15 @@ WebInspector.TimelinePresentationModel.prototype = {
             lastRecord = lastRecord.children.peekLast();
         var startTime = WebInspector.TimelineModel.startTimeInSeconds(record);
         var endTime = WebInspector.TimelineModel.endTimeInSeconds(record);
-        if (!lastRecord || lastRecord.type !== record.type)
+        if (!lastRecord)
+            return null;
+        if (lastRecord.type !== record.type)
             return null;
         if (lastRecord.endTime + coalescingThresholdSeconds < startTime)
             return null;
         if (endTime + coalescingThresholdSeconds < lastRecord.startTime)
+            return null;
+        if (WebInspector.TimelinePresentationModel.coalescingKeyForRecord(record) !== WebInspector.TimelinePresentationModel.coalescingKeyForRecord(lastRecord._record))
             return null;
         if (lastRecord.parent.coalesced)
             return lastRecord.parent;
@@ -429,6 +434,9 @@ WebInspector.TimelinePresentationModel.prototype = {
         };
         if (record._record.thread)
             rawRecord.thread = "aggregated";
+        if (record.type === WebInspector.TimelineModel.RecordType.TimeStamp)
+            rawRecord.data.message = record.data.message;
+
         var coalescedRecord = new WebInspector.TimelinePresentationModel.Record(this, rawRecord, null, null, null, false);
         var parent = record.parent;
 
@@ -767,7 +775,7 @@ WebInspector.TimelinePresentationModel.Record = function(presentationModel, reco
             this.webSocketProtocol = record.data["webSocketProtocol"];
         presentationModel._webSocketCreateRecords[record.data["identifier"]] = this;
         break;
-   
+
     case recordTypes.WebSocketSendHandshakeRequest:
     case recordTypes.WebSocketReceiveHandshakeResponse:
     case recordTypes.WebSocketDestroy:
@@ -1082,7 +1090,9 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
                 }
                 // Fall-through intended.
 
+            case recordTypes.PaintSetup:
             case recordTypes.Rasterize:
+            case recordTypes.ScrollLayer:
                 if (this._relatedNode)
                     contentHelper.appendElementRow(WebInspector.UIString("Layer root"), this._createNodeAnchor(this._relatedNode));
                 break;
@@ -1138,7 +1148,7 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
             if (this.usedHeapSizeDelta) {
                 var sign = this.usedHeapSizeDelta > 0 ? "+" : "-";
                 contentHelper.appendTextRow(WebInspector.UIString("Used Heap Size"),
-                    WebInspector.UIString("%s (%s%s)", Number.bytesToString(this.usedHeapSize), sign, Number.bytesToString(this.usedHeapSizeDelta)));
+                    WebInspector.UIString("%s (%s%s)", Number.bytesToString(this.usedHeapSize), sign, Number.bytesToString(Math.abs(this.usedHeapSizeDelta))));
             } else if (this.category === WebInspector.TimelinePresentationModel.categories().scripting)
                 contentHelper.appendTextRow(WebInspector.UIString("Used Heap Size"), Number.bytesToString(this.usedHeapSize));
         }
@@ -1259,7 +1269,6 @@ WebInspector.TimelinePresentationModel.Record.prototype = {
             break;
         case WebInspector.TimelineModel.RecordType.Time:
         case WebInspector.TimelineModel.RecordType.TimeEnd:
-        case WebInspector.TimelineModel.RecordType.TimeStamp:
             details = this.data["message"];
             break;
         default:
@@ -1449,6 +1458,22 @@ WebInspector.TimelinePresentationModel.createStyleRuleForCategory = function(cat
        category.fillColorStop0 + ", " + category.fillColorStop1 + " 25%, " + category.fillColorStop1 + " 25%, " + category.fillColorStop1 + ");" +
        " border-color: " + category.borderColor +
        "}";
+}
+
+
+/**
+ * @param {Object} rawRecord
+ * @return {string?}
+ */
+WebInspector.TimelinePresentationModel.coalescingKeyForRecord = function(rawRecord)
+{
+    var recordTypes = WebInspector.TimelineModel.RecordType;
+    switch (rawRecord.type)
+    {
+    case recordTypes.EventDispatch: return rawRecord.data["type"];
+    case recordTypes.TimeStamp: return rawRecord.data["message"];
+    default: return null;
+    }
 }
 
 /**

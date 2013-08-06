@@ -60,8 +60,8 @@
 .data-grid td.corner,
 .data-grid col.corner {
     width: 14px;
-    padding-right: 0px;
-    padding-left: 0px;
+    padding-right: 0;
+    padding-left: 0;
     border-right: 0 none transparent !important;
 }
 
@@ -111,7 +111,8 @@
     -webkit-user-select: text;
 }
 
-.data-grid td > div, .data-grid th > div {
+.data-grid td > div,
+.data-grid th > div {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -136,7 +137,8 @@
 .data-grid th.sortable:active {
     background-image: url(Images/glossyHeaderPressed.png);
 }
-.data-grid th.sort-ascending, .data-grid th.sort-descending {
+.data-grid th.sort-ascending,
+.data-grid th.sort-descending {
     border-right: 1px solid rgb(107, 140, 196);
     border-bottom: 1px solid rgb(107, 140, 196);
     background-image: url(Images/glossyHeaderSelected.png);
@@ -166,7 +168,7 @@
 .data-grid th.sort-descending > div::after {
     background-image: url(Images/statusbarButtonGlyphs2x.png);
 }
-}
+} /* media */
 
 .data-grid th.sort-ascending > div::after {
     background-position: -4px -108px;
@@ -181,7 +183,8 @@
     color: inherit;
 }
 
-body.inactive .data-grid th.sort-ascending, body.inactive .data-grid th.sort-descending {
+body.inactive .data-grid th.sort-ascending,
+body.inactive .data-grid th.sort-descending {
     background-image: url(Images/glossyHeader.png);
     border-right: 1px solid rgb(179, 179, 179);
     border-bottom: 1px solid rgb(179, 179, 179);
@@ -209,7 +212,7 @@ body.inactive .data-grid th.sort-ascending, body.inactive .data-grid th.sort-des
 .data-grid tr.parent td.disclosure::before {
     -webkit-mask-image: url(Images/statusbarButtonGlyphs2x.png);
 }
-}
+} /* media */
 
 .data-grid tr.expanded td.disclosure::before {
     -webkit-mask-position: -20px -96px;

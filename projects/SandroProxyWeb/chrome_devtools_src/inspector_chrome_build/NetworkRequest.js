@@ -58,6 +58,8 @@ WebInspector.NetworkRequest = function(requestId, url, documentURL, frameId, loa
     this._contentEncoded = false;
     this._pendingContentCallbacks = [];
     this._frames = [];
+
+    this._responseHeaderValues = {};
 }
 
 WebInspector.NetworkRequest.Events = {
@@ -236,12 +238,12 @@ WebInspector.NetworkRequest.prototype = {
      */
     get transferSize()
     {
-        if (this.cached)
-            return 0;
+        if (typeof this._transferSize === "number")
+            return this._transferSize;
         if (this.statusCode === 304) // Not modified
             return this.responseHeadersSize;
-        if (this._transferSize !== undefined)
-            return this._transferSize;
+        if (this._cached)
+            return 0;
         // If we did not receive actual transfer size from network
         // stack, we prefer using Content-Length over resourceSize as
         // resourceSize may differ from actual transfer size if platform's
@@ -317,7 +319,7 @@ WebInspector.NetworkRequest.prototype = {
      */
     get cached()
     {
-        return this._cached;
+        return this._cached && !this._transferSize;
     },
 
     set cached(x)
@@ -573,6 +575,7 @@ WebInspector.NetworkRequest.prototype = {
         this._responseHeaders = x;
         delete this._sortedResponseHeaders;
         delete this._responseCookies;
+        this._responseHeaderValues = {};
 
         this.dispatchEventToListeners(WebInspector.NetworkRequest.Events.ResponseHeadersChanged);
     },
@@ -625,7 +628,12 @@ WebInspector.NetworkRequest.prototype = {
      */
     responseHeaderValue: function(headerName)
     {
-        return this._headerValue(this.responseHeaders, headerName);
+        var value = this._responseHeaderValues[headerName];
+        if (value === undefined) {
+            value = this._headerValue(this.responseHeaders, headerName);
+            this._responseHeaderValues[headerName] = (value !== undefined) ? value : null;
+        }
+        return (value !== null) ? value : undefined;
     },
 
     /**
