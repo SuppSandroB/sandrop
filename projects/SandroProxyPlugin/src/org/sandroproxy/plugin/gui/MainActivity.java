@@ -3,10 +3,8 @@ package org.sandroproxy.plugin.gui;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -18,6 +16,7 @@ import org.sandrop.webscarab.plugin.proxy.ProxyPlugin;
 import org.sandroproxy.logger.Logger;
 import org.sandroproxy.plugin.R;
 import org.sandroproxy.proxy.plugin.CustomPlugin;
+import org.sandroproxy.utils.NetworkHostNameResolver;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
@@ -28,7 +27,6 @@ import android.preference.PreferenceManager;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnLongClickListener;
@@ -54,6 +52,8 @@ public class MainActivity extends Activity {
     private static String mLogWindowMessage = "";
     
     private static boolean mInitChecked = false;
+    
+    NetworkHostNameResolver networkHostNameResolver = null;
     
     private java.util.logging.Logger logger = java.util.logging.Logger.getLogger(getClass().getName());
 
@@ -81,7 +81,8 @@ public class MainActivity extends Activity {
                             }
                             framework = new Framework(getApplicationContext());
                             setStore(getApplicationContext());
-                            Proxy proxy = new Proxy(framework, null, null);
+                            networkHostNameResolver = new NetworkHostNameResolver(getApplicationContext());
+                            Proxy proxy = new Proxy(framework, networkHostNameResolver, null);
                             framework.addPlugin(proxy);
                             if (true){
                                 ProxyPlugin plugin = new CustomPlugin();
@@ -105,6 +106,10 @@ public class MainActivity extends Activity {
                             if (framework != null){
                                 framework.stop();
                             }
+                            if (networkHostNameResolver != null){
+                                networkHostNameResolver.cleanUp();
+                            }
+                            networkHostNameResolver = null;
                             framework = null;
                             proxyStarted = false;
                         }
