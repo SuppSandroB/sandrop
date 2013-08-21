@@ -3,6 +3,7 @@ package org.sandroproxy.plugin.gui;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,13 +21,20 @@ import org.sandroproxy.utils.NetworkHostNameResolver;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MenuItem.OnMenuItemClickListener;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnLongClickListener;
@@ -37,8 +45,8 @@ import android.widget.ToggleButton;
 public class MainActivity extends Activity {
     
     private static Framework framework = null;
-    // private static String TAG = MainActivity.class.getName();
-    // private static boolean LOGD = false;
+    private static String TAG = MainActivity.class.getName();
+    private static boolean LOGD = false;
     
     
     public static boolean proxyStarted = false;
@@ -55,7 +63,10 @@ public class MainActivity extends Activity {
     
     NetworkHostNameResolver networkHostNameResolver = null;
     
-    private java.util.logging.Logger logger = java.util.logging.Logger.getLogger(getClass().getName());
+    private static String ACTION_INSTALL = "android.credentials.INSTALL";
+    private static String EXTRA_CERTIFICATE = "CERT";
+    
+    private static java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainActivity.class.getName());
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -163,6 +174,116 @@ public class MainActivity extends Activity {
         mLogView.setText(mLogWindowMessage);
     }
     
+    @Override 
+    public boolean onCreateOptionsMenu(Menu menu) {
+        
+        // export ca to android store
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH){
+            MenuItem itemIpTablesClear = menu.add("Export CA to store");
+            itemIpTablesClear.setIcon(R.drawable.ic_menu_set_as);
+            itemIpTablesClear.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+            final Context context = this;
+            itemIpTablesClear.setOnMenuItemClickListener(new OnMenuItemClickListener() {
+                @Override
+                public boolean onMenuItemClick(MenuItem item) {
+                    AsyncTask<Void, Void, Void> exportCaToStoreTask = new AsyncTask<Void, Void, Void>(){
+                        @Override
+                        protected Void doInBackground(Void... params) {
+                            exportCACertToUserStore(context);
+                            return null;
+                        }
+                    };
+                    exportCaToStoreTask.execute((Void[])null);
+                    return true;
+                }
+            });
+        }
+        // clear iptables
+        if (isDeviceRooted()){
+            MenuItem itemIpTablesClear = menu.add("Clear iptables");
+            itemIpTablesClear.setIcon(R.drawable.ic_menu_compass);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB){
+                itemIpTablesClear.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+            }
+            itemIpTablesClear.setOnMenuItemClickListener(new OnMenuItemClickListener() {
+                @Override
+                public boolean onMenuItemClick(MenuItem item) {
+                    AsyncTask<Void, Void, Void> exportCaToStoreTask = new AsyncTask<Void, Void, Void>(){
+                        @Override
+                        protected Void doInBackground(Void... params) {
+                            ipTablesForTransparentProxy(false);
+                            return null;
+                        }
+                    };
+                    exportCaToStoreTask.execute((Void[])null);
+                    return true;
+                }
+            });
+        }
+        
+        // clear captured data
+        MenuItem itemDelete = menu.add("Delete captured data");
+        itemDelete.setIcon(R.drawable.ic_menu_clear_playlist);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB){
+            itemDelete.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        }
+        itemDelete.setOnMenuItemClickListener(new OnMenuItemClickListener() {
+            
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                AsyncTask<Void, Void, Boolean> deleteData = new AsyncTask<Void, Void, Boolean>(){
+                    @Override
+                    protected Boolean doInBackground(Void... params) {
+                        File file = PreferenceUtils.getDataStorageDir(getApplicationContext());
+                        String rootDirName = null;
+                        if (file != null){
+                            rootDirName = file.getAbsolutePath() + "/content";
+                        }
+                        File rootDir = new File(rootDirName);
+                        File[] contentFiles = null;
+                        if (file.exists()) {
+                            // we create file list before we delete database
+                            contentFiles = rootDir.listFiles();
+                        }
+                        SqlLiteStore database = SqlLiteStore.getInstance(getApplicationContext(), rootDirName);
+                        database.clearHttpDatabase();
+                        
+                        DeleteFilesThread deleteFilesThread = new DeleteFilesThread(contentFiles);
+                        deleteFilesThread.start();
+                        
+                        return true;
+                    }
+                    @Override protected void onPostExecute(Boolean result) {
+                    }
+                };
+                deleteData.execute((Void[])null);
+                return true;
+            }
+            
+        });
+        
+        return true;
+    }
+    
+    private class DeleteFilesThread extends Thread{
+        private File[] filesToDelete;
+        public DeleteFilesThread(File[] files){
+            filesToDelete = files;
+        }
+        
+        public void run() {
+            if (filesToDelete != null){
+                for (File contentFile : filesToDelete) {
+                    try{
+                        contentFile.delete();
+                        logger.finest("File deleted: " + contentFile.getAbsolutePath());
+                    }catch (Exception ex){
+                        Log.e(TAG, ex.getMessage());
+                    }
+                }
+            }
+        }
+    }
     
     public static void setStore(Context context){
         if (framework != null){
@@ -179,6 +300,27 @@ public class MainActivity extends Activity {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
+        }
+    }
+    
+    /*
+     *  this will work only on sdk 14 or higher
+     */
+    public static void exportCACertToUserStore(Context context){
+        
+        Intent intent = new Intent(ACTION_INSTALL);
+        intent.setClassName("com.android.certinstaller","com.android.certinstaller.CertInstallerMain");
+        try {
+            String keystoreCAExportFullPath = PreferenceUtils.getCAExportFilePath(context.getApplicationContext());
+            File caExportFile = new File(keystoreCAExportFullPath);
+            byte[] result = new byte[(int) caExportFile.length()];
+            FileInputStream in = new FileInputStream(caExportFile);
+            in.read(result);
+            in.close();
+            intent.putExtra(EXTRA_CERTIFICATE, result);
+            context.startActivity(intent);
+        }catch (Exception ex){
+            ex.printStackTrace();
         }
     }
     
