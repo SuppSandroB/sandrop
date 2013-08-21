@@ -55,7 +55,7 @@ import org.sandrop.webscarab.util.HtmlEncoder;
 import android.util.Log;
 
 public class ConnectionHandler implements Runnable {
-
+    
     private ProxyPlugin[] _plugins = null;
     private Proxy _proxy;
     private Socket _sock = null;
