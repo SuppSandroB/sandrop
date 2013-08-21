@@ -341,5 +341,10 @@ public class MainActivity extends Activity {
             pref.edit().putBoolean(PreferenceUtils.proxyTransparentKey, true).commit();
         }
         
+        // capture data to database
+        boolean proxyCaptureData = pref.getBoolean(PreferenceUtils.proxyCaptureData, false);
+        if (!proxyCaptureData){
+            pref.edit().putBoolean(PreferenceUtils.proxyCaptureData, true).commit();
+        }
     }
 }
