@@ -122,7 +122,10 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                       // sslsocket.setEnabledProtocols(new String[] {"SSLv3"});
                       sslsocket.setUseClientMode(true);
                       OutputStream os = sslsocket.getOutputStream();
+                      if (LOGD) Log.d(TAG, "Creating ssl session " + siteDataCurrent.tcpAddress + " on port:" + siteDataCurrent.destPort);
+                      sslsocket.getSession();
                       // TODO what would be more appropriate to send to server...
+                      if (LOGD) Log.d(TAG, "Sending http get request " + siteDataCurrent.tcpAddress + " on port:" + siteDataCurrent.destPort);
                       os.write("GET / HTTP1.0\n\n".getBytes());
                   }else{
                       SiteData siteDataCached = ipPortSiteData.get(siteDataCurrent.tcpAddress + ":" + siteDataCurrent.destPort);
