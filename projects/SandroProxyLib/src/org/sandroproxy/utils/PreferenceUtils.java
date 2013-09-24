@@ -66,8 +66,16 @@ public class PreferenceUtils {
     public static String chainProxyPassword = "preference_chain_proxy_password";
     
     public static String localDomainName = "preference_local_domain_name";
-    
+
     public static String ssTrustAllManager = "preference_ssl_trust_all_manager";
+
+    // dns proxy stuff
+    public static String dnsProxyEnabledKey = "preference_dns_proxy_key_onoff";
+    public static String dnsProxyEnabledActiveKey = "preference_dns_proxy_key_onoff_active";
+    public static String dnsProxyProviderKey = "preference_dns_proxy_provider_list_key";
+    public static String dnsProxyPortKey = "preference_dns_proxy_port_key";
+    public static String dnsProxyPortActiveKey = "preference_dns_proxy_port_key_active";
+    
     
     
     public static String getProxyPort(Context context){
@@ -179,5 +187,41 @@ public class PreferenceUtils {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         pref.edit().putBoolean(proxyCustomPluginKeyActiveSetting, value).commit();
     }
+    
+    public static boolean isDnsProxySelected(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getBoolean(dnsProxyEnabledKey, false);
+    }
+    
+    public static boolean isDnsProxyActive(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getBoolean(dnsProxyEnabledActiveKey, false);
+    }
+    
+    public static void setDnsProxyActive(Context context, boolean value){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putBoolean(dnsProxyEnabledActiveKey, value).commit();
+    }
+    
+    public static String getDnsProxyProvider(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyProviderKey, null);
+    }
+    
+    public static String getDnsProxyPortSelected(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyPortKey, "8053");
+    }
+    
+    public static String getDnsProxyPortActive(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyPortActiveKey, "8053");
+    }
+    
+    public static void setDnsProxyPortActive(Context context, String port){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putString(dnsProxyPortActiveKey, port).commit();
+    }
+    
 
 }
