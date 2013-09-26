@@ -16,18 +16,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.proxydroid.db.DNSResponse;
-import org.proxydroid.db.DatabaseHelper;
-import org.proxydroid.utils.Base64;
 
 import android.content.Context;
 import android.util.Log;
-
-import com.github.droidfu.http.BetterHttp;
-import com.github.droidfu.http.BetterHttpRequest;
-import com.github.droidfu.http.BetterHttpResponse;
-import com.j256.ormlite.android.apptools.OpenHelperManager;
-import com.j256.ormlite.dao.Dao;
 
 /**
  * DNS Proxy
@@ -123,19 +114,19 @@ public class DNSProxy implements Runnable {
    * @param answer fake answer
    */
   private synchronized void addToCache(String questDomainName, byte[] answer) {
-    DNSResponse response = new DNSResponse(questDomainName);
+    DNSResponseDto response = new DNSResponseDto(questDomainName);
     response.setDNSResponse(answer);
     try {
-      Dao<DNSResponse, String> dnsCacheDao = helper.getDNSCacheDao();
+      Dao<DNSResponseSto, String> dnsCacheDao = helper.getDNSCacheDao();
       dnsCacheDao.createOrUpdate(response);
     } catch (Exception e) {
       Log.e(TAG, "Cannot open DAO", e);
     }
   }
 
-  private synchronized DNSResponse queryFromCache(String questDomainName) {
+  private synchronized DNSResponseDto queryFromCache(String questDomainName) {
     try {
-      Dao<DNSResponse, String> dnsCacheDao = helper.getDNSCacheDao();
+      Dao<DNSResponseSto, String> dnsCacheDao = helper.getDNSCacheDao();
       return dnsCacheDao.queryForId(questDomainName);
     } catch (Exception e) {
       Log.e(TAG, "Cannot open DAO", e);
@@ -239,9 +230,9 @@ public class DNSProxy implements Runnable {
    */
   private void loadCache() {
     try {
-      Dao<DNSResponse, String> dnsCacheDao = helper.getDNSCacheDao();
-      List<DNSResponse> list = dnsCacheDao.queryForAll();
-      for (DNSResponse resp : list) {
+      Dao<DNSResponseDto, String> dnsCacheDao = helper.getDNSCacheDao();
+      List<DNSResponseDto> list = dnsCacheDao.queryForAll();
+      for (DNSResponseDto resp : list) {
         // expire after 3 days
         if ((System.currentTimeMillis() - resp.getTimestamp()) > 259200000L) {
           Log.d(TAG, "deleted: " + resp.getRequest());
@@ -346,7 +337,7 @@ public class DNSProxy implements Runnable {
 
         Log.d(TAG, "Resolving: " + questDomain);
 
-        DNSResponse resp = queryFromCache(questDomain);
+        DNSResponseDto resp = queryFromCache(questDomain);
 
         if (resp != null) {
 
