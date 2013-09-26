@@ -5,6 +5,7 @@ import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +28,7 @@ import org.sandrop.webscarab.plugin.spider.SpiderStore;
 import org.sandrop.websockets.WebSocketChannelDTO;
 import org.sandrop.websockets.WebSocketMessage;
 import org.sandrop.websockets.WebSocketMessageDTO;
+import org.sandroproxy.utils.DNSResponseDto;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -48,7 +50,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     protected static final boolean LOGD = false;
     
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
     
     private static SqlLiteStore mInstance = null;
     
@@ -73,6 +75,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     public static final int TABLE_SOCKET_CHANNEL = 7;
     public static final int TABLE_SOCKET_MESSAGE = 8;
+    
+    public static final int TABLE_DNS_RESPONSES = 9;
     
     // column id strings for "_id" which can be used by any table
     public static final String ID_COL = "_id";
@@ -181,6 +185,13 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String SOCKET_MSG_CHANNEL_ID = "channel_id";
     public static final String SOCKET_MSG_HANDSHAKE_ID = "handshake_id";
     
+    // dns responses
+    public static final String DNS_RESPONSE_UNIQUE_ID = ID_COL;
+    public static final String DNS_RESPONSE_PROVIDER_ID = "provider_id";
+    public static final String DNS_RESPONSE_REQUEST = "request";
+    public static final String DNS_RESPONSE_TS = "timestamp";
+    public static final String DNS_RESPONSE_REQUESTS_NR = "req_times";
+    public static final String DNS_RESPONSE_RESPONSE_BLOB = "response_data";
     
     public static final int CONTENT_PARENT_TYPE_REQUEST = 0;
     public static final int CONTENT_PARENT_TYPE_RESPONSE = 1;
@@ -230,6 +241,18 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         return mFirstTableCreation;
     }
     
+    
+    private static void createDnsTable(){
+     // conversation
+        mDatabase.execSQL("CREATE TABLE " + mTableNames[TABLE_DNS_RESPONSES]
+                + " (" + DNS_RESPONSE_UNIQUE_ID + " INTEGER PRIMARY KEY, "
+                + DNS_RESPONSE_PROVIDER_ID + " TEXT, "
+                + DNS_RESPONSE_REQUEST + " TEXT, "
+                + DNS_RESPONSE_TS + " INTEGER, "
+                + DNS_RESPONSE_REQUESTS_NR + " INTEGER, "
+                + DNS_RESPONSE_RESPONSE_BLOB + " BLOB"
+                + ");");
+    }
     
     private static void upgradeHtmlTables1(){
         mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_COVERSATION_ID]
@@ -483,6 +506,12 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                     + DATABASE_VERSION);
             upgradeHtmlTables1();
         }
+        if (oldVersion < 4){
+            Log.i(LOGTAG, "Upgrading database from version "
+                    + oldVersion + " to "
+                    + DATABASE_VERSION);
+            createDnsTable();
+        }
         mDatabase.setVersion(DATABASE_VERSION);
     }
 
@@ -573,6 +602,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     }
     
     
+    
+    
     public List<WebSocketChannelDTO> getSocketChannels(Long dateFrom, Long dateTo, String url, String port, String orderBy){
         List<WebSocketChannelDTO> list = new ArrayList<WebSocketChannelDTO>();
         Cursor cs = null;
@@ -605,6 +636,46 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             
         }
         return channelList;
+    }
+    
+    private Map<String, DNSResponseDto> buildDnsResponseDTOs(Cursor cs){
+        Map<String, DNSResponseDto> responses = new HashMap<String, DNSResponseDto>();
+        while (cs.moveToNext()) {
+            String request = cs.getString(cs.getColumnIndex(DNS_RESPONSE_REQUEST));
+            long timestamp = cs.getLong(cs.getColumnIndex(DNS_RESPONSE_TS));
+            byte[] responseBlob = cs.getBlob(cs.getColumnIndex(DNS_RESPONSE_RESPONSE_BLOB));
+            String providerId = cs.getString(cs.getColumnIndex(DNS_RESPONSE_PROVIDER_ID));
+            int reqTimes = cs.getInt(cs.getColumnIndex(DNS_RESPONSE_REQUESTS_NR));
+            DNSResponseDto response = new DNSResponseDto(request, timestamp, providerId, responseBlob, reqTimes);
+            response.setDNSResponse(responseBlob);
+            responses.put(request, response);
+        }
+        return responses;
+    }
+    
+    public void insertDnsResponse(DNSResponseDto dnsResponseDto) throws Exception {
+        ContentValues dnsVal = new ContentValues();
+        dnsVal.put(DNS_RESPONSE_REQUEST, dnsResponseDto.getRequest());
+        dnsVal.put(DNS_RESPONSE_TS, dnsResponseDto.getTimestamp());
+        dnsVal.put(DNS_RESPONSE_REQUESTS_NR, dnsResponseDto.getReqTimes());
+        dnsVal.put(DNS_RESPONSE_RESPONSE_BLOB, dnsResponseDto.getDNSResponse());
+        dnsVal.put(DNS_RESPONSE_PROVIDER_ID, dnsResponseDto.getProviderId());
+        mDatabase.insertOrThrow(mTableNames[TABLE_DNS_RESPONSES], null, dnsVal);
+    }
+    
+    public Map<String, DNSResponseDto> getDnsResponses(){
+        Map<String, DNSResponseDto> responseList = new HashMap<String, DNSResponseDto>();
+        Cursor cs = mDatabase.query(mTableNames[TABLE_DNS_RESPONSES], null, null, null, null, null, null);
+        if (cs != null){
+            try{
+                return buildDnsResponseDTOs(cs);
+            } catch (Exception ex){
+                ex.printStackTrace();
+            } finally{
+                cs.close();
+            }
+        }
+        return responseList;
     }
     
     private WebSocketMessageDTO buildChannelMessagesDTO(Cursor cs, WebSocketChannelDTO channel){

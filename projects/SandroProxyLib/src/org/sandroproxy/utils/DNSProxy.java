@@ -13,8 +13,11 @@ import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 
 import android.content.Context;
@@ -42,7 +45,7 @@ public class DNSProxy implements Runnable {
   private final static int MAX_THREAD_NUM = 5;
   private final ExecutorService mThreadPool = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 
-  public HashSet<String> domains;
+  Map<String, DNSResponseDto> dnsCache;
 
   private DatagramSocket srvSocket;
 
@@ -64,7 +67,7 @@ public class DNSProxy implements Runnable {
 
   private static final String CANT_RESOLVE = "Error";
 
-  private DatabaseHelper helper;
+  private SqlLiteStore database;
 
 
   public DNSProxy(Context ctx, int port) {
@@ -74,15 +77,9 @@ public class DNSProxy implements Runnable {
     BetterHttp.setupHttpClient();
     BetterHttp.setSocketTimeout(10 * 1000);
 
-    domains = new HashSet<String>();
-
-    OpenHelperManager.setOpenHelperClass(DatabaseHelper.class);
-
-    if (helper == null) {
-      helper = OpenHelperManager.getHelper(ctx,
-          DatabaseHelper.class);
-    }
-
+    database = SqlLiteStore.getInstance(ctx, null);
+    dnsCache = database.getDnsResponses();
+    
     try {
       InetAddress addr = InetAddress.getByName("mail.google.com");
       dnsRelay = addr.getHostAddress();
@@ -117,30 +114,26 @@ public class DNSProxy implements Runnable {
     DNSResponseDto response = new DNSResponseDto(questDomainName);
     response.setDNSResponse(answer);
     try {
-      Dao<DNSResponseSto, String> dnsCacheDao = helper.getDNSCacheDao();
-      dnsCacheDao.createOrUpdate(response);
+      if (!dnsCache.containsKey(questDomainName)){
+          dnsCache.put(questDomainName, response);
+          database.insertDnsResponse(response);
+      }
     } catch (Exception e) {
-      Log.e(TAG, "Cannot open DAO", e);
+      Log.e(TAG, "Cannot update dns cache or database", e);
     }
   }
 
   private synchronized DNSResponseDto queryFromCache(String questDomainName) {
-    try {
-      Dao<DNSResponseSto, String> dnsCacheDao = helper.getDNSCacheDao();
-      return dnsCacheDao.queryForId(questDomainName);
-    } catch (Exception e) {
-      Log.e(TAG, "Cannot open DAO", e);
+    if (dnsCache.containsKey(questDomainName)){
+        return dnsCache.get(questDomainName);
+    }else{
+        return null;
     }
-    return null;
   }
 
   public void close() throws IOException {
     inService = false;
     srvSocket.close();
-    if (helper != null) {
-      OpenHelperManager.releaseHelper();
-      helper = null;
-    }
     Log.i(TAG, "DNS Proxy closed");
   }
 
@@ -230,13 +223,11 @@ public class DNSProxy implements Runnable {
    */
   private void loadCache() {
     try {
-      Dao<DNSResponseDto, String> dnsCacheDao = helper.getDNSCacheDao();
-      List<DNSResponseDto> list = dnsCacheDao.queryForAll();
-      for (DNSResponseDto resp : list) {
+      for (DNSResponseDto resp : dnsCache.values()) {
         // expire after 3 days
         if ((System.currentTimeMillis() - resp.getTimestamp()) > 259200000L) {
           Log.d(TAG, "deleted: " + resp.getRequest());
-          dnsCacheDao.delete(resp);
+          // TODO make delete works  dnsCacheDao.delete(resp);
         }
       }
     } catch (Exception e) {
@@ -352,14 +343,10 @@ public class DNSProxy implements Runnable {
           sendDns(answer, dnsq, srvSocket);
           Log.d(TAG, "Custom DNS resolver gaednsproxy1.appspot.com");
         } else {
-
           synchronized (this) {
-            if (domains.contains(questDomain))
+            if (dnsCache.containsKey(questDomain))
               continue;
-            else
-              domains.add(questDomain);
           }
-
           Runnable runnable = new Runnable() {
             @Override
             public void run() {

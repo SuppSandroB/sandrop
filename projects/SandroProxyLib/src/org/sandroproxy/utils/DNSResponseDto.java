@@ -2,7 +2,7 @@ package org.sandroproxy.utils;
 
 public class DNSResponseDto {
     
-    
+    private String providerId;
     private String request;
     private long timestamp = System.currentTimeMillis();;
     private int reqTimes = 0;
@@ -10,6 +10,14 @@ public class DNSResponseDto {
     
     public DNSResponseDto(String request){
         this.request = request;
+    }
+    
+    public DNSResponseDto(String request, long timestamp, String providerId, byte[] response, int reqTimes){
+        this.request = request;
+        this.timestamp = timestamp;
+        this.providerId = providerId;
+        this.dnsResponse = response;
+        this.reqTimes = reqTimes;
     }
     
     public byte[] getDNSResponse(){
@@ -38,6 +46,13 @@ public class DNSResponseDto {
         }
 
         return ip;
+    }
+    
+    /**
+     * @return the providerId
+     */
+    public String getProviderId() {
+        return providerId;
     }
     
     /**
