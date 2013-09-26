@@ -8,6 +8,7 @@ import java.net.ConnectException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
@@ -17,6 +18,11 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.sandrop.webscarab.httpclient.HTTPClient;
+import org.sandrop.webscarab.httpclient.HTTPClientFactory;
+import org.sandrop.webscarab.model.HttpUrl;
+import org.sandrop.webscarab.model.Request;
+import org.sandrop.webscarab.model.Response;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 
@@ -73,9 +79,6 @@ public class DNSProxy implements Runnable {
   public DNSProxy(Context ctx, int port) {
 
     this.srvPort = port;
-
-    BetterHttp.setupHttpClient();
-    BetterHttp.setSocketTimeout(10 * 1000);
 
     database = SqlLiteStore.getInstance(ctx, null);
     dnsCache = database.getDnsResponses();
@@ -374,9 +377,6 @@ public class DNSProxy implements Runnable {
                 Log.e(TAG, "Failed to resolve " + questDomain
                     + ": " + e.getLocalizedMessage(), e);
               }
-              synchronized (DNSProxy.this) {
-                domains.remove(questDomain);
-              }
             }
           };
 
@@ -418,11 +418,15 @@ public class DNSProxy implements Runnable {
     String host = "gaednsproxy.appspot.com";
     url = url.replace(host, dnsRelay);
 
-    BetterHttpRequest conn = BetterHttp.get(url, host);
-
     try {
-      BetterHttpResponse resp = conn.send();
-      is = resp.getResponseBody();
+      HttpUrl base = new HttpUrl(url);
+      Request request = new Request();
+      request.setMethod("GET");
+      request.setURL(base);
+      request.setNoBody();
+      HTTPClient httpClient = HTTPClientFactory.getValidInstance().getHTTPClient();
+      Response response = httpClient.fetchResponse(request);
+      is = response.getContentStream();;
       BufferedReader br = new BufferedReader(new InputStreamReader(is));
       ip = br.readLine();
     } catch (ConnectException e) {
