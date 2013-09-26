@@ -61,7 +61,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     private Map<String, IStoreEventListener> listOfEventListeners = new LinkedHashMap<String, IStoreEventListener>();
     
     public static final String mTableNames[] = {
-        "conversation", "request", "response", "content", "headers", "cookies", "urls", "websocket_channel", "websocket_message"
+        "conversation", "request", "response", "content", "headers", "cookies", "urls", "websocket_channel", "websocket_message", "dns_responses"
     };
     
     // Table ids (they are index to mTableNames)

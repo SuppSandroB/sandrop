@@ -8,12 +8,9 @@ import java.net.ConnectException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,7 +29,7 @@ import android.util.Log;
 /**
  * DNS Proxy
  *
- * @author biaji
+ * @original author biaji
  */
 public class DNSProxy implements Runnable {
 
@@ -46,7 +43,7 @@ public class DNSProxy implements Runnable {
     return targets;
   }
 
-  private final String TAG = "ProxyDroid";
+  private final String TAG = DNSProxy.class.getSimpleName();
 
   private final static int MAX_THREAD_NUM = 5;
   private final ExecutorService mThreadPool = Executors.newFixedThreadPool(MAX_THREAD_NUM);
@@ -69,7 +66,7 @@ public class DNSProxy implements Runnable {
   /**
    * DNS Proxy upper stream
    */
-  private String dnsRelay = "74.125.224.208";
+  private String dnsRelay = "173.194.70.141";
 
   private static final String CANT_RESOLVE = "Error";
 
@@ -83,12 +80,12 @@ public class DNSProxy implements Runnable {
     database = SqlLiteStore.getInstance(ctx, null);
     dnsCache = database.getDnsResponses();
     
-    try {
-      InetAddress addr = InetAddress.getByName("mail.google.com");
-      dnsRelay = addr.getHostAddress();
-    } catch (Exception ignore) {
-      dnsRelay = "74.125.224.208";
-    }
+//    try {
+//      InetAddress addr = InetAddress.getByName("mail.google.com");
+//      dnsRelay = addr.getHostAddress();
+//    } catch (Exception ignore) {
+//      dnsRelay = "173.194.70.141";
+//    }
 
   }
 
@@ -416,7 +413,7 @@ public class DNSProxy implements Runnable {
         .encodeBytesToBytes(domain.getBytes())));
     Log.d(TAG, "DNS Relay URL: " + url);
     String host = "gaednsproxy.appspot.com";
-    url = url.replace(host, dnsRelay);
+    // url = url.replace(host, dnsRelay);
 
     try {
       HttpUrl base = new HttpUrl(url);
@@ -429,12 +426,12 @@ public class DNSProxy implements Runnable {
       is = response.getContentStream();;
       BufferedReader br = new BufferedReader(new InputStreamReader(is));
       ip = br.readLine();
+      Log.d(TAG, "ip retrived is " + ip);
     } catch (ConnectException e) {
       Log.e(TAG, "Failed to request URI: " + url, e);
     } catch (IOException e) {
       Log.e(TAG, "Failed to request URI: " + url, e);
     }
-
     return ip;
   }
 
