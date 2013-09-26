@@ -957,6 +957,14 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         }
     }
     
+    public void clearDnsProxyDatabase(){
+        // clear all tables
+        synchronized (mConversationLock) {
+            String where = "1";
+            mDatabase.delete(mTableNames[TABLE_DNS_RESPONSES], where, null);
+        }
+    }
+    
     private long addContent(long id, Message message, int contentParentType, String fileName) throws Exception{
         ContentValues reqContentCV = new ContentValues();
         reqContentCV.put(CONTENT_PARENT_ID, id);
@@ -1453,6 +1461,17 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
             if (cs != null) cs.close();
         }
         return null;
+    }
+    
+    public long deleteDnsProxyResponse(String request){
+        long result = 0;
+        try{
+            String where = DNS_RESPONSE_REQUEST + " = ?";
+            String[] args = new String[] {String.valueOf(request)};
+            result = mDatabase.delete(mTableNames[TABLE_DNS_RESPONSES], where, args);
+        } finally{
+        }
+        return result;
     }
     
     @Override

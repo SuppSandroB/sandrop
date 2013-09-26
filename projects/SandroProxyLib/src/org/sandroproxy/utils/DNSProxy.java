@@ -14,10 +14,13 @@ import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.httpclient.HTTPClientFactory;
 import org.sandrop.webscarab.model.HttpUrl;
+import org.sandrop.webscarab.model.NamedValue;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
@@ -32,6 +35,8 @@ import android.util.Log;
  * @original author biaji
  */
 public class DNSProxy implements Runnable {
+    
+  private static Logger _logger = Logger.getLogger(DNSProxy.class.getName());
 
   public static byte[] int2byte(int res) {
     byte[] targets = new byte[4];
@@ -66,7 +71,8 @@ public class DNSProxy implements Runnable {
   /**
    * DNS Proxy upper stream
    */
-  private String dnsRelay = "173.194.70.141";
+  private String dnsRelayGae = "173.194.70.141";
+  private String dnsRelayPingEu = "88.198.46.60";
 
   private static final String CANT_RESOLVE = "Error";
 
@@ -76,30 +82,23 @@ public class DNSProxy implements Runnable {
   public DNSProxy(Context ctx, int port) {
 
     this.srvPort = port;
-
+    _logger.setLevel(Level.FINEST);
     database = SqlLiteStore.getInstance(ctx, null);
-    dnsCache = database.getDnsResponses();
-    
-//    try {
-//      InetAddress addr = InetAddress.getByName("mail.google.com");
-//      dnsRelay = addr.getHostAddress();
-//    } catch (Exception ignore) {
-//      dnsRelay = "173.194.70.141";
-//    }
-
   }
 
-  public int init() {
+  public int init() throws Exception {
     try {
-      srvSocket = new DatagramSocket(0,
+      srvSocket = new DatagramSocket(srvPort,
           InetAddress.getByName("127.0.0.1"));
       inService = true;
       srvPort = srvSocket.getLocalPort();
       Log.e(TAG, "Start at port " + srvPort);
     } catch (SocketException e) {
       Log.e(TAG, "DNSProxy fail to init，port: " + srvPort, e);
+      throw e;
     } catch (UnknownHostException e) {
       Log.e(TAG, "DNSProxy fail to init，port " + srvPort, e);
+      throw e;
     }
     return srvPort;
   }
@@ -223,12 +222,21 @@ public class DNSProxy implements Runnable {
    */
   private void loadCache() {
     try {
-      for (DNSResponseDto resp : dnsCache.values()) {
-        // expire after 3 days
-        if ((System.currentTimeMillis() - resp.getTimestamp()) > 259200000L) {
-          Log.d(TAG, "deleted: " + resp.getRequest());
-          // TODO make delete works  dnsCacheDao.delete(resp);
-        }
+      dnsCache = database.getDnsResponses();
+      boolean refetch = false;
+      for (String  key : dnsCache.keySet()) {
+          DNSResponseDto resp = dnsCache.get(key);
+          // delete response after 3 days...
+//        if ((System.currentTimeMillis() - resp.getTimestamp()) > 0) {
+          if ((System.currentTimeMillis() - resp.getTimestamp()) > 259200000L) {
+              Log.d(TAG, "deleted: " + resp.getRequest());
+              _logger.finest("delete dns response for " + resp.getRequest());
+              database.deleteDnsProxyResponse(key);
+              refetch = true;
+          }
+      }
+      if (refetch){
+          dnsCache = database.getDnsResponses();
       }
     } catch (Exception e) {
       Log.e(TAG, "Cannot open DAO", e);
@@ -337,11 +345,18 @@ public class DNSProxy implements Runnable {
 
         } else if (questDomain.toLowerCase().endsWith(".appspot.com")) {
           // for appspot.com
-          byte[] ips = parseIPString(dnsRelay);
+          byte[] ips = parseIPString(dnsRelayGae);
           byte[] answer = createDNSResponse(udpreq, ips);
           addToCache(questDomain, answer);
           sendDns(answer, dnsq, srvSocket);
-          Log.d(TAG, "Custom DNS resolver gaednsproxy1.appspot.com");
+          Log.d(TAG, "Custom DNS resolver gaednsproxy.appspot.com");
+//        } else if (questDomain.toLowerCase().endsWith("ping.eu")) {
+//            // for appspot.com
+//            byte[] ips = parseIPString(dnsRelayPingEu);
+//            byte[] answer = createDNSResponse(udpreq, ips);
+//            addToCache(questDomain, answer);
+//            sendDns(answer, dnsq, srvSocket);
+//            Log.d(TAG, "Custom DNS resolver ping.eu");
         } else {
           synchronized (this) {
             if (dnsCache.containsKey(questDomain))
@@ -413,12 +428,13 @@ public class DNSProxy implements Runnable {
         .encodeBytesToBytes(domain.getBytes())));
     Log.d(TAG, "DNS Relay URL: " + url);
     String host = "gaednsproxy.appspot.com";
-    // url = url.replace(host, dnsRelay);
+    // url = url.replace(host, dnsRelayGae);
 
     try {
       HttpUrl base = new HttpUrl(url);
       Request request = new Request();
       request.setMethod("GET");
+      request.setHeader(new NamedValue("Host", "gaednsproxy.appspot.com"));
       request.setURL(base);
       request.setNoBody();
       HTTPClient httpClient = HTTPClientFactory.getValidInstance().getHTTPClient();
