@@ -69,10 +69,11 @@ public class DNSProxy implements Runnable {
   private boolean inService = false;
 
   /**
-   * DNS Proxy upper stream
+   * DNS Proxy upper stream ip's
    */
   private String dnsRelayGae = "173.194.70.141";
   private String dnsRelayPingEu = "88.198.46.60";
+  private String dnsRelayWwwIpCn = "216.157.85.151";
 
   private static final String CANT_RESOLVE = "Error";
 
@@ -121,10 +122,26 @@ public class DNSProxy implements Runnable {
       Log.e(TAG, "Cannot update dns cache or database", e);
     }
   }
+  
+  private boolean checkIfExpired(DNSResponseDto response){
+      // 3 days
+      if ((System.currentTimeMillis() - response.getTimestamp()) > 259200000L) {
+          return true;
+      }
+      return false;
+  }
 
   private synchronized DNSResponseDto queryFromCache(String questDomainName) {
     if (dnsCache.containsKey(questDomainName)){
-        return dnsCache.get(questDomainName);
+        DNSResponseDto response = dnsCache.get(questDomainName);
+        if (checkIfExpired(response)){
+            Log.d(TAG, "deleted: " + questDomainName);
+            _logger.finest("delete dns response for " + questDomainName);
+            dnsCache.remove(questDomainName);
+            database.deleteDnsProxyResponse(questDomainName);
+            return null;
+        }
+        return response;
     }else{
         return null;
     }
@@ -226,9 +243,7 @@ public class DNSProxy implements Runnable {
       boolean refetch = false;
       for (String  key : dnsCache.keySet()) {
           DNSResponseDto resp = dnsCache.get(key);
-          // delete response after 3 days...
-//        if ((System.currentTimeMillis() - resp.getTimestamp()) > 0) {
-          if ((System.currentTimeMillis() - resp.getTimestamp()) > 259200000L) {
+          if (checkIfExpired(resp)) {
               Log.d(TAG, "deleted: " + resp.getRequest());
               _logger.finest("delete dns response for " + resp.getRequest());
               database.deleteDnsProxyResponse(key);
