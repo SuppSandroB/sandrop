@@ -73,6 +73,7 @@ public class PreferenceUtils {
     public static String dnsProxyEnabledKey = "preference_dns_proxy_key_onoff";
     public static String dnsProxyEnabledActiveKey = "preference_dns_proxy_key_onoff_active";
     public static String dnsProxyProviderKey = "preference_dns_proxy_provider_list_key";
+    public static String dnsProxyProviderActiveKey = "preference_dns_proxy_provider_list_key_active";
     public static String dnsProxyPortKey = "preference_dns_proxy_port_key";
     public static String dnsProxyPortActiveKey = "preference_dns_proxy_port_key_active";
     
@@ -203,9 +204,25 @@ public class PreferenceUtils {
         pref.edit().putBoolean(dnsProxyEnabledActiveKey, value).commit();
     }
     
-    public static String getDnsProxyProvider(Context context){
+    public static String getDnsProxyProviderSelected(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         return pref.getString(dnsProxyProviderKey, null);
+    }
+    
+    public static String getDnsProxyProviderActive(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyProviderActiveKey, null);
+    }
+    
+    public static void setDnsProxyProviderActive(Context context, String providerId){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putString(dnsProxyProviderActiveKey, providerId).commit();
+    }
+    
+    public static boolean isDnsLocalProviderActive(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        String providerId = pref.getString(dnsProxyProviderActiveKey, ""); 
+        return providerId.equalsIgnoreCase("None");
     }
     
     public static String getDnsProxyPortSelected(Context context){
