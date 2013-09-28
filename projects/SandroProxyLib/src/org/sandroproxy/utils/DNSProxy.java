@@ -38,6 +38,8 @@ import android.util.Log;
 public class DNSProxy implements Runnable {
     
   private static Logger _logger = Logger.getLogger(DNSProxy.class.getName());
+  
+  private static boolean LOGD = true;
 
   public static byte[] int2byte(int res) {
     byte[] targets = new byte[4];
@@ -73,6 +75,10 @@ public class DNSProxy implements Runnable {
   /**
    * DNS Proxy upper stream ip's
    */
+  
+  private static String dnsRelayMyhostsSinappHostName = "myhosts.sinaapp.com";
+  private static String dnsRelayMyhostsSinappIp = "220.181.136.37";
+      
   private static String dnsRelayGeaHostName = "gaednsproxy.appspot.com";
   private static String dnsRelayGaeIp = "173.194.70.141";
   
@@ -107,6 +113,10 @@ public class DNSProxy implements Runnable {
     } else if (providerId.equalsIgnoreCase(dnsRelayWwwIpCnHostName)){
         dnsRelayHostName = dnsRelayWwwIpCnHostName;
         dnsRelayIp = dnsRelayWwwIpCnIp;
+        localProvider = false;
+    } else if (providerId.equalsIgnoreCase(dnsRelayMyhostsSinappHostName)){
+        dnsRelayHostName = dnsRelayMyhostsSinappHostName;
+        dnsRelayIp = dnsRelayMyhostsSinappIp;
         localProvider = false;
     }
     _logger.setLevel(Level.FINEST);
@@ -161,7 +171,7 @@ public class DNSProxy implements Runnable {
     if (dnsCache.containsKey(questDomainName)){
         DNSResponseDto response = dnsCache.get(questDomainName);
         if (checkIfExpired(response)){
-            Log.d(TAG, "deleted: " + questDomainName);
+            if (LOGD) Log.d(TAG, "deleted: " + questDomainName);
             _logger.finest("delete dns response for " + questDomainName);
             dnsCache.remove(questDomainName);
             database.deleteDnsProxyResponse(questDomainName);
@@ -176,7 +186,7 @@ public class DNSProxy implements Runnable {
   public void close() throws IOException {
     inService = false;
     srvSocket.close();
-    Log.i(TAG, "DNS Proxy closed");
+    if (LOGD) Log.i(TAG, "DNS Proxy closed");
   }
 
   /*
@@ -223,7 +233,7 @@ public class DNSProxy implements Runnable {
 
     byte[] result = new byte[start];
     System.arraycopy(response, 0, result, 0, start);
-    Log.d(TAG, "DNS Response package size: " + start);
+    if (LOGD) Log.d(TAG, "DNS Response package size: " + start);
 
     return result;
   }
@@ -270,7 +280,7 @@ public class DNSProxy implements Runnable {
       for (String  key : dnsCache.keySet()) {
           DNSResponseDto resp = dnsCache.get(key);
           if (checkIfExpired(resp)) {
-              Log.d(TAG, "deleted: " + resp.getRequest());
+              if (LOGD) Log.d(TAG, "deleted: " + resp.getRequest());
               _logger.finest("delete dns response for " + resp.getRequest());
               database.deleteDnsProxyResponse(key);
               refetch = true;
@@ -324,7 +334,7 @@ public class DNSProxy implements Runnable {
 
     ips = ip.split("\\.");
 
-    Log.d(TAG, "Start parse ip string: " + ip + ", Sectons: " + ips.length);
+    if (LOGD) Log.d(TAG, "Start parse ip string: " + ip + ", Sectons: " + ips.length);
 
     if (ips.length != IP_SECTION_LEN) {
       Log.e(TAG, "Malformed IP string number of sections is: "
@@ -375,31 +385,37 @@ public class DNSProxy implements Runnable {
 
         final String questDomain = getRequestDomain(udpreq);
 
-        Log.d(TAG, "Resolving: " + questDomain);
+        if (LOGD) Log.d(TAG, "Resolving: " + questDomain);
 
         DNSResponseDto resp = queryFromCache(questDomain);
 
         if (resp != null) {
           sendDns(resp.getDNSResponse(), dnsq, srvSocket);
-          Log.d(TAG, "DNS cache hit for " + questDomain);
+          if (LOGD) Log.d(TAG, "DNS cache hit for " + questDomain);
         } else if (questDomain.toLowerCase().endsWith(dnsRelayGeaHostName) && providerId.toLowerCase().equals(dnsRelayGeaHostName)) {
           byte[] ips = parseIPString(dnsRelayGaeIp);
           byte[] answer = createDNSResponse(udpreq, ips);
           addToCache(questDomain, answer);
           sendDns(answer, dnsq, srvSocket);
-          Log.d(TAG, "Custom DNS resolver for " + dnsRelayGeaHostName  + " to " + dnsRelayGaeIp);
+          if (LOGD) Log.d(TAG, "Custom DNS resolver for " + dnsRelayGeaHostName  + " to " + dnsRelayGaeIp);
         } else if (questDomain.toLowerCase().endsWith(dnsRelayPingEuHostName) && providerId.toLowerCase().equals(dnsRelayPingEuHostName)) {
             byte[] ips = parseIPString(dnsRelayPingEuIp);
             byte[] answer = createDNSResponse(udpreq, ips);
             addToCache(questDomain, answer);
             sendDns(answer, dnsq, srvSocket);
-            Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
+            if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
         } else if (questDomain.toLowerCase().endsWith(dnsRelayWwwIpCnHostName) && providerId.toLowerCase().equals(dnsRelayWwwIpCnHostName)) {
             byte[] ips = parseIPString(dnsRelayWwwIpCnIp);
             byte[] answer = createDNSResponse(udpreq, ips);
             addToCache(questDomain, answer);
             sendDns(answer, dnsq, srvSocket);
-            Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
+            if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
+        } else if (questDomain.toLowerCase().endsWith(dnsRelayMyhostsSinappHostName) && providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)) {
+            byte[] ips = parseIPString(dnsRelayMyhostsSinappIp);
+            byte[] answer = createDNSResponse(udpreq, ips);
+            addToCache(questDomain, answer);
+            sendDns(answer, dnsq, srvSocket);
+            if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayMyhostsSinappHostName);
         } else {
           synchronized (this) {
             if (dnsCache.containsKey(questDomain))
@@ -422,7 +438,7 @@ public class DNSProxy implements Runnable {
                 if (answer != null && answer.length != 0) {
                   addToCache(questDomain, answer);
                   sendDns(answer, dnsq, srvSocket);
-                  Log.d(TAG,
+                  if (LOGD) Log.d(TAG,
                       "Success to get DNS response for "
                           + questDomain
                           + "，length: "
@@ -483,8 +499,13 @@ public class DNSProxy implements Runnable {
           request.setMethod("GET");
           request.setHeader(new NamedValue("Host", dnsRelayHostName));
           request.setURL(base);
+      } else if (providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)){
+          String url = "http://" + dnsRelayHostName + "/lookup.php?host=" + URLEncoder.encode(Base64.encodeBytes(Base64.encodeBytesToBytes(domain.getBytes())));
+          HttpUrl base = new HttpUrl(url);
+          request.setMethod("GET");
+          request.setHeader(new NamedValue("Host", dnsRelayHostName));
+          request.setURL(base);
       }
-      
       
       return request;
   }
@@ -496,11 +517,17 @@ public class DNSProxy implements Runnable {
           is = response.getContentStream();
           BufferedReader br = new BufferedReader(new InputStreamReader(is));
           ip = br.readLine();
+      } else if (providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)){
+          InputStream is;
+          is = response.getContentStream();
+          BufferedReader br = new BufferedReader(new InputStreamReader(is));
+          ip = br.readLine();
       } else if (providerId.toLowerCase().equals(dnsRelayPingEuHostName)){
           InputStream is;
           is = response.getContentStream();
           BufferedReader br = new BufferedReader(new InputStreamReader(is));
           String line = br.readLine();
+          // TODO missing parser for tcip
           while (line != null){
               Log.d(TAG, "line retrived is " + line);
               line = br.readLine();
@@ -532,7 +559,7 @@ public class DNSProxy implements Runnable {
       Request request = createHttpRequest(domain);
       Response response = httpClient.fetchResponse(request);
       ip = parseResponse(response);
-      Log.d(TAG, "ip retrived is " + ip);
+      if (LOGD) Log.d(TAG, "ip retrived is " + ip);
     } catch (Exception e) {
       Log.e(TAG, "Failed to request", e);
     }
@@ -585,7 +612,6 @@ public class DNSProxy implements Runnable {
   private void sendDns(byte[] response, DatagramPacket dnsq,
                        DatagramSocket srvSocket) {
 
-    // 同步identifier
     System.arraycopy(dnsq.getData(), 0, response, 0, 2);
 
     DatagramPacket resp = new DatagramPacket(response, 0, response.length);
