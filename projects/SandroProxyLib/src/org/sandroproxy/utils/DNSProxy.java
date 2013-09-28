@@ -12,6 +12,7 @@ import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +41,17 @@ public class DNSProxy implements Runnable {
   private static Logger _logger = Logger.getLogger(DNSProxy.class.getName());
   
   private static boolean LOGD = true;
+  
+  public static String getHostNameFromIp(String ip){
+      String hostName = null;
+      if (dnsHostCache != null){
+          if (dnsHostCache.containsKey(ip)){
+              hostName =  dnsHostCache.get(ip);
+              if (LOGD) Log.d(TAG, "returning " + hostName + " for " + ip);
+          }
+      }
+      return hostName;
+  }
 
   public static byte[] int2byte(int res) {
     byte[] targets = new byte[4];
@@ -51,12 +63,13 @@ public class DNSProxy implements Runnable {
     return targets;
   }
 
-  private final String TAG = DNSProxy.class.getSimpleName();
+  private static final String TAG = DNSProxy.class.getSimpleName();
 
   private final static int MAX_THREAD_NUM = 5;
   private final ExecutorService mThreadPool = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 
-  Map<String, DNSResponseDto> dnsCache;
+  private Map<String, DNSResponseDto> dnsResponseCache;
+  private static Map<String, String> dnsHostCache = null;
 
   private DatagramSocket srvSocket;
 
@@ -150,9 +163,14 @@ public class DNSProxy implements Runnable {
     DNSResponseDto response = new DNSResponseDto(questDomainName);
     response.setDNSResponse(answer);
     try {
-      if (!dnsCache.containsKey(questDomainName)){
-          dnsCache.put(questDomainName, response);
+      if (!dnsResponseCache.containsKey(questDomainName)){
+          dnsResponseCache.put(questDomainName, response);
           database.insertDnsResponse(response);
+          String ip = response.getIPString();
+          if (dnsHostCache.containsKey(ip)){
+              dnsHostCache.remove(ip);
+          }
+          dnsHostCache.put(ip, questDomainName);
       }
     } catch (Exception e) {
       Log.e(TAG, "Cannot update dns cache or database", e);
@@ -168,12 +186,13 @@ public class DNSProxy implements Runnable {
   }
 
   private synchronized DNSResponseDto queryFromCache(String questDomainName) {
-    if (dnsCache.containsKey(questDomainName)){
-        DNSResponseDto response = dnsCache.get(questDomainName);
+    if (dnsResponseCache.containsKey(questDomainName)){
+        DNSResponseDto response = dnsResponseCache.get(questDomainName);
         if (checkIfExpired(response)){
             if (LOGD) Log.d(TAG, "deleted: " + questDomainName);
             _logger.finest("delete dns response for " + questDomainName);
-            dnsCache.remove(questDomainName);
+            dnsResponseCache.remove(questDomainName);
+            dnsHostCache.remove(response.getIPString());
             database.deleteDnsProxyResponse(questDomainName);
             return null;
         }
@@ -275,10 +294,11 @@ public class DNSProxy implements Runnable {
    */
   private void loadCache() {
     try {
-      dnsCache = database.getDnsResponses();
+      dnsResponseCache = database.getDnsResponses();
+      dnsHostCache = new HashMap<String, String>();
       boolean refetch = false;
-      for (String  key : dnsCache.keySet()) {
-          DNSResponseDto resp = dnsCache.get(key);
+      for (String  key : dnsResponseCache.keySet()) {
+          DNSResponseDto resp = dnsResponseCache.get(key);
           if (checkIfExpired(resp)) {
               if (LOGD) Log.d(TAG, "deleted: " + resp.getRequest());
               _logger.finest("delete dns response for " + resp.getRequest());
@@ -287,7 +307,15 @@ public class DNSProxy implements Runnable {
           }
       }
       if (refetch){
-          dnsCache = database.getDnsResponses();
+          dnsResponseCache = database.getDnsResponses();
+      }
+      for (String  key : dnsResponseCache.keySet()) {
+          DNSResponseDto response = dnsResponseCache.get(key);
+          String ip = response.getIPString();
+          if (dnsHostCache.containsKey(ip)){
+              dnsHostCache.remove(ip);
+          }
+          dnsHostCache.put(ip, response.getRequest());
       }
     } catch (Exception e) {
       Log.e(TAG, "Cannot open DAO", e);
@@ -417,10 +445,6 @@ public class DNSProxy implements Runnable {
             sendDns(answer, dnsq, srvSocket);
             if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayMyhostsSinappHostName);
         } else {
-          synchronized (this) {
-            if (dnsCache.containsKey(questDomain))
-              continue;
-          }
           Runnable runnable = new Runnable() {
             @Override
             public void run() {

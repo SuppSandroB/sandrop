@@ -112,8 +112,9 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                   };
                 try {
                   if (!ipPortSiteData.containsKey(siteDataCurrent.tcpAddress + ":" + siteDataCurrent.destPort)){
-                      if (LOGD) Log.d(TAG, "Connect to " + siteDataCurrent.tcpAddress + " on port:" + siteDataCurrent.destPort);
-                      HttpUrl base = new HttpUrl("https://" + siteDataCurrent.tcpAddress + ":" + siteDataCurrent.destPort);
+                      String hostName = siteDataCurrent.hostName != null ? siteDataCurrent.hostName : siteDataCurrent.tcpAddress;
+                      if (LOGD) Log.d(TAG, "Connect to " + hostName + " on port:" + siteDataCurrent.destPort);
+                      HttpUrl base = new HttpUrl("https://" + hostName + ":" + siteDataCurrent.destPort);
                       Socket socket = HTTPClientFactory.getValidInstance().getConnectedSocket(base);
                       SSLContext sslContext = SSLContext.getInstance("TLS");
                       sslContext.init(null, trustAllCerts, new SecureRandom());
@@ -152,10 +153,12 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
         String[] tokens = originalDest.split(":");
         if (tokens.length == 2){
             String destIP = tokens[0];
+            String hostName = DNSProxy.getHostNameFromIp(destIP);
             int destPort = Integer.parseInt(tokens[1]);
             newSiteData.destPort = destPort;
             newSiteData.tcpAddress = destIP;
             newSiteData.sourcePort = socket.getPort();
+            newSiteData.hostName = hostName;
         }else{
             
         }
@@ -201,7 +204,6 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                     Thread.sleep(100);
                     if (siteData.containsKey(port)){
                         secureHost = siteData.get(port);
-                        
                         break;
                     }
                 }

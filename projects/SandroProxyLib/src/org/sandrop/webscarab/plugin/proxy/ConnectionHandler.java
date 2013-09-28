@@ -181,7 +181,8 @@ public class ConnectionHandler implements Runnable {
                             }
                             String forwarderName = hostData.name + ":" + hostData.destPort;
                             _logger.fine("Acting as forwarder on " + forwarderName);
-                            _base = new HttpUrl("https://" + hostData.tcpAddress + ":" +  hostData.destPort);
+                            String hostName = hostData.hostName != null ? hostData.hostName : hostData.tcpAddress;
+                            _base = new HttpUrl("https://" + hostName + ":" +  hostData.destPort);
                             Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
                             SocketForwarder.connect(forwarderName, _sock, target);
                             return;
