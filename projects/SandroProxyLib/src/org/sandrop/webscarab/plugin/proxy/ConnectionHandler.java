@@ -51,6 +51,7 @@ import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.util.HtmlEncoder;
+import org.sandroproxy.utils.DNSProxy;
 
 import android.util.Log;
 
@@ -130,6 +131,15 @@ public class ConnectionHandler implements Runnable {
                 try {
                     request = new Request(_transparent, _transparentSecure);
                     request.read(_clientIn);
+                    HttpUrl requestUrl = request.getURL();
+                    String host = requestUrl.getHost();
+                    String reverseHost = DNSProxy.getHostNameFromIp(host);
+                    if (reverseHost != null){
+                        host = reverseHost != null ? reverseHost : host;
+                        requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + host +":" +  requestUrl.getPort() + requestUrl.getPath());
+                        request.setURL(requestUrl);
+                        request.setHeader("Host", host);
+                    }
                 } catch (IOException ioe) {
                     _logger.severe("Error reading the initial request" + ioe);
                     return;
@@ -326,6 +336,15 @@ public class ConnectionHandler implements Runnable {
                     request.read(_clientIn, _base);
                     if (request.getMethod() == null || request.getURL() == null) {
                         return;
+                    }
+                    HttpUrl requestUrl = request.getURL();
+                    String host = requestUrl.getHost();
+                    String reverseHost = DNSProxy.getHostNameFromIp(host);
+                    if (reverseHost != null){
+                        host = reverseHost != null ? reverseHost : host;
+                        requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + host +":" +  requestUrl.getPort() + requestUrl.getPath());
+                        request.setURL(requestUrl);
+                        request.setHeader("Host", host);
                     }
                     if (proxyAuth != null) {
                         request.addHeader("Proxy-Authorization", proxyAuth);
