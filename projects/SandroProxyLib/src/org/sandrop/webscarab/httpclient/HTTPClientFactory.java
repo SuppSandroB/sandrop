@@ -222,7 +222,7 @@ public class HTTPClientFactory {
         return uf;
     }
     
-    public Socket getConnectedSocket(HttpUrl url) throws IOException{
+    public Socket getConnectedSocket(HttpUrl url, boolean makeSslHandshake) throws IOException{
         URLFetcher uf = new URLFetcher();
         uf.setHttpProxy(_httpProxy, _httpProxyPort);
         uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
@@ -231,7 +231,7 @@ public class HTTPClientFactory {
         uf.setLocalDomainName(_localDomainName);
         uf.setTimeouts(_connectTimeout, _readTimeout);
         uf.setAuthenticator(_authenticator);
-        return uf.getConnectedSocket(url);
+        return uf.getConnectedSocket(url, makeSslHandshake);
     }
     
     public HTTPClient getHTTPClient(int connectTimeout, int readTimeout) {

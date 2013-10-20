@@ -115,7 +115,7 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                       String hostName = siteDataCurrent.hostName != null ? siteDataCurrent.hostName : siteDataCurrent.tcpAddress;
                       if (LOGD) Log.d(TAG, "Connect to " + hostName + " on port:" + siteDataCurrent.destPort);
                       HttpUrl base = new HttpUrl("https://" + hostName + ":" + siteDataCurrent.destPort);
-                      Socket socket = HTTPClientFactory.getValidInstance().getConnectedSocket(base);
+                      Socket socket = HTTPClientFactory.getValidInstance().getConnectedSocket(base, false);
                       SSLContext sslContext = SSLContext.getInstance("TLS");
                       sslContext.init(null, trustAllCerts, new SecureRandom());
                       SSLSocketFactory factory = sslContext.getSocketFactory();

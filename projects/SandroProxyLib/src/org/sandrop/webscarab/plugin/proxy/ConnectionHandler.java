@@ -193,13 +193,22 @@ public class ConnectionHandler implements Runnable {
                             _logger.fine("Acting as forwarder on " + forwarderName);
                             String hostName = hostData.hostName != null ? hostData.hostName : hostData.tcpAddress;
                             _base = new HttpUrl("https://" + hostName + ":" +  hostData.destPort);
-                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
+                            boolean useFakeCertificates = true;
+                            Socket target;
+                            if (useFakeCertificates){
+                                // make ssl tunnel with client with fake certificates
+                                _sock = negotiateSSL(_sock, hostData);
+                                // make ssl with server 
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true);
+                            } else{
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
+                            }
                             SocketForwarder.connect(forwarderName, _sock, target);
                             return;
                         }else{
                             String forwarderName = _base.getHost() + ":" + _base.getPort();
                             _logger.fine("Acting as forwarder on " + forwarderName);
-                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base);
+                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
                             SocketForwarder.connect(forwarderName, _sock, target);
                             return;
                         }
@@ -520,8 +529,15 @@ public class ConnectionHandler implements Runnable {
             int sockPort = sock.getPort();
             String hostName = hostData.tcpAddress != null ? hostData.tcpAddress : hostData.name;
             sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
+            
+            boolean useLowSecureChiper = true;
+            if (useLowSecureChiper){
+                // force chiper that can be decrypted with wireshark
+                sslsock.setEnabledCipherSuites(new String[]{"TLS_RSA_WITH_AES_256_CBC_SHA"});
+            }
+            
             sslsock.setUseClientMode(false);
-            _logger.info("Finished negotiating SSL - algorithm is "
+            _logger.info("Finished negotiating client SSL - algorithm is "
                     + sslsock.getSession().getCipherSuite());
             return sslsock;
         } catch (Exception e) {

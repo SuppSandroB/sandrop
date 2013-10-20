@@ -404,9 +404,9 @@ public class URLFetcher implements HTTPClient {
         return _response;
     }
     
-    public Socket getConnectedSocket(HttpUrl url) throws IOException{
+    public Socket getConnectedSocket(HttpUrl url, boolean makeHandshake) throws IOException{
         _socket = null;
-        connect(url, false);
+        connect(url, makeHandshake);
         return _socket;
     }
     

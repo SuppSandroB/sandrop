@@ -323,6 +323,7 @@ public class SSLSocketFactoryFactory {
             throw new GeneralSecurityException(
                     "Internal error: private key for " + hostData.name + " not found!");
         }
+        _logger.finest("loading keys for " + certEntry);
         return new HostKeyManager(hostData, pk, certs);
     }
 
