@@ -68,6 +68,7 @@ public class ConnectionHandler implements Runnable {
     private boolean _transparent = false;
     private boolean _transparentSecure = false;
     private boolean _captureData = true;
+    private boolean _useFakeCerts = false;
     private ITransparentProxyResolver _transparentResolver = null;
     private IClientResolver _clientResolver = null;
 
@@ -83,7 +84,8 @@ public class ConnectionHandler implements Runnable {
     private InputStream _clientIn = null;
     private OutputStream _clientOut = null;
 
-    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, boolean captureData, 
+    public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, 
+                                                            boolean captureData, boolean useFakeCerts, 
                                                             ITransparentProxyResolver transparentProxyResolver,
                                                             IClientResolver clientResolver) {
         _logger.setLevel(Level.FINEST);
@@ -96,6 +98,7 @@ public class ConnectionHandler implements Runnable {
         _clientResolver = clientResolver;
         _plugins = _proxy.getPlugins();
         _captureData = captureData;
+        _useFakeCerts = useFakeCerts;
         try {
             _sock.setTcpNoDelay(true);
             _sock.setSoTimeout(_socket_timeout_normal);
@@ -197,9 +200,8 @@ public class ConnectionHandler implements Runnable {
                             _logger.fine("Acting as forwarder on " + forwarderName);
                             String hostName = hostData.hostName != null ? hostData.hostName : hostData.tcpAddress;
                             _base = new HttpUrl("https://" + hostName + ":" +  hostData.destPort);
-                            boolean useFakeCertificates = true;
                             Socket target;
-                            if (useFakeCertificates){
+                            if (_useFakeCerts){
                                 // make ssl tunnel with client with fake certificates
                                 _sock = negotiateSSL(_sock, hostData, true);
                                 // make ssl with server 
@@ -686,6 +688,11 @@ public class ConnectionHandler implements Runnable {
                 }else{
                     _logger.info("!!! Cipher removed from list " + supportedCipher);
                 }
+            }
+            if (listSelectedCiphers.size() == 0){
+                String msg = "!!!Error Cipher list is empty";
+                _logger.info(msg);
+                Log.e(TAG, msg);
             }
             Collections.reverse(listSelectedCiphers);
             selectedCiphers = new String[listSelectedCiphers.size()];

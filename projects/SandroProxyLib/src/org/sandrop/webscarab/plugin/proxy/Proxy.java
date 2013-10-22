@@ -90,6 +90,7 @@ public class Proxy implements Plugin {
     private ITransparentProxyResolver _transparentProxyResolver;
     private IClientResolver _clientResolver;
     private boolean _captureData = false;
+    private boolean _useFakeCerts = false;
 
     private ProxyUI _ui = null;
 
@@ -139,6 +140,8 @@ public class Proxy implements Plugin {
         _transparentProxyResolver = transparentProxyResolver;
         _clientResolver = clientResolver;
         _captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, false);
+        _useFakeCerts = Preferences.getPreferenceBoolean(PreferenceUtils.proxyFakeCerts, false);
+        
         parseListenerConfig();
         _certGenerator = null;
         try {
@@ -706,10 +709,10 @@ public class Proxy implements Plugin {
             */
             base = null;
             if (!addr.equalsIgnoreCase("") && port != 0){
-                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, _captureData), null);
+                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, _captureData, _useFakeCerts), null);
                 if (Preferences.getPreferenceBoolean("preference_proxy_transparent", false)){
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, _captureData), null);
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, _captureData), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, _captureData, _useFakeCerts), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, _captureData, _useFakeCerts), null);
                 }
             }else{
                 _logger.fine("Warrning Skipping " + listeners[i]);

@@ -43,6 +43,8 @@ import java.lang.Thread;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import android.widget.GridLayout.Spec;
+
 public class Listener implements Runnable {
     
     private Proxy _proxy;
@@ -82,7 +84,8 @@ public class Listener implements Runnable {
         while (! _stop) {
             try {
             	sock = _serversocket.accept();
-                ch = new ConnectionHandler(_proxy, sock, _spec.getBase(), _spec.isTransparentProxy(), _spec.isTransparentProxySecure(), _spec.mustCaptureData(),
+                ch = new ConnectionHandler(_proxy, sock, _spec.getBase(), _spec.isTransparentProxy(), _spec.isTransparentProxySecure(),
+                                           _spec.mustCaptureData(), _spec.useFakeCerts(),
                                            _proxy.getTransparentProxyResolver(), _proxy.getClientResolver());
                 thread = new Thread(ch, Thread.currentThread().getName()+"-"+Integer.toString(_count++));
                 thread.setDaemon(true);
