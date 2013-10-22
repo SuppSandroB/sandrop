@@ -38,6 +38,10 @@ import java.io.OutputStream;
 import java.io.PushbackInputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -197,7 +201,7 @@ public class ConnectionHandler implements Runnable {
                             Socket target;
                             if (useFakeCertificates){
                                 // make ssl tunnel with client with fake certificates
-                                _sock = negotiateSSL(_sock, hostData);
+                                _sock = negotiateSSL(_sock, hostData, true);
                                 // make ssl with server 
                                 target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true);
                             } else{
@@ -265,7 +269,7 @@ public class ConnectionHandler implements Runnable {
                     if (isSSLPort){
                         SSLSocket sslSocket = null;
                         try{
-                            _sock = negotiateSSL(_sock, hostData);
+                            _sock = negotiateSSL(_sock, hostData, false);
                             sslSocket = (SSLSocket)_sock;
                         }catch (Exception ex){
                             ex.printStackTrace();
@@ -518,8 +522,185 @@ public class ConnectionHandler implements Runnable {
         }
     }
 
+    // http://anonsvn.wireshark.org/wireshark/trunk-1.0/epan/dissectors/packet-ssl-utils.c static SslCipherSuite cipher_suites[]={
+    // we take wireshark version 1.10, currently is 1.10.2 names are from trunk 
+    // http://anonsvn.wireshark.org/wireshark/trunk/epan/dissectors/packet-ssl-utils.c static SslCipherSuite cipher_suites[]={
+    // if you have some older version of wireshark cipher could not be supported 
+    // there will be error line like <dissect_ssl3_hnd_srv_hello can't find cipher suite >
+    /*
+    static SslCipherSuite cipher_suites[]={
+        {1,KEX_RSA,SIG_RSA,ENC_NULL,1,0,0,DIG_MD5,16,0, SSL_CIPHER_MODE_STREAM},
+        {2,KEX_RSA,SIG_RSA,ENC_NULL,1,0,0,DIG_SHA,20,0, SSL_CIPHER_MODE_STREAM},
+        {3,KEX_RSA,SIG_RSA,ENC_RC4,1,128,40,DIG_MD5,16,1, SSL_CIPHER_MODE_STREAM},
+        {4,KEX_RSA,SIG_RSA,ENC_RC4,1,128,128,DIG_MD5,16,0, SSL_CIPHER_MODE_STREAM},
+        {5,KEX_RSA,SIG_RSA,ENC_RC4,1,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_STREAM},
+        {6,KEX_RSA,SIG_RSA,ENC_RC2,8,128,40,DIG_SHA,20,1, SSL_CIPHER_MODE_STREAM},
+        {7,KEX_RSA,SIG_RSA,ENC_IDEA,8,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_STREAM},
+        {8,KEX_RSA,SIG_RSA,ENC_DES,8,64,40,DIG_SHA,20,1, SSL_CIPHER_MODE_CBC},
+        {9,KEX_RSA,SIG_RSA,ENC_DES,8,64,64,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {10,KEX_RSA,SIG_RSA,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {11,KEX_DH,SIG_DSS,ENC_DES,8,64,40,DIG_SHA,20,1, SSL_CIPHER_MODE_CBC},
+        {12,KEX_DH,SIG_DSS,ENC_DES,8,64,64,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {13,KEX_DH,SIG_DSS,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {14,KEX_DH,SIG_RSA,ENC_DES,8,64,40,DIG_SHA,20,1, SSL_CIPHER_MODE_CBC},
+        {15,KEX_DH,SIG_RSA,ENC_DES,8,64,64,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {16,KEX_DH,SIG_RSA,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {17,KEX_DH,SIG_DSS,ENC_DES,8,64,40,DIG_SHA,20,1, SSL_CIPHER_MODE_CBC},
+        {18,KEX_DH,SIG_DSS,ENC_DES,8,64,64,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {19,KEX_DH,SIG_DSS,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {20,KEX_DH,SIG_RSA,ENC_DES,8,64,40,DIG_SHA,20,1, SSL_CIPHER_MODE_CBC},
+        {21,KEX_DH,SIG_RSA,ENC_DES,8,64,64,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {22,KEX_DH,SIG_RSA,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {23,KEX_DH,SIG_NONE,ENC_RC4,1,128,40,DIG_MD5,16,1, SSL_CIPHER_MODE_STREAM},
+        {24,KEX_DH,SIG_NONE,ENC_RC4,1,128,128,DIG_MD5,16,0, SSL_CIPHER_MODE_STREAM},
+        {25,KEX_DH,SIG_NONE,ENC_DES,8,64,40,DIG_MD5,16,1, SSL_CIPHER_MODE_CBC},
+        {26,KEX_DH,SIG_NONE,ENC_DES,8,64,64,DIG_MD5,16,0, SSL_CIPHER_MODE_CBC},
+        {27,KEX_DH,SIG_NONE,ENC_3DES,8,192,192,DIG_MD5,16,0, SSL_CIPHER_MODE_CBC},
+        {47,KEX_RSA,SIG_RSA,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {48,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_DSS_WITH_AES_128_CBC_SHA *
+        {49,KEX_DH,SIG_RSA,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_RSA_WITH_AES_128_CBC_SHA *
+        {50,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DHE_DSS_WITH_AES_128_CBC_SHA *
+        {51,KEX_DH, SIG_RSA,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {52,KEX_DH,SIG_NONE,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_anon_WITH_AES_128_CBC_SHA *
+        {53,KEX_RSA,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {54,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_DSS_WITH_AES_256_CBC_SHA *
+        {55,KEX_DH,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_RSA_WITH_AES_256_CBC_SHA *
+        {56,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DHE_DSS_WITH_AES_256_CBC_SHA *
+        {57,KEX_DH,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},   * TLS_DHE_RSA_WITH_AES_256_CBC_SHA *
+        {58,KEX_DH,SIG_NONE,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},  * TLS_DH_anon_WITH_AES_256_CBC_SHA *
+        {59,KEX_RSA,SIG_RSA,ENC_NULL,1,0,0,DIG_SHA256,32,0, SSL_CIPHER_MODE_STREAM},
+        {60,KEX_RSA,SIG_RSA,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},
+        {61,KEX_RSA,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},
+        {62,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_DSS_WITH_AES_128_CBC_SHA256 *
+        {63,KEX_DH,SIG_RSA,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_RSA_WITH_AES_128_CBC_SHA256 *
+        {64,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DHE_DSS_WITH_AES_128_CBC_SHA256 *
+        {96,KEX_RSA,SIG_RSA,ENC_RC4,1,128,56,DIG_MD5,16,1, SSL_CIPHER_MODE_STREAM},
+        {97,KEX_RSA,SIG_RSA,ENC_RC2,1,128,56,DIG_MD5,16,1, SSL_CIPHER_MODE_STREAM},
+        {98,KEX_RSA,SIG_RSA,ENC_DES,8,64,64,DIG_SHA,20,1, SSL_CIPHER_MODE_STREAM},
+        {99,KEX_DH,SIG_DSS,ENC_DES,8,64,64,DIG_SHA,16,1, SSL_CIPHER_MODE_CBC},
+        {100,KEX_RSA,SIG_RSA,ENC_RC4,1,128,56,DIG_SHA,20,1, SSL_CIPHER_MODE_STREAM},
+        {101,KEX_DH,SIG_DSS,ENC_RC4,1,128,56,DIG_SHA,20,1, SSL_CIPHER_MODE_STREAM},
+        {102,KEX_DH,SIG_DSS,ENC_RC4,1,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_STREAM},
+        {103,KEX_DH,SIG_RSA,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 *
+        {104,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_DSS_WITH_AES_256_CBC_SHA256 *
+        {105,KEX_DH,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_RSA_WITH_AES_256_CBC_SHA256 *
+        {106,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DHE_DSS_WITH_AES_256_CBC_SHA256 *
+        {107,KEX_DH,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},
+        {108,KEX_DH,SIG_NONE,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_anon_WITH_AES_128_CBC_SHA256 *
+        {109,KEX_DH,SIG_NONE,ENC_AES256,16,256,256,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_DH_anon_WITH_AES_256_CBC_SHA256 *
+        *{138,KEX_PSK,SIG_RSA,ENC_RC4,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},*
+        {139,KEX_PSK,SIG_RSA,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {140,KEX_PSK,SIG_RSA,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {141,KEX_PSK,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+        {49169,KEX_DH,SIG_RSA,ENC_RC4,1,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_STREAM},    * TLS_ECDHE_RSA_WITH_RC4_128_SHA *
+        {49187,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 *
+        {49188,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA384,48,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 *
+        {49189,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256 *
+        {49190,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA384,48,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384 *
+        {49191,KEX_DH,SIG_RSA,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 *
+        {49192,KEX_DH,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA384,48,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 *
+        {49193,KEX_DH,SIG_RSA,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256 *
+        {49194,KEX_DH,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA384,48,0, SSL_CIPHER_MODE_CBC},   * TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384 *
+        {-1, 0,0,0,0,0,0,0,0,0, 0}
+    };
+     */
+    
+    private static String[] wiresharkSupportedCiphers = new String[]
+    {
+        "TLS_RSA_WITH_NULL_MD5",
+        "TLS_RSA_WITH_NULL_SHA",
+        "TLS_RSA_EXPORT_WITH_RC4_40_MD5",
+        "TLS_RSA_WITH_RC4_128_MD5",
+        "TLS_RSA_WITH_RC4_128_SHA",
+        "TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5",
+        "TLS_RSA_WITH_IDEA_CBC_SHA",
+        "TLS_RSA_EXPORT_WITH_DES40_CBC_SHA",
+        "TLS_RSA_WITH_DES_CBC_SHA",
+        "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+        "TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA",
+        "TLS_DH_DSS_WITH_DES_CBC_SHA",
+        "TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA",
+        "TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA",
+        "TLS_DH_RSA_WITH_DES_CBC_SHA",
+        "TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA",
+        "TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA",
+        "TLS_DHE_DSS_WITH_DES_CBC_SHA",
+        "TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA",
+        "TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA",
+        "TLS_DHE_RSA_WITH_DES_CBC_SHA",
+        "TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA",
+        "TLS_DH_anon_EXPORT_WITH_RC4_40_MD5",
+        "TLS_DH_anon_WITH_RC4_128_MD5",
+        "TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA",
+        "TLS_DH_anon_WITH_DES_CBC_SHA",
+        "TLS_DH_anon_WITH_3DES_EDE_CBC_SHA", // 1-27
+        "TLS_RSA_WITH_AES_128_CBC_SHA", // 47
+        "TLS_DH_DSS_WITH_AES_128_CBC_SHA", // 48
+        "TLS_DH_RSA_WITH_AES_128_CBC_SHA", // 49
+        "TLS_DHE_DSS_WITH_AES_128_CBC_SHA", // 50
+        "TLS_DHE_RSA_WITH_AES_128_CBC_SHA", //51
+        "TLS_DH_anon_WITH_AES_128_CBC_SHA", // 52
+        "TLS_RSA_WITH_AES_256_CBC_SHA", // 53
+        "TLS_DH_DSS_WITH_AES_256_CBC_SHA", // 54
+        "TLS_DH_RSA_WITH_AES_256_CBC_SHA", // 55
+        "TLS_DHE_DSS_WITH_AES_256_CBC_SHA",  // 56
+        "TLS_DHE_RSA_WITH_AES_256_CBC_SHA", // 57
+        "TLS_DH_anon_WITH_AES_256_CBC_SHA", // 58
+        "TLS_RSA_WITH_NULL_SHA256", // 59
+        "TLS_RSA_WITH_AES_128_CBC_SHA256", // 60
+        "TLS_RSA_WITH_AES_256_CBC_SHA256", // 61
+        "TLS_DH_DSS_WITH_AES_128_CBC_SHA256", // 62
+        "TLS_DH_RSA_WITH_AES_128_CBC_SHA256", // 63
+        "TLS_DHE_DSS_WITH_AES_128_CBC_SHA256", // 64
+        "TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA", //98
+        "TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA", //99
+        "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256", // 103
+        "TLS_DH_DSS_WITH_AES_256_CBC_SHA256", // 104
+        "TLS_DH_RSA_WITH_AES_256_CBC_SHA256", // 105
+        "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256", // 106
+        "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256", // 107
+        "TLS_DH_anon_WITH_AES_128_CBC_SHA256", // 108
+        "TLS_DH_anon_WITH_AES_256_CBC_SHA256", // 109
+        // not working errors with : ssl_generate_keyring_material not enough data to generate key
+        // "TLS_ECDHE_RSA_WITH_RC4_128_SHA", //49169
+        // "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256", //49187
+        // "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384", // 49188
+        // "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256", // 49189
+        // "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384", //49190
+        // "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256", //49191
+        // "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384", //49192
+        // "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256", //49193
+        // "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384", //49194
+    };
+    
+    private static List<String> listWiresharkSupportedCiphers = Arrays.asList(wiresharkSupportedCiphers);
+    private static String[] selectedCiphers = null;
+    
+    private String[] selectCiphers(String[] supportedCiphers){
+        if (selectedCiphers == null){
+            List<String> listSelectedCiphers = new ArrayList<String>();
+            for (String supportedCipher : supportedCiphers) {
+                if (listWiresharkSupportedCiphers.contains(supportedCipher)){
+                    _logger.info("Cipher added to list " + supportedCipher);
+                    listSelectedCiphers.add(supportedCipher);
+                }else{
+                    _logger.info("!!! Cipher removed from list " + supportedCipher);
+                }
+            }
+            Collections.reverse(listSelectedCiphers);
+            selectedCiphers = new String[listSelectedCiphers.size()];
+            for (int i = 0; i < selectedCiphers.length; i++) {
+                String selectedCipher = listSelectedCiphers.get(i);
+                _logger.info("adde cipher to pos " + i + " : " + selectedCipher);
+                selectedCiphers[i] = selectedCipher;
+            }
+            return selectedCiphers;
+        }else{
+            return selectedCiphers;
+        }
+    }
 
-    private Socket negotiateSSL(Socket sock, SiteData hostData) throws Exception {
+    private Socket negotiateSSL(Socket sock, SiteData hostData, boolean useOnlyWiresharkDissCiphers) throws Exception {
         SSLSocketFactory factory = _proxy.getSocketFactory(hostData);
         if (factory == null)
             throw new RuntimeException(
@@ -529,13 +710,11 @@ public class ConnectionHandler implements Runnable {
             int sockPort = sock.getPort();
             String hostName = hostData.tcpAddress != null ? hostData.tcpAddress : hostData.name;
             sslsock = (SSLSocket) factory.createSocket(sock, hostName, sockPort, false);
-            
-            boolean useLowSecureChiper = true;
-            if (useLowSecureChiper){
+            if (useOnlyWiresharkDissCiphers){
                 // force chiper that can be decrypted with wireshark
-                sslsock.setEnabledCipherSuites(new String[]{"TLS_RSA_WITH_AES_256_CBC_SHA"});
+                String[] ciphers = selectCiphers(sslsock.getSupportedCipherSuites());
+                sslsock.setEnabledCipherSuites(ciphers);
             }
-            
             sslsock.setUseClientMode(false);
             _logger.info("Finished negotiating client SSL - algorithm is "
                     + sslsock.getSession().getCipherSuite());
