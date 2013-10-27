@@ -346,6 +346,10 @@ WebInspector.SASSSourceMapping.prototype = {
             }
 
             cssUISourceCode.requestOriginalContent(contentCallback.bind(this));
+
+            /**
+             * @param {?string} content
+             */
             function contentCallback(content)
             {
                 // Empty string is a valid value, null means error.
@@ -516,8 +520,7 @@ WebInspector.SASSSourceMapping.prototype = {
             this._addCSSURLforSASSURL(rawURL, url);
             if (!this._workspace.hasMappingForURL(url) && !this._workspace.uiSourceCodeForURL(url)) {
                 var contentProvider = sourceMap.sourceContentProvider(url, WebInspector.resourceTypes.Stylesheet);
-                var uiSourceCode = this._networkWorkspaceProvider.addFileForURL(url, contentProvider, true);
-                uiSourceCode.setSourceMapping(this);
+                this._networkWorkspaceProvider.addFileForURL(url, contentProvider, true);
             }
         }
     },
@@ -555,14 +558,6 @@ WebInspector.SASSSourceMapping.prototype = {
     },
 
     /**
-     * @return {boolean}
-     */
-    isIdentity: function()
-    {
-        return false;
-    },
-
-    /**
      * @param {WebInspector.Event} event
      */
     _uiSourceCodeAdded: function(event)
@@ -571,7 +566,6 @@ WebInspector.SASSSourceMapping.prototype = {
         var cssURLs = this._cssURLsForSASSURL[uiSourceCode.url];
         if (!cssURLs)
             return;
-        uiSourceCode.setSourceMapping(this);
         for (var i = 0; i < cssURLs.length; ++i) {
             var ids = this._cssModel.styleSheetIdsForURL(cssURLs[i]);
             for (var j = 0; j < ids.length; ++j) {

@@ -68,6 +68,9 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
 
     populateNodeContextMenu: function(node, contextMenu)
     {
+        if (node.pseudoType())
+            return;
+
         var nodeBreakpoints = {};
         for (var id in this._breakpointElements) {
             var element = this._breakpointElements[id];
@@ -301,9 +304,13 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
     {
         var pathToBreakpoints = {};
 
+        /**
+         * @param {string} path
+         * @param {?DOMAgent.NodeId} nodeId
+         */
         function didPushNodeByPathToFrontend(path, nodeId)
         {
-            var node = WebInspector.domAgent.nodeForId(nodeId);
+            var node = nodeId ? WebInspector.domAgent.nodeForId(nodeId) : null;
             if (!node)
                 return;
 

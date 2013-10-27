@@ -27,31 +27,50 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+importScripts("utilities.js");
+importScripts("cm/headlesscodemirror.js");
+importScripts("cm/css.js");
+importScripts("cm/javascript.js");
+importScripts("cm/xml.js");
+importScripts("cm/htmlmixed.js");
+WebInspector = {};
+FormatterWorker = {};
+importScripts("CodeMirrorUtils.js");
 
-onmessage = function(event) {
+var onmessage = function(event) {
     if (!event.data.method)
         return;
 
-    self[event.data.method](event.data.params);
+    FormatterWorker[event.data.method](event.data.params);
 };
 
-function format(params)
+/**
+ * @param {Object} params
+ */
+FormatterWorker.format = function(params)
 {
     // Default to a 4-space indent.
     var indentString = params.indentString || "    ";
     var result = {};
 
     if (params.mimeType === "text/html") {
-        var formatter = new HTMLScriptFormatter(indentString);
+        var formatter = new FormatterWorker.HTMLFormatter(indentString);
         result = formatter.format(params.content);
+    } else if (params.mimeType === "text/css") {
+        result.mapping = { original: [0], formatted: [0] };
+        result.content = FormatterWorker._formatCSS(params.content, result.mapping, 0, 0, indentString);
     } else {
         result.mapping = { original: [0], formatted: [0] };
-        result.content = formatScript(params.content, result.mapping, 0, 0, indentString);
+        result.content = FormatterWorker._formatScript(params.content, result.mapping, 0, 0, indentString);
     }
     postMessage(result);
 }
 
-function getChunkCount(totalLength, chunkSize)
+/**
+ * @param {number} totalLength
+ * @param {number} chunkSize
+ */
+FormatterWorker._chunkCount = function(totalLength, chunkSize)
 {
     if (totalLength <= chunkSize)
         return 1;
@@ -61,12 +80,15 @@ function getChunkCount(totalLength, chunkSize)
     return (partialLength / chunkSize) + (remainder ? 1 : 0);
 }
 
-function outline(params)
+/**
+ * @param {Object} params
+ */
+FormatterWorker.outline = function(params)
 {
     const chunkSize = 100000; // characters per data chunk
     const totalLength = params.content.length;
     const lines = params.content.split("\n");
-    const chunkCount = getChunkCount(totalLength, chunkSize);
+    const chunkCount = FormatterWorker._chunkCount(totalLength, chunkSize);
     var outlineChunk = [];
     var previousIdentifier = null;
     var previousToken = null;
@@ -77,17 +99,12 @@ function outline(params)
     var isReadingArguments = false;
     var argumentsText = "";
     var currentFunction = null;
-    var scriptTokenizer = new WebInspector.SourceJavaScriptTokenizer();
-    scriptTokenizer.condition = scriptTokenizer.createInitialCondition();
-
+    var tokenizer = WebInspector.CodeMirrorUtils.createTokenizer("text/javascript");
     for (var i = 0; i < lines.length; ++i) {
         var line = lines[i];
-        var column = 0;
-        scriptTokenizer.line = line;
-        do {
-            var newColumn = scriptTokenizer.nextToken(column);
-            var tokenType = scriptTokenizer.tokenType;
-            var tokenValue = line.substring(column, newColumn);
+        function processToken(tokenValue, tokenType, column, newColumn)
+        {
+            tokenType = tokenType ? WebInspector.CodeMirrorUtils.convertTokenType(tokenType) : null;
             if (tokenType === "javascript-ident") {
                 previousIdentifier = tokenValue;
                 if (tokenValue && previousToken === "function") {
@@ -127,25 +144,33 @@ function outline(params)
                 previousTokenType = tokenType;
             }
             processedChunkCharacters += newColumn - column;
-            column = newColumn;
 
             if (processedChunkCharacters >= chunkSize) {
                 postMessage({ chunk: outlineChunk, total: chunkCount, index: currentChunk++ });
                 outlineChunk = [];
                 processedChunkCharacters = 0;
             }
-        } while (column < line.length);
+        }
+        tokenizer(line, processToken);
     }
     postMessage({ chunk: outlineChunk, total: chunkCount, index: chunkCount });
 }
 
-function formatScript(content, mapping, offset, formattedOffset, indentString)
+/**
+ * @param {string} content
+ * @param {{original: Array.<number>, formatted: Array.<number>}} mapping
+ * @param {number} offset
+ * @param {number} formattedOffset
+ * @param {string} indentString
+ * @return {string}
+ */
+FormatterWorker._formatScript = function(content, mapping, offset, formattedOffset, indentString)
 {
     var formattedContent;
     try {
-        var tokenizer = new Tokenizer(content);
-        var builder = new FormattedContentBuilder(tokenizer.content(), mapping, offset, formattedOffset, indentString);
-        var formatter = new JavaScriptFormatter(tokenizer, builder);
+        var tokenizer = new FormatterWorker.JavaScriptTokenizer(content);
+        var builder = new FormatterWorker.JavaScriptFormattedContentBuilder(tokenizer.content(), mapping, offset, formattedOffset, indentString);
+        var formatter = new FormatterWorker.JavaScriptFormatter(tokenizer, builder);
         formatter.format();
         formattedContent = builder.content();
     } catch (e) {
@@ -154,7 +179,137 @@ function formatScript(content, mapping, offset, formattedOffset, indentString)
     return formattedContent;
 }
 
-WebInspector = {};
+/**
+ * @param {string} content
+ * @param {{original: Array.<number>, formatted: Array.<number>}} mapping
+ * @param {number} offset
+ * @param {number} formattedOffset
+ * @param {string} indentString
+ * @return {string}
+ */
+FormatterWorker._formatCSS = function(content, mapping, offset, formattedOffset, indentString)
+{
+    var formattedContent;
+    try {
+        var builder = new FormatterWorker.CSSFormattedContentBuilder(content, mapping, offset, formattedOffset, indentString);
+        var formatter = new FormatterWorker.CSSFormatter(content, builder);
+        formatter.format();
+        formattedContent = builder.content();
+    } catch (e) {
+        formattedContent = content;
+    }
+    return formattedContent;
+}
+
+/**
+ * @constructor
+ * @param {string} indentString
+ */
+FormatterWorker.HTMLFormatter = function(indentString)
+{
+    this._indentString = indentString;
+}
+
+FormatterWorker.HTMLFormatter.prototype = {
+    /**
+     * @param {string} content
+     */
+    format: function(content)
+    {
+        this.line = content;
+        this._content = content;
+        this._formattedContent = "";
+        this._mapping = { original: [0], formatted: [0] };
+        this._position = 0;
+
+        var scriptOpened = false;
+        var styleOpened = false;
+        var tokenizer = WebInspector.CodeMirrorUtils.createTokenizer("text/html");
+        function processToken(tokenValue, tokenType, tokenStart, tokenEnd) {
+            if (tokenType !== "xml-tag")
+                return;
+            if (tokenValue.toLowerCase() === "<script") {
+                scriptOpened = true;
+            } else if (scriptOpened && tokenValue === ">") {
+                scriptOpened = false;
+                this._scriptStarted(tokenEnd);
+            } else if (tokenValue.toLowerCase() === "</script") {
+                this._scriptEnded(tokenStart);
+            } else if (tokenValue.toLowerCase() === "<style") {
+                styleOpened = true;
+            } else if (styleOpened && tokenValue === ">") {
+                styleOpened = false;
+                this._styleStarted(tokenEnd);
+            } else if (tokenValue.toLowerCase() === "</style") {
+                this._styleEnded(tokenStart);
+            }
+        }
+        tokenizer(content, processToken.bind(this));
+
+        this._formattedContent += this._content.substring(this._position);
+        return { content: this._formattedContent, mapping: this._mapping };
+    },
+
+    /**
+     * @param {number} cursor
+     */
+    _scriptStarted: function(cursor)
+    {
+        this._handleSubFormatterStart(cursor);
+    },
+
+    /**
+     * @param {number} cursor
+     */
+    _scriptEnded: function(cursor)
+    {
+        this._handleSubFormatterEnd(FormatterWorker._formatScript, cursor);
+    },
+
+    /**
+     * @param {number} cursor
+     */
+    _styleStarted: function(cursor)
+    {
+        this._handleSubFormatterStart(cursor);
+    },
+
+    /**
+     * @param {number} cursor
+     */
+    _styleEnded: function(cursor)
+    {
+        this._handleSubFormatterEnd(FormatterWorker._formatCSS, cursor);
+    },
+
+    /**
+     * @param {number} cursor
+     */
+    _handleSubFormatterStart: function(cursor)
+    {
+        this._formattedContent += this._content.substring(this._position, cursor);
+        this._formattedContent += "\n";
+        this._position = cursor;
+    },
+
+    /**
+     * @param {function(string, {formatted: Array.<number>, original: Array.<number>}, number, number, string)} formatFunction
+     * @param {number} cursor
+     */
+    _handleSubFormatterEnd: function(formatFunction, cursor)
+    {
+        if (cursor === this._position)
+            return;
+
+        var scriptContent = this._content.substring(this._position, cursor);
+        this._mapping.original.push(this._position);
+        this._mapping.formatted.push(this._formattedContent.length);
+        var formattedScriptContent = formatFunction(scriptContent, this._mapping, this._position, this._formattedContent.length, this._indentString);
+
+        this._formattedContent += formattedScriptContent;
+        this._position = cursor;
+    }
+}
 
 Array.prototype.keySet = function()
 {
@@ -164,72 +319,17 @@ Array.prototype.keySet = function()
     return keys;
 };
 
-importScripts("SourceTokenizer.js");
-importScripts("SourceHTMLTokenizer.js");
-importScripts("SourceJavaScriptTokenizer.js");
-
-HTMLScriptFormatter = function(indentString)
-{
-    WebInspector.SourceHTMLTokenizer.call(this);
-    this._indentString = indentString;
-}
-
-HTMLScriptFormatter.prototype = {
-    format: function(content)
-    {
-        this.line = content;
-        this._content = content;
-        this._formattedContent = "";
-        this._mapping = { original: [0], formatted: [0] };
-        this._position = 0;
-
-        var cursor = 0;
-        while (cursor < this._content.length)
-            cursor = this.nextToken(cursor);
-
-        this._formattedContent += this._content.substring(this._position);
-        return { content: this._formattedContent, mapping: this._mapping };
-    },
-
-    scriptStarted: function(cursor)
-    {
-        this._formattedContent += this._content.substring(this._position, cursor);
-        this._formattedContent += "\n";
-        this._position = cursor;
-    },
-
-    scriptEnded: function(cursor)
-    {
-        if (cursor === this._position)
-            return;
-
-        var scriptContent = this._content.substring(this._position, cursor);
-        this._mapping.original.push(this._position);
-        this._mapping.formatted.push(this._formattedContent.length);
-        var formattedScriptContent = formatScript(scriptContent, this._mapping, this._position, this._formattedContent.length, this._indentString);
-
-        this._formattedContent += formattedScriptContent;
-        this._position = cursor;
-    },
-
-    styleSheetStarted: function(cursor)
-    {
-    },
-
-    styleSheetEnded: function(cursor)
-    {
-    },
-
-    __proto__: WebInspector.SourceHTMLTokenizer.prototype
-}
-
 function require()
 {
     return parse;
 }
 
-var exports = {};
+/**
+ * @type {{tokenizer}}
+ */
+var exports = { tokenizer: null };
 importScripts("UglifyJS/parse-js.js");
 var parse = exports;
 
 importScripts("JavaScriptFormatter.js");
+importScripts("CSSFormatter.js");

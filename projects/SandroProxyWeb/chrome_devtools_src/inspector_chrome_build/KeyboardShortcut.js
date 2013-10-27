@@ -90,10 +90,17 @@ WebInspector.KeyboardShortcut.Keys = {
     Period: { code: 190, name: "." },
     Slash: { code: 191, name: "/" },
     Apostrophe: { code: 192, name: "`" },
+    Backslash: { code: 220, name: "\\" },
     SingleQuote: { code: 222, name: "\'" },
     H: { code: 72, name: "H" },
     Ctrl: { code: 17, name: "Ctrl" },
     Meta: { code: 91, name: "Meta" },
+    Tilde: { code: 192, name: "Tilde" },
+    get CtrlOrMeta()
+    {
+        // "default" command/ctrl key for platform, Command on Mac, Ctrl on other platforms
+        return WebInspector.isMac() ? this.Meta : this.Ctrl;
+    },
 };
 
 /**
@@ -140,7 +147,7 @@ WebInspector.KeyboardShortcut.eventHasCtrlOrMeta = function(event)
 }
 
 /**
- * @param {KeyboardEvent} event
+ * @param {Event} event
  * @return {boolean}
  */
 WebInspector.KeyboardShortcut.hasNoModifiers = function(event)

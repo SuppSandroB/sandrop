@@ -86,13 +86,14 @@ WebInspector.Linkifier.prototype = {
     },
 
     /**
-     * @param {CSSAgent.StyleSheetId} styleSheetId
+     * @param {?CSSAgent.StyleSheetId} styleSheetId
      * @param {WebInspector.CSSLocation} rawLocation
+     * @param {string=} classes
      * @return {?Element}
      */
-    linkifyCSSLocation: function(styleSheetId, rawLocation)
+    linkifyCSSLocation: function(styleSheetId, rawLocation, classes)
     {
-        var anchor = WebInspector.linkifyURLAsNode("", "", "", false);
+        var anchor = WebInspector.linkifyURLAsNode("", "", classes, false);
         var liveLocation = WebInspector.cssModel.createLiveLocation(styleSheetId, rawLocation, this._updateAnchor.bind(this, anchor));
         if (!liveLocation)
             return null;
@@ -113,7 +114,7 @@ WebInspector.Linkifier.prototype = {
      */
     _updateAnchor: function(anchor, uiLocation)
     {
-        anchor.preferredPanel = "scripts";
+        anchor.preferredPanel = "sources";
         anchor.href = sanitizeHref(uiLocation.uiSourceCode.originURL());
         anchor.uiSourceCode = uiLocation.uiSourceCode;
         anchor.lineNumber = uiLocation.lineNumber;

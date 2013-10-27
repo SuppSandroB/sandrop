@@ -38,7 +38,6 @@ WebInspector.InspectorFrontendHostStub = function()
 {
     this.isStub = true;
     this._fileBuffers = {};
-    WebInspector.documentCopyEventFired = this.documentCopy.bind(this);
 }
 
 WebInspector.InspectorFrontendHostStub.prototype = {
@@ -83,8 +82,9 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         InspectorFrontendAPI.setDockSide(side);
     },
 
-    setAttachedWindowHeight: function(height)
+    setWindowBounds: function(x, y, width, height, callback)
     {
+        callback();
     },
 
     moveWindowBy: function(x, y)
@@ -101,7 +101,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     localizedStringsURL: function()
     {
-        return undefined;
     },
 
     inspectedURLChanged: function(url)
@@ -109,22 +108,9 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         document.title = WebInspector.UIString(Preferences.applicationTitle, url);
     },
 
-    documentCopy: function(event)
-    {
-        if (!this._textToCopy)
-            return;
-        event.clipboardData.setData("text", this._textToCopy);
-        event.preventDefault();
-        delete this._textToCopy;
-    },
-
     copyText: function(text)
     {
-        this._textToCopy = text;
-        if (!document.execCommand("copy")) {
-            var screen = new WebInspector.ClipboardAccessDeniedScreen();
-            screen.showModal();
-        }
+        WebInspector.log("Clipboard is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
     },
 
     openInNewTab: function(url)
@@ -132,53 +118,25 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         window.open(url, "_blank");
     },
 
-    canSave: function()
-    {
-        return true;
-    },
-
     save: function(url, content, forceSaveAs)
     {
-        if (this._fileBuffers[url])
-            throw new Error("Concurrent file modification denied.");
-
-        this._fileBuffers[url] = [content];
-        setTimeout(WebInspector.fileManager.savedURL.bind(WebInspector.fileManager, url), 0);
+        WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
     },
 
     append: function(url, content)
     {
-        var buffer = this._fileBuffers[url];
-        if (!buffer)
-            throw new Error("File is not open for write yet.");
-
-        buffer.push(content);
-        setTimeout(WebInspector.fileManager.appendedToURL.bind(WebInspector.fileManager, url), 0);
+        WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
     },
 
     close: function(url)
     {
-        var content = this._fileBuffers[url];
-        delete this._fileBuffers[url];
-
-        if (!content)
-            return;
-
-        var lastSlashIndex = url.lastIndexOf("/");
-        var fileNameSuffix = (lastSlashIndex === -1) ? url : url.substring(lastSlashIndex + 1);
-
-        var blob = new Blob(content, { type: "application/octet-stream" });
-        var objectUrl = window.URL.createObjectURL(blob);
-        window.location = objectUrl + "#/" + fileNameSuffix;
-
-        function cleanup()
-        {
-            window.URL.revokeObjectURL(objectUrl);
-        }
-        setTimeout(cleanup, 3000);
     },
 
     sendMessageToBackend: function(message)
+    {
+    },
+
+    sendMessageToEmbedder: function(message)
     {
     },
 
@@ -192,11 +150,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     recordSettingChanged: function(settingCode)
     {
-    },
-
-    loadResourceSynchronously: function(url)
-    {
-        return loadXHR(url);
     },
 
     supportsFileSystems: function()
@@ -245,25 +198,48 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
 InspectorFrontendHost = new WebInspector.InspectorFrontendHostStub();
 
-/**
- * @constructor
- * @extends {WebInspector.HelpScreen}
- */
-WebInspector.ClipboardAccessDeniedScreen = function()
-{
-    WebInspector.HelpScreen.call(this, WebInspector.UIString("Clipboard access is denied"));
-    var platformMessage = WebInspector.UIString("You need to install a Chrome extension that grants clipboard access to Developer Tools.");
-    if (platformMessage) {
-        var p = this.contentElement.createChild("p");
-        p.addStyleClass("help-section");
-        p.textContent = platformMessage;
+} else if (InspectorFrontendHost.sendMessageToEmbedder) {
+  // Install message-based handlers with callbacks.
+    var lastCallId = 0;
+    InspectorFrontendHost._callbacks = [];
+
+    /**
+     * @param {number} id
+     * @param {?string} error
+     */
+    InspectorFrontendHost.embedderMessageAck = function(id, error)
+    {
+        var callback = InspectorFrontendHost._callbacks[id];
+        delete InspectorFrontendHost._callbacks[id];
+        if (callback)
+            callback(error);
     }
-}
 
-WebInspector.ClipboardAccessDeniedScreen.prototype = {
-    __proto__: WebInspector.HelpScreen.prototype
-}
+    /**
+     * @param {string} methodName
+     */
+    function dispatch(methodName)
+    {
+        var callId = ++lastCallId;
+        var argsArray = Array.prototype.slice.call(arguments, 1);
+        var callback = argsArray[argsArray.length - 1];
+        if (typeof callback === "function") {
+            argsArray.pop();
+            InspectorFrontendHost._callbacks[callId] = callback;
+        }
 
+        var message = { "id": callId, "method": methodName };
+        if (argsArray.length)
+            message.params = argsArray;
+        InspectorFrontendHost.sendMessageToEmbedder(JSON.stringify(message));
+    };
+
+    var methodList = [ "addFileSystem", "append", "bringToFront", "indexPath", "moveWindowBy", "openInNewTab",
+                       "removeFileSystem", "requestFileSystems", "requestSetDockSide", "save", "searchInPath",
+                       "setWindowBounds", "stopIndexing" ];
+
+    for (var i = 0; i < methodList.length; ++i)
+        InspectorFrontendHost[methodList[i]] = dispatch.bind(null, methodList[i]);
 }
 
 /**

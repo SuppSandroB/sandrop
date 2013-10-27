@@ -36,7 +36,7 @@ WebInspector.TabbedPane = function()
 {
     WebInspector.View.call(this);
     this.registerRequiredCSS("tabbedPane.css");
-    this.element.addStyleClass("tabbed-pane");
+    this.element.classList.add("tabbed-pane", "vbox");
     this._headerElement = this.element.createChild("div", "tabbed-pane-header");
     this._headerContentsElement = this._headerElement.createChild("div", "tabbed-pane-header-contents");
     this._tabsElement = this._headerContentsElement.createChild("div", "tabbed-pane-header-tabs");
@@ -104,9 +104,20 @@ WebInspector.TabbedPane.prototype = {
         this._retainTabsOrder = retainTabsOrder;
     },
 
+    /**
+     * @return {Element}
+     */
     defaultFocusedElement: function()
     {
         return this.visibleView ? this.visibleView.defaultFocusedElement() : null;
+    },
+
+    /**
+     * @return {Element}
+     */
+    headerElement: function()
+    {
+        return this._headerElement;
     },
 
     /**
@@ -136,10 +147,12 @@ WebInspector.TabbedPane.prototype = {
      * @param {WebInspector.View} view
      * @param {string=} tabTooltip
      * @param {boolean=} userGesture
+     * @param {boolean=} isCloseable
      */
-    appendTab: function(id, tabTitle, view, tabTooltip, userGesture)
+    appendTab: function(id, tabTitle, view, tabTooltip, userGesture, isCloseable)
     {
-        var tab = new WebInspector.TabbedPaneTab(this, id, tabTitle, this._closeableTabs, view, tabTooltip);
+        isCloseable = typeof isCloseable === "boolean" ? isCloseable : this._closeableTabs;
+        var tab = new WebInspector.TabbedPaneTab(this, id, tabTitle, isCloseable, view, tabTooltip);
         tab.setDelegate(this._delegate);
         this._tabsById[id] = tab;
 
@@ -180,6 +193,10 @@ WebInspector.TabbedPane.prototype = {
      */
     _innerCloseTab: function(id, userGesture)
     {
+        if (!this._tabsById[id])
+            return;
+        if (!this._tabsById[id]._closeable)
+            return;
         if (this._currentTab && this._currentTab.id === id)
             this._hideCurrentTab();
 
@@ -194,6 +211,15 @@ WebInspector.TabbedPane.prototype = {
         var eventData = { tabId: id, view: tab.view, isUserGesture: userGesture };
         this.dispatchEventToListeners(WebInspector.TabbedPane.EventTypes.TabClosed, eventData);
         return true;
+    },
+
+    /**
+     * @param {string} tabId
+     * @return {boolean}
+     */
+    hasTab: function(tabId)
+    {
+        return !!this._tabsById[tabId];
     },
 
     /**
@@ -281,6 +307,8 @@ WebInspector.TabbedPane.prototype = {
     changeTabTitle: function(id, tabTitle)
     {
         var tab = this._tabsById[id];
+        if (tab.title === tabTitle)
+            return;
         tab.title = tabTitle;
         this._updateTabElements();
     },
@@ -293,7 +321,8 @@ WebInspector.TabbedPane.prototype = {
     {
         var tab = this._tabsById[id];
         if (this._currentTab && this._currentTab.id === tab.id) {
-            this._hideTab(tab);
+            if (tab.view !== view)
+                this._hideTab(tab);
             tab.view = view;
             this._showTab(tab);
         } else
@@ -473,6 +502,7 @@ WebInspector.TabbedPane.prototype = {
     _measureWidths: function()
     {
         // Add all elements to measure into this._tabsElement
+        this._tabsElement.style.setProperty("width", "2000px");
         var measuringTabElements = [];
         for (var tabId in this._tabs) {
             var tab = this._tabs[tabId];
@@ -496,6 +526,7 @@ WebInspector.TabbedPane.prototype = {
         var measuredWidths = [];
         for (var tabId in this._tabs)
             measuredWidths.push(this._tabs[tabId]._measuredWidth);
+        this._tabsElement.style.removeProperty("width");
 
         return measuredWidths;
     },
@@ -698,7 +729,7 @@ WebInspector.TabbedPaneTab.prototype = {
         this._iconTooltip = iconTooltip;
         if (this._iconElement)
             this._iconElement.remove();
-        if (this._iconClass)
+        if (this._iconClass && this._tabElement)
             this._iconElement = this._createIconElement(this._tabElement, this._titleElement);
         delete this._measuredWidth;
     },
@@ -819,8 +850,12 @@ WebInspector.TabbedPaneTab.prototype = {
      */
     _tabClicked: function(event)
     {
-        if (this._closeable && (event.button === 1 || event.target.hasStyleClass("close-button-gray")))
-            this._closeTabs([this.id]);
+        var middleButton = event.button === 1;
+        var shouldClose = this._closeable && (middleButton || event.target.hasStyleClass("close-button-gray"));
+        if (!shouldClose)
+            return;
+        this._closeTabs([this.id]);
+        event.consume(true);
     },
 
     /**

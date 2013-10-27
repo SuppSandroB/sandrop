@@ -56,6 +56,7 @@ WebInspector.InspectElementModeController.prototype = {
     toggleSearch: function()
     {
         var enabled = !this.enabled();
+
         /**
          * @param {?Protocol.Error} error
          */
@@ -80,3 +81,6 @@ WebInspector.InspectElementModeController.prototype = {
         return true;
     }
 }
+
+/** @type {WebInspector.InspectElementModeController} */
+WebInspector.inspectElementModeController = null;

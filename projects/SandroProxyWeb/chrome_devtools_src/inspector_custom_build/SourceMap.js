@@ -52,6 +52,14 @@ WebInspector.SourceMap = function(sourceMappingURL, payload)
     this._parseMappingPayload(payload);
 }
 
+WebInspector.SourceMap._sourceMapRequestHeaderName = "X-Source-Map-Request-From";
+WebInspector.SourceMap._sourceMapRequestHeaderValue = "inspector";
+
+WebInspector.SourceMap.hasSourceMapRequestHeader = function(request)
+{
+    return request && request.requestHeaderValue(WebInspector.SourceMap._sourceMapRequestHeaderName) === WebInspector.SourceMap._sourceMapRequestHeaderValue;
+}
+
 /**
  * @param {string} sourceMapURL
  * @param {string} compiledURL
@@ -59,7 +67,9 @@ WebInspector.SourceMap = function(sourceMappingURL, payload)
  */
 WebInspector.SourceMap.load = function(sourceMapURL, compiledURL, callback)
 {
-    NetworkAgent.loadResourceForFrontend(WebInspector.resourceTreeModel.mainFrame.id, sourceMapURL, undefined, contentLoaded.bind(this));
+    var headers = {};
+    headers[WebInspector.SourceMap._sourceMapRequestHeaderName] = WebInspector.SourceMap._sourceMapRequestHeaderValue;
+    NetworkAgent.loadResourceForFrontend(WebInspector.resourceTreeModel.mainFrame.id, sourceMapURL, headers, contentLoaded.bind(this));
 
     /**
      * @param {?Protocol.Error} error
@@ -70,7 +80,6 @@ WebInspector.SourceMap.load = function(sourceMapURL, compiledURL, callback)
     function contentLoaded(error, statusCode, headers, content)
     {
         if (error || !content || statusCode >= 400) {
-            console.error("Could not load content for " + sourceMapURL + " : " + (error || ("HTTP status code: " + statusCode)));
             callback(null);
             return;
         }
@@ -90,6 +99,14 @@ WebInspector.SourceMap.load = function(sourceMapURL, compiledURL, callback)
 
 WebInspector.SourceMap.prototype = {
     /**
+     * @return {string}
+     */
+    url: function()
+    {
+        return this._sourceMappingURL;
+    },
+
+   /**
      * @return {Array.<string>}
      */
     sources: function()
@@ -113,13 +130,10 @@ WebInspector.SourceMap.prototype = {
      */
     sourceContentProvider: function(sourceURL, contentType)
     {
-        var lastIndexOfDot = sourceURL.lastIndexOf(".");
-        var extension = lastIndexOfDot !== -1 ? sourceURL.substr(lastIndexOfDot + 1) : "";
-        var mimeType = WebInspector.ResourceType.mimeTypesForExtensions[extension.toLowerCase()];
         var sourceContent = this.sourceContent(sourceURL);
         if (sourceContent)
-            return new WebInspector.StaticContentProvider(contentType, sourceContent, mimeType);
-        return new WebInspector.CompilerSourceMappingContentProvider(sourceURL, contentType, mimeType);
+            return new WebInspector.StaticContentProvider(contentType, sourceContent);
+        return new WebInspector.CompilerSourceMappingContentProvider(sourceURL, contentType);
     },
 
     /**

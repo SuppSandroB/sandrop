@@ -35,7 +35,7 @@
  * @param {NetworkAgent.RequestId} requestId
  * @param {string} url
  * @param {string} documentURL
- * @param {NetworkAgent.FrameId} frameId
+ * @param {PageAgent.FrameId} frameId
  * @param {NetworkAgent.LoaderId} loaderId
  */
 WebInspector.NetworkRequest = function(requestId, url, documentURL, frameId, loaderId)
@@ -52,7 +52,6 @@ WebInspector.NetworkRequest = function(requestId, url, documentURL, frameId, loa
     this.statusText = "";
     this.requestMethod = "";
     this.requestTime = 0;
-    this.receiveHeadersEnd = 0;
 
     this._type = WebInspector.resourceTypes.Other;
     this._contentEncoded = false;
@@ -128,7 +127,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {NetworkAgent.FrameId}
+     * @return {PageAgent.FrameId}
      */
     get frameId()
     {
@@ -208,16 +207,6 @@ WebInspector.NetworkRequest.prototype = {
         if (this._responseReceivedTime === -1 || this._startTime === -1)
             return -1;
         return this._responseReceivedTime - this._startTime;
-    },
-
-    /**
-     * @return {number}
-     */
-    get receiveDuration()
-    {
-        if (this._endTime === -1 || this._responseReceivedTime === -1)
-            return -1;
-        return this._endTime - this._responseReceivedTime;
     },
 
     /**
@@ -319,7 +308,7 @@ WebInspector.NetworkRequest.prototype = {
      */
     get cached()
     {
-        return this._cached && !this._transferSize;
+        return !!this._cached && !this._transferSize;
     },
 
     set cached(x)
@@ -445,6 +434,14 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
+     * @return {string}
+     */
+    get scheme()
+    {
+        return this._parsedURL.scheme;
+    },
+
+    /**
      * @return {?WebInspector.NetworkRequest}
      */
     get redirectSource()
@@ -463,60 +460,38 @@ WebInspector.NetworkRequest.prototype = {
     /**
      * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
-    get requestHeaders()
+    requestHeaders: function()
     {
         return this._requestHeaders || [];
     },
 
-    set requestHeaders(x)
+    /**
+     * @param {!Array.<!WebInspector.NetworkRequest.NameValue>} headers
+     */
+    setRequestHeaders: function(headers)
     {
-        this._requestHeaders = x;
-        delete this._sortedRequestHeaders;
+        this._requestHeaders = headers;
         delete this._requestCookies;
 
         this.dispatchEventToListeners(WebInspector.NetworkRequest.Events.RequestHeadersChanged);
     },
 
     /**
-     * @return {string}
+     * @return {string|undefined}
      */
-    get requestHeadersText()
+    requestHeadersText: function()
     {
-        if (typeof this._requestHeadersText === "undefined") {
-            this._requestHeadersText = this.requestMethod + " " + this.url + " HTTP/1.1\r\n";
-            for (var i = 0; i < this.requestHeaders.length; ++i)
-                this._requestHeadersText += this.requestHeaders[i].name + ": " + this.requestHeaders[i].value + "\r\n";
-        }
         return this._requestHeadersText;
     },
 
-    set requestHeadersText(x)
+    /**
+     * @param {string} text
+     */
+    setRequestHeadersText: function(text)
     {
-        this._requestHeadersText = x;
+        this._requestHeadersText = text;
 
         this.dispatchEventToListeners(WebInspector.NetworkRequest.Events.RequestHeadersChanged);
-    },
-
-    /**
-     * @return {number}
-     */
-    get requestHeadersSize()
-    {
-        return this.requestHeadersText.length;
-    },
-
-    /**
-     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
-     */
-    get sortedRequestHeaders()
-    {
-        if (this._sortedRequestHeaders !== undefined)
-            return this._sortedRequestHeaders;
-
-        this._sortedRequestHeaders = [];
-        this._sortedRequestHeaders = this.requestHeaders.slice();
-        this._sortedRequestHeaders.sort(function(a,b) { return a.name.toLowerCase().compareTo(b.name.toLowerCase()) });
-        return this._sortedRequestHeaders;
     },
 
     /**
@@ -525,7 +500,7 @@ WebInspector.NetworkRequest.prototype = {
      */
     requestHeaderValue: function(headerName)
     {
-        return this._headerValue(this.requestHeaders, headerName);
+        return this._headerValue(this.requestHeaders(), headerName);
     },
 
     /**
@@ -555,9 +530,12 @@ WebInspector.NetworkRequest.prototype = {
     /**
      * @return {string|undefined}
      */
-    get requestHttpVersion()
+    requestHttpVersion: function()
     {
-        var firstLine = this.requestHeadersText.split(/\r\n/)[0];
+        var headersText = this.requestHeadersText();
+        if (!headersText)
+            return undefined;
+        var firstLine = headersText.split(/\r\n/)[0];
         var match = firstLine.match(/(HTTP\/\d+\.\d+)$/);
         return match ? match[1] : undefined;
     },
@@ -616,7 +594,6 @@ WebInspector.NetworkRequest.prototype = {
         if (this._sortedResponseHeaders !== undefined)
             return this._sortedResponseHeaders;
 
-        this._sortedResponseHeaders = [];
         this._sortedResponseHeaders = this.responseHeaders.slice();
         this._sortedResponseHeaders.sort(function(a, b) { return a.name.toLowerCase().compareTo(b.name.toLowerCase()); });
         return this._sortedResponseHeaders;
@@ -768,7 +745,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @param {function(?string, boolean, string)} callback
+     * @param {function(?string)} callback
      */
     requestContent: function(callback)
     {
@@ -776,11 +753,11 @@ WebInspector.NetworkRequest.prototype = {
         // Since WebSockets are potentially long-living, fail requests immediately
         // to prevent caller blocking until resource is marked as finished.
         if (this.type === WebInspector.resourceTypes.WebSocket) {
-            callback(null, false, this._mimeType);
+            callback(null);
             return;
         }
         if (typeof this._content !== "undefined") {
-            callback(this.content || null, this._contentEncoded, this.type.canonicalMimeType() || this._mimeType);
+            callback(this.content || null);
             return;
         }
         this._pendingContentCallbacks.push(callback);
@@ -839,10 +816,8 @@ WebInspector.NetworkRequest.prototype = {
         /**
          * @this {WebInspector.NetworkRequest}
          * @param {?string} content
-         * @param {boolean} contentEncoded
-         * @param {string} mimeType
          */
-        function onResourceContent(content, contentEncoded, mimeType)
+        function onResourceContent(content)
         {
             var imageSrc = this.asDataURL();
             if (imageSrc === null)
@@ -878,7 +853,7 @@ WebInspector.NetworkRequest.prototype = {
             this._contentEncoded = contentEncoded;
             var callbacks = this._pendingContentCallbacks.slice();
             for (var i = 0; i < callbacks.length; ++i)
-                callbacks[i](this._content, this._contentEncoded, this._mimeType);
+                callbacks[i](this._content);
             this._pendingContentCallbacks.length = 0;
             delete this._contentRequested;
         }

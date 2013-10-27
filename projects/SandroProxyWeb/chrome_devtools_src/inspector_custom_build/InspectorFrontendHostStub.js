@@ -38,7 +38,6 @@ WebInspector.InspectorFrontendHostStub = function()
 {
     this.isStub = true;
     this._fileBuffers = {};
-    WebInspector.documentCopyEventFired = this.documentCopy.bind(this);
 }
 
 WebInspector.InspectorFrontendHostStub.prototype = {
@@ -83,8 +82,9 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         InspectorFrontendAPI.setDockSide(side);
     },
 
-    setAttachedWindowHeight: function(height)
+    setWindowBounds: function(x, y, width, height, callback)
     {
+        callback();
     },
 
     moveWindowBy: function(x, y)
@@ -101,7 +101,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     localizedStringsURL: function()
     {
-        return undefined;
     },
 
     inspectedURLChanged: function(url)
@@ -109,17 +108,10 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         document.title = WebInspector.UIString(Preferences.applicationTitle, url);
     },
 
-    documentCopy: function(event)
-    {
-        if (!this._textToCopy)
-            return;
-        event.clipboardData.setData("text", this._textToCopy);
-        event.preventDefault();
-        delete this._textToCopy;
-    },
-
     copyText: function(text)
     {
+        // sandroproxy change
+        // WebInspector.log("Clipboard is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
         this._textToCopy = text;
         if (!document.execCommand("copy")) {
             var screen = new WebInspector.ClipboardAccessDeniedScreen();
@@ -131,7 +123,7 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
         window.open(url, "_blank");
     },
-
+    
     canSave: function()
     {
         return true;
@@ -139,6 +131,8 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     save: function(url, content, forceSaveAs)
     {
+        // sandroproxy change
+        // WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
         if (this._fileBuffers[url])
             throw new Error("Concurrent file modification denied.");
 
@@ -148,6 +142,8 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     append: function(url, content)
     {
+        // sandroproxy change
+        // WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
         var buffer = this._fileBuffers[url];
         if (!buffer)
             throw new Error("File is not open for write yet.");
@@ -182,6 +178,10 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
+    sendMessageToEmbedder: function(message)
+    {
+    },
+
     recordActionTaken: function(actionCode)
     {
     },
@@ -192,11 +192,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     recordSettingChanged: function(settingCode)
     {
-    },
-
-    loadResourceSynchronously: function(url)
-    {
-        return loadXHR(url);
     },
 
     supportsFileSystems: function()
@@ -245,6 +240,50 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
 InspectorFrontendHost = new WebInspector.InspectorFrontendHostStub();
 
+} else {
+    // Install message-based handlers with callbacks.
+    var lastCallId = 0;
+    InspectorFrontendHost._callbacks = [];
+
+    /**
+     * @param {number} id
+     * @param {?string} error
+     */
+    InspectorFrontendHost.embedderMessageAck = function(id, error)
+    {
+        var callback = InspectorFrontendHost._callbacks[id];
+        delete InspectorFrontendHost._callbacks[id];
+        if (callback)
+            callback(error);
+    }
+
+    /**
+     * @param {string} methodName
+     */
+    function dispatch(methodName)
+    {
+        var callId = ++lastCallId;
+        var argsArray = Array.prototype.slice.call(arguments, 1);
+        var callback = argsArray[argsArray.length - 1];
+        if (typeof callback === "function") {
+            argsArray.pop();
+            InspectorFrontendHost._callbacks[callId] = callback;
+        }
+
+        var message = { "id": callId, "method": methodName };
+        if (argsArray.length)
+            message.params = argsArray;
+        InspectorFrontendHost.sendMessageToEmbedder(JSON.stringify(message));
+    };
+
+    var methodList = [ "addFileSystem", "append", "bringToFront", "indexPath", "moveWindowBy", "openInNewTab",
+                       "removeFileSystem", "requestFileSystems", "requestSetDockSide", "save", "searchInPath",
+                       "setWindowBounds", "stopIndexing" ];
+
+    for (var i = 0; i < methodList.length; ++i)
+        InspectorFrontendHost[methodList[i]] = dispatch.bind(null, methodList[i]);
+}
+
 /**
  * @constructor
  * @extends {WebInspector.HelpScreen}
@@ -262,8 +301,6 @@ WebInspector.ClipboardAccessDeniedScreen = function()
 
 WebInspector.ClipboardAccessDeniedScreen.prototype = {
     __proto__: WebInspector.HelpScreen.prototype
-}
-
 }
 
 /**

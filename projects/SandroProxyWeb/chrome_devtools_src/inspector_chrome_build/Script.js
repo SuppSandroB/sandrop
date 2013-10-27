@@ -78,12 +78,12 @@ WebInspector.Script.prototype = {
     },
 
     /**
-     * @param {function(?string,boolean,string)} callback
+     * @param {function(?string)} callback
      */
     requestContent: function(callback)
     {
         if (this._source) {
-            callback(this._source, false, "text/javascript");
+            callback(this._source);
             return;
         }
 
@@ -95,13 +95,13 @@ WebInspector.Script.prototype = {
         function didGetScriptSource(error, source)
         {
             this._source = error ? "" : source;
-            callback(this._source, false, "text/javascript");
+            callback(this._source);
         }
         if (this.scriptId) {
             // Script failed to parse.
             DebuggerAgent.getScriptSource(this.scriptId, didGetScriptSource.bind(this));
         } else
-            callback("", false, "text/javascript");
+            callback("");
     },
 
     /**
@@ -138,7 +138,7 @@ WebInspector.Script.prototype = {
 
     /**
      * @param {string} newSource
-     * @param {function(?Protocol.Error, DebuggerAgent.SetScriptSourceError=, Array.<DebuggerAgent.CallFrame>=)} callback
+     * @param {function(?Protocol.Error, DebuggerAgent.SetScriptSourceError=, Array.<DebuggerAgent.CallFrame>=, boolean=)} callback
      */
     editSource: function(newSource, callback)
     {
@@ -154,7 +154,8 @@ WebInspector.Script.prototype = {
             // FIXME: support debugData.stack_update_needs_step_in flag by calling WebInspector.debugger_model.callStackModified
             if (!error)
                 this._source = newSource;
-            callback(error, errorData, callFrames);
+            var needsStepIn = !!debugData && debugData["stack_update_needs_step_in"] === true;
+            callback(error, errorData, callFrames, needsStepIn);
             if (!error)
                 this.dispatchEventToListeners(WebInspector.Script.Events.ScriptEdited, newSource);
         }

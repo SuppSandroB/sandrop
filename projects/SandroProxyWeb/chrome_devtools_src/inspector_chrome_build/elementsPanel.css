@@ -28,7 +28,15 @@
  */
 
 #elements-content {
+    flex: 1 1;
+    overflow: auto;
     padding-left: 0;
+}
+
+#elements-crumbs {
+    flex: 0 0 19px;
+    background-color: rgb(236, 236, 236);
+    border-top: 1px solid #ccc;
 }
 
 #elements-content > ol {
@@ -170,7 +178,6 @@
     display: inline-block;
 }
 
-
 .styles-section {
     padding: 2px 2px 4px 4px;
     min-height: 18px;
@@ -178,10 +185,23 @@
     background-origin: padding;
     background-clip: padding;
     -webkit-user-select: text;
+    border-bottom: 1px solid rgb(191, 191, 191);
 }
 
-.styles-section:not(.first-styles-section) {
-    border-top: 1px solid rgb(191, 191, 191);
+.styles-pane .sidebar-separator {
+    border-top: 0px none;
+}
+
+.styles-section.user-rule {
+    display: none;
+}
+
+.show-user-styles .styles-section.user-rule {
+    display: block;
+}
+
+.styles-sidebar-placeholder {
+    height: 16px;
 }
 
 .styles-section.read-only {
@@ -244,7 +264,7 @@
     color: #888;
 }
 
-.styles-section .selector-matches {
+.styles-section .simple-selector.selector-matches {
     color: #222;
 }
 
@@ -541,7 +561,6 @@
     -webkit-user-drag: auto;
 }
 
-
 .sidebar-pane.composite {
     overflow: hidden;
     position: absolute;
@@ -560,10 +579,39 @@
     -webkit-justify-content: center;
 }
 
+.sidebar-pane.composite .computed-style {
+    border-bottom: 1px solid rgb(64%, 64%, 64%);
+}
+
 .sidebar-pane.composite .metrics-and-computed .sidebar-pane-toolbar {
     margin-top: 4px;
     margin-bottom: -4px;
     position: relative;
+}
+
+.sidebar-pane.composite .platform-fonts {
+    padding: 1ex;
+    -webkit-user-select: text;
+}
+
+.sidebar-pane.composite .platform-fonts .stats-section {
+    margin-bottom: 5px;
+}
+
+.sidebar-pane.composite .platform-fonts .css-font-value {
+    margin-left: 1ex;
+}
+
+.sidebar-pane.composite .platform-fonts .font-stats-item {
+    padding-left: 1em;
+}
+
+.sidebar-pane.composite .platform-fonts .font-stats-item .delimeter {
+    margin: 0 1ex 0 1ex;
+}
+
+.sidebar-pane.composite .metrics-and-styles .metrics {
+    border-bottom: none;
 }
 
 .sidebar-pane.composite .sidebar-pane-toolbar > .sidebar-pane-subtitle {
@@ -610,7 +658,8 @@
 
 .styles-section:not(.read-only) .properties .webkit-css-property.styles-panel-hovered,
 .styles-section:not(.read-only) .properties .value .styles-panel-hovered,
-.styles-section:not(.read-only) .properties .value.styles-panel-hovered {
+.styles-section:not(.read-only) .properties .value.styles-panel-hovered,
+.styles-section:not(.read-only) span.simple-selector.styles-panel-hovered {
     text-decoration: underline;
     cursor: default;
 }

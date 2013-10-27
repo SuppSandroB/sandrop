@@ -56,42 +56,6 @@ WebInspector.Panel.prototype = {
         return this._panelName;
     },
 
-    show: function()
-    {
-        WebInspector.View.prototype.show.call(this, WebInspector.inspectorView.panelsElement());
-    },
-
-    wasShown: function()
-    {
-        var panelStatusBar = document.getElementById("panel-status-bar")
-        var drawerViewAnchor = document.getElementById("drawer-view-anchor");
-        var statusBarItems = this.statusBarItems;
-        if (statusBarItems) {
-            this._statusBarItemContainer = document.createElement("div");
-            for (var i = 0; i < statusBarItems.length; ++i)
-                this._statusBarItemContainer.appendChild(statusBarItems[i]);
-            panelStatusBar.insertBefore(this._statusBarItemContainer, drawerViewAnchor);
-        }
-        var statusBarText = this.statusBarText();
-        if (statusBarText) {
-            this._statusBarTextElement = statusBarText;
-            panelStatusBar.appendChild(statusBarText);
-        }
-
-        this.focus();
-    },
-
-    willHide: function()
-    {
-        if (this._statusBarItemContainer)
-            this._statusBarItemContainer.remove();
-        delete this._statusBarItemContainer;
-
-        if (this._statusBarTextElement)
-            this._statusBarTextElement.remove();
-        delete this._statusBarTextElement;
-    },
-
     reset: function()
     {
         this.searchCanceled();
@@ -105,6 +69,14 @@ WebInspector.Panel.prototype = {
     searchCanceled: function()
     {
         WebInspector.searchController.updateSearchMatchesCount(0, this);
+    },
+
+    /**
+     * @return {boolean}
+     */
+    canSearch: function()
+    {
+        return true;
     },
 
     /**
@@ -134,6 +106,16 @@ WebInspector.Panel.prototype = {
     },
 
     /**
+     * @override
+     * @param {HTMLInputElement} input
+     * @return {?Array.<string>}
+     */
+    buildSuggestions: function(input)
+    {
+        return null;
+    },
+
+    /**
      * @return {boolean}
      */
     canSearchAndReplace: function()
@@ -153,21 +135,6 @@ WebInspector.Panel.prototype = {
      * @param {string} text
      */
     replaceAllWith: function(query, text)
-    {
-    },
-
-    /**
-     * @return {boolean}
-     */
-    canFilter: function()
-    {
-        return false;
-    },
-
-    /**
-     * @param {string} query
-     */
-    performFilter: function(query)
     {
     },
 

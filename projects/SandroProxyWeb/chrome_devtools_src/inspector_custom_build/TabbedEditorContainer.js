@@ -68,7 +68,6 @@ WebInspector.TabbedEditorContainer = function(delegate, settingName, placeholder
     this._history = WebInspector.TabbedEditorContainer.History.fromObject(this._previouslyViewedFilesSetting.get());
 }
 
-
 WebInspector.TabbedEditorContainer.Events = {
     EditorSelected: "EditorSelected",
     EditorClosed: "EditorClosed"
@@ -194,7 +193,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     {
         var maxDisplayNameLength = 30;
         var title = uiSourceCode.displayName(true).trimMiddle(maxDisplayNameLength);
-        if (uiSourceCode.isDirty())
+        if (uiSourceCode.isDirty() || uiSourceCode.hasUnsavedCommittedChanges())
             title += "*";
         return title;
     },
@@ -359,6 +358,7 @@ WebInspector.TabbedEditorContainer.prototype = {
 
         this._tabbedPane.appendTab(tabId, title, view, tooltip, userGesture);
 
+        this._updateFileTitle(uiSourceCode);
         this._addUISourceCodeListeners(uiSourceCode);
         return tabId;
     },

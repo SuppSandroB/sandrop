@@ -88,7 +88,7 @@
     background-position: 0 0;
     background-color: transparent;
     border: 0 none transparent;
-    top: 8px;
+    top: 4px;
     left: 5px;
     z-index: 10;
     display: none;
@@ -127,7 +127,6 @@
 
 .three-network-item-view .tabbed-pane-header {
     height: 31px;
-    padding-top: 8px;
     padding-left: 25px;
     white-space: nowrap;
     background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));

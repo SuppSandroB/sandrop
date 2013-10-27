@@ -197,11 +197,11 @@ String.prototype.compareTo = function(other)
 
 /**
  * @param {string} href
- * @return {string}
+ * @return {?string}
  */
 function sanitizeHref(href)
 {
-    return href && href.trim().toLowerCase().startsWith("javascript:") ? "" : href;
+    return href && href.trim().toLowerCase().startsWith("javascript:") ? null : href;
 }
 
 /**
@@ -436,27 +436,28 @@ var sortRange = {
      * @param {function(number, number): number} comparator
      * @param {number} leftBound
      * @param {number} rightBound
-     * @param {number} k
+     * @param {number} sortWindowLeft
+     * @param {number} sortWindowRight
      * @return {!Array.<number>}
      * @this {Array.<number>}
      */
-    value: function(comparator, leftBound, rightBound, k)
+    value: function(comparator, leftBound, rightBound, sortWindowLeft, sortWindowRight)
     {
-        function quickSortFirstK(array, comparator, left, right, k)
+        function quickSortRange(array, comparator, left, right, sortWindowLeft, sortWindowRight)
         {
             if (right <= left)
                 return;
             var pivotIndex = Math.floor(Math.random() * (right - left)) + left;
             var pivotNewIndex = array.partition(comparator, left, right, pivotIndex);
-            quickSortFirstK(array, comparator, left, pivotNewIndex - 1, k);
-            if (pivotNewIndex < left + k - 1)
-                quickSortFirstK(array, comparator, pivotNewIndex + 1, right, left + k - 1 - pivotNewIndex);
+            if (sortWindowLeft < pivotNewIndex)
+                quickSortRange(array, comparator, left, pivotNewIndex - 1, sortWindowLeft, sortWindowRight);
+            if (pivotNewIndex < sortWindowRight)
+                quickSortRange(array, comparator, pivotNewIndex + 1, right, sortWindowLeft, sortWindowRight);
         }
-
-        if (leftBound === 0 && rightBound === (this.length - 1) && k >= this.length)
+        if (leftBound === 0 && rightBound === (this.length - 1) && sortWindowLeft === 0 && sortWindowRight >= rightBound)
             this.sort(comparator);
         else
-            quickSortFirstK(this, comparator, leftBound, rightBound, k);
+            quickSortRange(this, comparator, leftBound, rightBound, sortWindowLeft, sortWindowRight);
         return this;
     }
 }
@@ -1294,8 +1295,6 @@ function importScript(scriptName)
         return;
     var xhr = new XMLHttpRequest();
     _importedScripts[scriptName] = true;
-    if (window.flattenImports)
-        scriptName = scriptName.split("/").reverse()[0];
     xhr.open("GET", scriptName, false);
     xhr.send(null);
     if (!xhr.responseText)
@@ -1316,8 +1315,9 @@ function CallbackBarrier()
 
 CallbackBarrier.prototype = {
     /**
-     * @param {function(...)=} userCallback
-     * @return {function()}
+     * @param {function(T)=} userCallback
+     * @return {function(T=)}
+     * @template T
      */
     createCallback: function(userCallback)
     {

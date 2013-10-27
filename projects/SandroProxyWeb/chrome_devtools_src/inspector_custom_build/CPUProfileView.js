@@ -141,8 +141,7 @@ WebInspector.CPUProfileView.prototype = {
         this.profileHead = profile.head;
         this.samples = profile.samples;
 
-        if (profile.idleTime)
-            this._injectIdleTimeNode(profile);
+        this._calculateTimes(profile);
 
         this._assignParentsInProfile();
         if (this.samples)
@@ -417,7 +416,7 @@ WebInspector.CPUProfileView.prototype = {
         var uiLocation = script.rawLocationToUILocation(node.lineNumber);
         if (!uiLocation)
             return;
-        WebInspector.showPanel("scripts").showUISourceCode(uiLocation.uiSourceCode, uiLocation.lineNumber, uiLocation.columnNumber);
+        WebInspector.showPanel("sources").showUILocation(uiLocation);
     },
 
     _changeView: function()
@@ -564,6 +563,31 @@ WebInspector.CPUProfileView.prototype = {
         event.consume(true);
     },
 
+    _calculateTimes: function(profile)
+    {
+        function totalHitCount(node) {
+            var result = node.hitCount;
+            for (var i = 0; i < node.children.length; i++)
+                result += totalHitCount(node.children[i]);
+            return result;
+        }
+        profile.totalHitCount = totalHitCount(profile.head);
+
+        var durationMs = 1000 * (profile.endTime - profile.startTime);
+        var samplingInterval = durationMs / profile.totalHitCount;
+        this.samplingIntervalMs = samplingInterval;
+
+        function calculateTimesForNode(node) {
+            node.selfTime = node.hitCount * samplingInterval;
+            var totalHitCount = node.hitCount;
+            for (var i = 0; i < node.children.length; i++)
+                totalHitCount += calculateTimesForNode(node.children[i]);
+            node.totalTime = totalHitCount * samplingInterval;
+            return totalHitCount;
+        }
+        calculateTimesForNode(profile.head);
+    },
+
     _assignParentsInProfile: function()
     {
         var head = this.profileHead;
@@ -603,39 +627,6 @@ WebInspector.CPUProfileView.prototype = {
                 break;
             }
         }
-    },
-
-    /**
-     * @param {ProfilerAgent.CPUProfile} profile
-     */
-    _injectIdleTimeNode: function(profile)
-    {
-        var idleTime = profile.idleTime;
-        var nodes = profile.head.children;
-
-        var programNode = {selfTime: 0};
-        for (var i = nodes.length - 1; i >= 0; --i) {
-            if (nodes[i].functionName === "(program)") {
-                programNode = nodes[i];
-                break;
-            }
-        }
-        var programTime = programNode.selfTime;
-        if (idleTime > programTime)
-            idleTime = programTime;
-        programTime = programTime - idleTime;
-        programNode.selfTime = programTime;
-        programNode.totalTime = programTime;
-        var idleNode = {
-            functionName: "(idle)",
-            url: null,
-            lineNumber: 0,
-            totalTime: idleTime,
-            selfTime: idleTime,
-            callUID: 0,
-            children: []
-        };
-        nodes.push(idleNode);
     },
 
     __proto__: WebInspector.View.prototype
@@ -758,17 +749,8 @@ WebInspector.CPUProfileType.prototype = {
     removeProfile: function(profile)
     {
         WebInspector.ProfileType.prototype.removeProfile.call(this, profile);
-        if (!profile.isTemporary)
+        if (!profile.isTemporary && !profile.fromFile())
             ProfilerAgent.removeProfile(this.id, profile.uid);
-    },
-
-    /**
-     * @override
-     * @param {function(this:WebInspector.ProfileType, ?string, Array.<ProfilerAgent.ProfileHeader>)} populateCallback
-     */
-    _requestProfilesFromBackend: function(populateCallback)
-    {
-        ProfilerAgent.getProfileHeaders(populateCallback);
     },
 
     /**
@@ -781,12 +763,6 @@ WebInspector.CPUProfileType.prototype = {
 
     /** @deprecated To be removed from the protocol */
     addHeapSnapshotChunk: function(uid, chunk)
-    {
-        throw new Error("Never called");
-    },
-
-    /** @deprecated To be removed from the protocol */
-    finishHeapSnapshot: function(uid)
     {
         throw new Error("Never called");
     },
@@ -928,11 +904,10 @@ WebInspector.CPUProfileHeader.prototype = {
     },
 
     /**
-     * @param {File} file
+     * @param {!File} file
      */
     loadFromFile: function(file)
     {
-        this.title = file.name;
         this.sidebarElement.subtitle = WebInspector.UIString("Loading\u2026");
         this.sidebarElement.wait = true;
 

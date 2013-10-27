@@ -30,6 +30,7 @@
  * @constructor
  * @extends {WebInspector.PanelDescriptor}
  * @implements {WebInspector.ContextMenu.Provider}
+ * @implements {WebInspector.ViewFactory}
  */
 WebInspector.ElementsPanelDescriptor = function()
 {
@@ -44,10 +45,11 @@ WebInspector.ElementsPanelDescriptor.prototype = {
      */
     appendApplicableItems: function(event, contextMenu, target)
     {
-        if (!(target instanceof WebInspector.RemoteObject))
-            return;
-        var remoteObject = /** @type {WebInspector.RemoteObject} */ (target);
-        if (remoteObject.subtype !== "node")
+        if (target instanceof WebInspector.RemoteObject) {
+            var remoteObject = /** @type {WebInspector.RemoteObject} */ (target);
+            if (remoteObject.subtype !== "node")
+                return;
+        } else if (!(target instanceof WebInspector.DOMNode))
             return;
         this.panel().appendApplicableItems(event, contextMenu, target);
     },
@@ -82,6 +84,17 @@ WebInspector.ElementsPanelDescriptor.prototype = {
 
         stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.IncrementBy01, WebInspector.UIString("Increment by %f", 0.1));
         stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.DecrementBy01, WebInspector.UIString("Decrement by %f", 0.1));
+
+        WebInspector.inspectorView.registerViewInDrawer("emulation", WebInspector.UIString("Emulation"), this);
+    },
+
+    /**
+     * @param {string=} id
+     * @return {WebInspector.View}
+     */
+    createView: function(id)
+    {
+        return this.panel().createView(id);
     },
 
     __proto__: WebInspector.PanelDescriptor.prototype

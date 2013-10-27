@@ -71,10 +71,6 @@ WebInspector.TimelineOverviewPane = function(model)
     this._overviewGrid = new WebInspector.OverviewGrid("timeline");
     this.element.appendChild(this._overviewGrid.element);
 
-    var separatorElement = document.createElement("div");
-    separatorElement.id = "timeline-overview-separator";
-    this.element.appendChild(separatorElement);
-
     this._innerSetMode(WebInspector.TimelineOverviewPane.Mode.Events);
 
     var categories = WebInspector.TimelinePresentationModel.categories();

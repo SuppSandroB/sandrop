@@ -86,7 +86,6 @@ WebInspector.DebuggerModel.Events = {
     BreakpointResolved: "BreakpointResolved",
     GlobalObjectCleared: "GlobalObjectCleared",
     CallFrameSelected: "CallFrameSelected",
-    ExecutionLineChanged: "ExecutionLineChanged",
     ConsoleCommandEvaluatedInSelectedCallFrame: "ConsoleCommandEvaluatedInSelectedCallFrame",
     BreakpointsActiveStateChanged: "BreakpointsActiveStateChanged"
 }
@@ -132,6 +131,31 @@ WebInspector.DebuggerModel.prototype = {
     },
 
     /**
+     * @param {boolean} skip
+     * @param {boolean=} untilReload
+     */
+    skipAllPauses: function(skip, untilReload)
+    {
+        if (this._skipAllPausesTimeout) {
+            clearTimeout(this._skipAllPausesTimeout);
+            delete this._skipAllPausesTimeout;
+        }
+        DebuggerAgent.setSkipAllPauses(skip, untilReload);
+    },
+
+    /**
+     * @param {number} timeout
+     */
+    skipAllPausesUntilReloadOrTimeout: function(timeout)
+    {
+        if (this._skipAllPausesTimeout)
+            clearTimeout(this._skipAllPausesTimeout);
+        DebuggerAgent.setSkipAllPauses(true, true);
+        // If reload happens before the timeout, the flag will be already unset and the timeout callback won't change anything.
+        this._skipAllPausesTimeout = setTimeout(this.skipAllPauses.bind(this, false), timeout);
+    },
+
+    /**
      * @return {boolean}
      */
     canSetScriptSource: function()
@@ -163,6 +187,60 @@ WebInspector.DebuggerModel.prototype = {
     continueToLocation: function(rawLocation)
     {
         DebuggerAgent.continueToLocation(rawLocation);
+    },
+
+    /**
+     * @param {WebInspector.DebuggerModel.Location} rawLocation
+     */
+    stepIntoSelection: function(rawLocation)
+    {
+        /**
+         * @param {WebInspector.DebuggerModel.Location} requestedLocation
+         * @param {?string} error
+         */
+        function callback(requestedLocation, error)
+        {
+           if (error)
+               return;
+           this._pendingStepIntoLocation = requestedLocation;
+        };
+        DebuggerAgent.continueToLocation(rawLocation, true, callback.bind(this, rawLocation));
+    },
+
+    stepInto: function()
+    {
+        function callback()
+        {
+            DebuggerAgent.stepInto();
+        }
+        DebuggerAgent.setOverlayMessage(undefined, callback.bind(this));
+    },
+
+    stepOver: function()
+    {
+        function callback()
+        {
+            DebuggerAgent.stepOver();
+        }
+        DebuggerAgent.setOverlayMessage(undefined, callback.bind(this));
+    },
+
+    stepOut: function()
+    {
+        function callback()
+        {
+            DebuggerAgent.stepOut();
+        }
+        DebuggerAgent.setOverlayMessage(undefined, callback.bind(this));
+    },
+
+    resume: function()
+    {
+        function callback()
+        {
+            DebuggerAgent.resume();
+        }
+        DebuggerAgent.setOverlayMessage(undefined, callback.bind(this));
     },
 
     /**
@@ -314,16 +392,19 @@ WebInspector.DebuggerModel.prototype = {
      * @param {?Protocol.Error} error
      * @param {DebuggerAgent.SetScriptSourceError=} errorData
      * @param {Array.<DebuggerAgent.CallFrame>=} callFrames
+     * @param {boolean=} needsStepIn
      */
-    _didEditScriptSource: function(scriptId, newSource, callback, error, errorData, callFrames)
+    _didEditScriptSource: function(scriptId, newSource, callback, error, errorData, callFrames, needsStepIn)
     {
         callback(error, errorData);
-        if (!error && callFrames && callFrames.length)
+        if (needsStepIn)
+            this.stepInto();
+        else if (!error && callFrames && callFrames.length)
             this._pausedScript(callFrames, this._debuggerPausedDetails.reason, this._debuggerPausedDetails.auxData, this._debuggerPausedDetails.breakpointIds);
     },
 
     /**
-     * @return {Array.<DebuggerAgent.CallFrame>}
+     * @return {Array.<WebInspector.DebuggerModel.CallFrame>}
      */
     get callFrames()
     {
@@ -365,15 +446,25 @@ WebInspector.DebuggerModel.prototype = {
      */
     _pausedScript: function(callFrames, reason, auxData, breakpointIds)
     {
+        if (this._pendingStepIntoLocation) {
+            var requestedLocation = this._pendingStepIntoLocation;
+            delete this._pendingStepIntoLocation;
+
+            if (callFrames.length > 0) {
+                var topLocation = callFrames[0].location;
+                if (topLocation.lineNumber == requestedLocation.lineNumber && topLocation.columnNumber == requestedLocation.columnNumber && topLocation.scriptId == requestedLocation.scriptId) {
+                    this.stepInto();
+                    return;
+                }
+            }
+        }
+
         this._setDebuggerPausedDetails(new WebInspector.DebuggerPausedDetails(this, callFrames, reason, auxData, breakpointIds));
     },
 
     _resumedScript: function()
     {
         this._setDebuggerPausedDetails(null);
-        if (this._executionLineLiveLocation)
-            this._executionLineLiveLocation.dispose();
-        this._executionLineLiveLocation = null;
         this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.DebuggerResumed);
     },
 
@@ -462,21 +553,11 @@ WebInspector.DebuggerModel.prototype = {
      */
     setSelectedCallFrame: function(callFrame)
     {
-        if (this._executionLineLiveLocation)
-            this._executionLineLiveLocation.dispose();
-        delete this._executionLineLiveLocation;
-
         this._selectedCallFrame = callFrame;
         if (!this._selectedCallFrame)
             return;
 
         this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.CallFrameSelected, callFrame);
-
-        function updateExecutionLine(uiLocation)
-        {
-            this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.ExecutionLineChanged, uiLocation);
-        }
-        this._executionLineLiveLocation = callFrame.script.createLiveLocation(callFrame.location, updateExecutionLine.bind(this));
     },
 
     /**
@@ -485,6 +566,15 @@ WebInspector.DebuggerModel.prototype = {
     selectedCallFrame: function()
     {
         return this._selectedCallFrame;
+    },
+
+    /**
+     * @return {DebuggerAgent.CallFrameId|undefined}
+     */
+    _selectedCallFrameId: function()
+    {
+        var callFrame = this.selectedCallFrame();
+        return callFrame ? callFrame.id : undefined;
     },
 
     /**
@@ -598,7 +688,7 @@ WebInspector.DebuggerModel.prototype = {
     {
         // FIXME: declare this property in protocol and in JavaScript.
         if (details && details["stack_update_needs_step_in"])
-            DebuggerAgent.stepInto();
+            this.stepInto();
         else {
             if (newCallFrames && newCallFrames.length)
                 this._pausedScript(newCallFrames, this._debuggerPausedDetails.reason, this._debuggerPausedDetails.auxData, this._debuggerPausedDetails.breakpointIds);
@@ -811,6 +901,29 @@ WebInspector.DebuggerModel.CallFrame.prototype = {
                 callback(error);
         }
         DebuggerAgent.restartFrame(this._payload.callFrameId, protocolCallback);
+    },
+
+    /**
+     * @param {function(Array.<DebuggerAgent.Location>)} callback
+     */
+    getStepIntoLocations: function(callback)
+    {
+        if (this._stepInLocations) {
+            callback(this._stepInLocations.slice(0));
+            return;
+        }
+        /**
+         * @param {?string} error
+         * @param {Array.<DebuggerAgent.Location>=} stepInPositions
+         */
+        function getStepInPositionsCallback(error, stepInPositions) {
+            if (error) {
+                return;
+            }
+            this._stepInLocations = stepInPositions;
+            callback(this._stepInLocations.slice(0));
+        }
+        DebuggerAgent.getStepInPositions(this.id, getStepInPositionsCallback.bind(this));
     },
 
     /**

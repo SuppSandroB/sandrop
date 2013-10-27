@@ -46,14 +46,6 @@ WebInspector.View._cssFileToStyleElement = {};
 WebInspector.View._cssUnloadTimeout = 2000;
 
 WebInspector.View.prototype = {
-    /**
-     * @return {?Element}
-     */
-    statusBarText: function()
-    {
-        return null;
-    },
-
     markAsRoot: function()
     {
         WebInspector.View._assert(!this.element.parentElement, "Attempt to mark as root attached node");
@@ -487,6 +479,21 @@ WebInspector.View._assert = function(condition, message)
         console.trace();
         throw new Error(message);
     }
+}
+
+/**
+ * @interface
+ */
+WebInspector.ViewFactory = function()
+{
+}
+
+WebInspector.ViewFactory.prototype = {
+    /**
+     * @param {string=} id
+     * @return {WebInspector.View}
+     */
+    createView: function(id) {}
 }
 
 Element.prototype.appendChild = function(child)

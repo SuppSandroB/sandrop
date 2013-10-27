@@ -431,6 +431,7 @@ WebInspector.HeapSnapshotGenericObjectNode.prototype = {
         var value = this._name;
         var valueStyle = "object";
         switch (this._type) {
+        case "concatenated string":
         case "string":
             value = "\"" + value + "\"";
             valueStyle = "string";
@@ -812,7 +813,7 @@ WebInspector.HeapSnapshotConstructorNode.prototype = {
         var sortColumnIdentifier = this._dataGrid.sortColumnIdentifier();
         var sortFields = {
             object: ["id", sortAscending, "retainedSize", false],
-            distance: ["distance", true, "retainedSize", false],
+            distance: ["distance", sortAscending, "retainedSize", false],
             count: ["id", true, "retainedSize", false],
             shallowSize: ["selfSize", sortAscending, "id", true],
             retainedSize: ["retainedSize", sortAscending, "id", true]

@@ -30,26 +30,23 @@
 /* Profiler Style */
 
 #profile-views {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    bottom: 0;
+    flex: auto;
+    position: relative;
 }
 
-.status-bar-items {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 200px;
-    overflow: hidden;
-    border-left: 1px solid rgb(184, 184, 184);
-    margin-left: -1px;
+.profiles-status-bar {
+    background-color: rgb(236, 236, 236);
+    flex: 0 0 23px;
 }
 
 .profile-launcher-view-tree-item > .icon {
     width: 4px !important;
     visibility: hidden;
+}
+
+.profiles-sidebar-tree-box {
+    overflow: auto;
+    flex: auto;
 }
 
 .profile-sidebar-tree-item .icon {
@@ -115,6 +112,16 @@
     float: right;
     color: gray;
     margin-top: -1px;
+}
+
+.profile-warn-marker {
+    background-image: url(Images/statusbarButtonGlyphs.png);
+    background-size: 320px 120px;
+    background-position: -201px -105px;
+    padding-left: 14px;
+    width: 10px;
+    height: 10px;
+    vertical-align: -1px;
 }
 
 .data-grid tr.selected .profile-node-file {

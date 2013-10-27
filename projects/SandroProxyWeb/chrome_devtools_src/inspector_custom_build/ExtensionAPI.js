@@ -60,7 +60,7 @@ function defineCommonExtensionSymbols(apiPrivate)
         AuditStarted: "audit-started-",
         ButtonClicked: "button-clicked-",
         ConsoleMessageAdded: "console-message-added",
-        ElementsPanelObjectSelected: "panel-objectSelected-elements",
+        PanelObjectSelected: "panel-objectSelected-",
         NetworkRequestFinished: "network-request-finished",
         OpenResource: "open-resource",
         PanelSearch: "panel-search-",
@@ -273,7 +273,8 @@ RequestImpl.prototype = {
 function Panels()
 {
     var panels = {
-        elements: new ElementsPanel()
+        elements: new ElementsPanel(),
+        sources: new SourcesPanel(),
     };
 
     function panelGetter(name)
@@ -343,7 +344,10 @@ function ExtensionViewImpl(id)
     function dispatchShowEvent(message)
     {
         var frameIndex = message.arguments[0];
-        this._fire(window.parent.frames[frameIndex]);
+        if (typeof frameIndex === "number")
+            this._fire(window.parent.frames[frameIndex]);
+        else
+            this._fire();
     }
     this.onShown = new EventSink(events.ViewShown + id, dispatchShowEvent);
     this.onHidden = new EventSink(events.ViewHidden + id);
@@ -352,9 +356,10 @@ function ExtensionViewImpl(id)
 /**
  * @constructor
  */
-function PanelWithSidebarImpl(id)
+function PanelWithSidebarImpl(hostPanelName)
 {
-    this._id = id;
+    this._hostPanelName = hostPanelName;
+    this.onSelectionChanged = new EventSink(events.PanelObjectSelected + hostPanelName);
 }
 
 PanelWithSidebarImpl.prototype = {
@@ -363,7 +368,7 @@ PanelWithSidebarImpl.prototype = {
         var id = "extension-sidebar-" + extensionServer.nextObjectId();
         var request = {
             command: commands.CreateSidebarPane,
-            panel: this._id,
+            panel: this._hostPanelName,
             id: id,
             title: title
         };
@@ -383,9 +388,16 @@ PanelWithSidebarImpl.prototype = {
  */
 function ElementsPanel()
 {
-    var id = "elements";
-    PanelWithSidebar.call(this, id);
-    this.onSelectionChanged = new EventSink(events.ElementsPanelObjectSelected);
+    PanelWithSidebar.call(this, "elements");
+}
+
+/**
+ * @constructor
+ * @extends {PanelWithSidebar}
+ */
+function SourcesPanel()
+{
+    PanelWithSidebar.call(this, "sources");
 }
 
 /**

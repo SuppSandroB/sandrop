@@ -66,18 +66,13 @@
     display: none;
 }
 
-.network.panel .scope-bar {
-    height: 23px;
-    padding-top: 5px;
-}
-
 .network.panel .data-grid th.sort-descending,
 .network.panel .data-grid th.sort-ascending {
-    background: -webkit-gradient(linear, left top, left bottom, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));
+    background: white;
 }
 
 #network-views .network-item-view .tabbed-pane-header {
-    height: 31px;
+    flex: 0 0 31px;
     padding-top: 8px;
     padding-left: 13px;
     white-space: nowrap;
@@ -103,13 +98,7 @@
 }
 
 .network-item-view .tabbed-pane-header {
-    background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));
     border-bottom: 1px solid rgb(163, 163, 163);
-}
-
-.network-item-view .scope-bar li {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
 }
 
 .resource-headers-view {
@@ -139,6 +128,14 @@
 
 .resource-headers-view .outline-disclosure .children li {
     white-space: nowrap;
+}
+
+.resource-headers-view .outline-disclosure li.expanded .caution {
+    color: rgb(255, 128, 0);
+}
+
+.resource-headers-view .outline-disclosure li:not(.expanded) .caution {
+    display: none;
 }
 
 .resource-headers-view .outline-disclosure li.expanded .header-count {
@@ -228,39 +225,36 @@
     opacity: 1;
 }
 
+.resource-timing-view .network-timing-bar.blocking,
 .resource-timing-view .network-timing-bar.proxy {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(239, 228, 176)), to(rgb(139, 128, 76)));
-    border-left: 1px solid rgb(139, 128, 76);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(242, 242, 194)), to(rgb(204, 204, 102)));
+    border-left: 1px solid rgb(204, 204, 102);
 }
 
 .resource-timing-view .network-timing-bar.dns {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(153, 208, 216)), to(rgb(81, 174, 189)));
-    border-left: 1px solid rgb(81, 174, 189);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(194, 242, 194)), to(rgb(102, 204, 102)));
+    border-left: 1px solid rgb(102, 204, 102);
 }
 
-.resource-timing-view .network-timing-bar.connecting {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(203, 232, 145)), to(rgb(160, 214, 56)));
-    border-left: 1px solid rgb(160, 214, 56);
-}
-
+.resource-timing-view .network-timing-bar.connecting,
 .resource-timing-view .network-timing-bar.ssl {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(21, 232, 145)), to(rgb(216, 149, 132)));
-    border-left: 1px solid rgb(216, 149, 132);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(194, 242, 242)), to(rgb(102, 204, 204)));
+    border-left: 1px solid rgb(102, 204, 204);
 }
 
 .resource-timing-view .network-timing-bar.sending {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(232, 192, 182)), to(rgb(216, 147, 130)));
-    border-left: 1px solid rgb(216, 147, 130);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(194, 194, 242)), to(rgb(102, 102, 204)));
+    border-left: 1px solid rgb(102, 102, 204);
 }
 
 .resource-timing-view .network-timing-bar.waiting {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(188, 179, 208)), to(rgb(141, 125, 175)));
-    border-left: 1px solid rgb(141, 125, 175);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(242, 194, 242)), to(rgb(204, 102, 204)));
+    border-left: 1px solid rgb(204, 102, 204);
 }
 
 .resource-timing-view .network-timing-bar.receiving {
-    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(214, 214, 214)), to(rgb(182, 182, 182)));
-    border-left: 1px solid rgb(182, 182, 182);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(242, 194, 194)), to(rgb(204, 102, 102)));
+    border-left: 1px solid rgb(204, 102, 102);
 }
 
 .resource-timing-view.visible {
@@ -302,7 +296,7 @@
 }
 
 .resource-websocket-row-outcoming:not(.selected) td {
-    border-right-color: rgb(177, 209, 165);
+    border-left-color: rgb(177, 209, 165);
 }
 
 .resource-websocket-row-outcoming:not(.selected) td, .resource-websocket-row-outcoming:not(.selected) + tr td {
@@ -325,4 +319,13 @@
 .resource-websocket-row-error {
     background-color: rgb(255, 237, 237);
     color: rgb(182, 0, 0);
+}
+
+.panel.network .split-view {
+    flex: auto;
+    position: relative;
+}
+
+.network-filters-header {
+    flex: 0 0 23px;
 }

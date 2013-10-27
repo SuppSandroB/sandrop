@@ -135,7 +135,7 @@ WebInspector.GlassPane = function()
 {
     this.element = document.createElement("div");
     this.element.style.cssText = "position:absolute;top:0;bottom:0;left:0;right:0;background-color:transparent;z-index:1000;";
-    this.element.id = "glass-pane-for-drag";
+    this.element.id = "glass-pane";
     document.body.appendChild(this.element);
     WebInspector._glassPane = this;
 }
@@ -144,7 +144,10 @@ WebInspector.GlassPane.prototype = {
     dispose: function()
     {
         delete WebInspector._glassPane;
-        WebInspector.inspectorView.focus();
+        if (WebInspector.HelpScreen.isVisible())
+            WebInspector.HelpScreen.focus();
+        else
+            WebInspector.inspectorView.focus();
         this.element.remove();
     }
 }
@@ -519,6 +522,7 @@ WebInspector.handleElementValueModifications = function(event, element, finishHa
 /** 
  * @param {Element} element
  * @param {WebInspector.EditingConfig=} config
+ * @return {?{cancel: function(), commit: function(), codeMirror: CodeMirror, setWidth: function(number)}}
  */
 WebInspector.startEditing = function(element, config)
 {
@@ -570,6 +574,16 @@ WebInspector.startEditing = function(element, config)
         if (typeof oldTabIndex !== "number" || oldTabIndex < 0)
             element.tabIndex = 0;
         WebInspector.setCurrentFocusElement(element);
+    }
+
+    /**
+     * @param {number} width
+     */
+    function setWidth(width)
+    {
+        const padding = 30;
+        codeMirror.getWrapperElement().style.width = (width - codeMirror.getWrapperElement().offsetLeft - padding) + "px";
+        codeMirror.refresh();
     }
 
     /**
@@ -692,7 +706,8 @@ WebInspector.startEditing = function(element, config)
     return {
         cancel: editingCancelled.bind(element),
         commit: editingCommitted.bind(element),
-        codeMirror: codeMirror // For testing.
+        codeMirror: codeMirror, // For testing.
+        setWidth: setWidth
     };
 }
 
@@ -949,7 +964,7 @@ WebInspector.setToolbarColors = function(backgroundColor, color)
         document.head.appendChild(WebInspector._themeStyleElement);
     }
     WebInspector._themeStyleElement.textContent =
-        "#toolbar {\
+        ".toolbar-background {\
              background-image: none !important;\
              background-color: " + backgroundColor + " !important;\
          }\

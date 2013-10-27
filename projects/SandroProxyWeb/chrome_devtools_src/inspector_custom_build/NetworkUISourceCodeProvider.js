@@ -69,19 +69,10 @@ WebInspector.NetworkUISourceCodeProvider.prototype = {
         var script = /** @type {WebInspector.Script} */ (event.data);
         if (!script.sourceURL || script.isInlineScript() || script.isSnippet())
             return;
-        // Only add uiSourceCodes for
-        // - content scripts;
-        // - scripts with explicit sourceURL comment;
-        // - dynamic scripts (script elements with src attribute) when inspector is opened after the script was loaded.
-        if (!script.hasSourceURL && !script.isContentScript) {
-            var requestURL = script.sourceURL.replace(/#.*/, "");
-            if (WebInspector.resourceForURL(requestURL) || WebInspector.networkLog.requestForURL(requestURL))
-                return;
-        }
         // Filter out embedder injected content scripts.
         if (script.isContentScript && !script.hasSourceURL) {
             var parsedURL = new WebInspector.ParsedURL(script.sourceURL);
-            if (!parsedURL.host)
+            if (!parsedURL.isValid)
                 return;
         }
         this._addFile(script.sourceURL, script, script.isContentScript);
@@ -131,11 +122,9 @@ WebInspector.NetworkUISourceCodeProvider.prototype = {
             return;
         if (this._processedURLs[url])
             return;
-        var mimeType = type.canonicalMimeType();
-        var overridingContentProvider = new WebInspector.ContentProviderOverridingMimeType(contentProvider, mimeType);
         this._processedURLs[url] = true;
         var isEditable = type !== WebInspector.resourceTypes.Document;
-        this._networkWorkspaceProvider.addFileForURL(url, overridingContentProvider, isEditable, isContentScript);
+        this._networkWorkspaceProvider.addFileForURL(url, contentProvider, isEditable, isContentScript);
     },
 
     _reset: function()

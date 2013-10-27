@@ -42,7 +42,9 @@ WebInspector.SandroProxyConnectionsPanel = function()
     this.registerRequiredCSS("networkPanel.css");
     this._injectStyles();
 
+    this.element.addStyleClass("vbox");
     this.createSidebarView();
+    this.splitView.element.removeStyleClass("fill");
     this.splitView.hideMainElement();
 
     this._sandroProxyConnectionsView = new WebInspector.ConnectionsView(WebInspector.ConnectionsView._defaultColumnsVisivility);
@@ -307,29 +309,5 @@ WebInspector.SandroProxyConnectionsPanel.prototype = {
 
     __proto__: WebInspector.Panel.prototype
 }
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
-//@ sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js
+
+//# sourceURL=http://192.168.1.135/devtools/SandroProxyConnectionsPanel.js

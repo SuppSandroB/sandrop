@@ -29,15 +29,13 @@
  */
  
  .tabbed-pane {
-    -webkit-flex-direction: column;
-    display: -webkit-flex;
-    height: 100%;
+    flex: auto;
 }
 
 .tabbed-pane-content {
-    -webkit-flex: 1;
     position: relative;
     overflow: auto;
+    flex: auto;
 }
 
 .tabbed-pane-content.has-no-tabs {
@@ -45,7 +43,7 @@
 }
 
 .tabbed-pane-header {
-    height: 23px;
+    flex: 0 0 23px;
     border-bottom: 1px solid rgb(163, 163, 163);
     overflow: hidden;
     width: 100%;
@@ -78,9 +76,13 @@
 }
 
 .tabbed-pane-header-tab.selected {
-    background-color: white;
     border: 1px solid rgb(163, 163, 163);
     border-bottom: none;
+}
+
+.tabbed-pane-header-tab.selected {
+    background: white;
+    border-top-color: #bbb;
 }
 
 .tabbed-pane-header-tab .close-button-gray {

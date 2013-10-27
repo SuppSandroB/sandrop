@@ -71,14 +71,6 @@ WebInspector.DefaultScriptMapping.prototype = {
     },
 
     /**
-     * @return {boolean}
-     */
-    isIdentity: function()
-    {
-        return true;
-    },
-
-    /**
      * @param {WebInspector.Script} script
      */
     addScript: function(script)
@@ -147,7 +139,7 @@ WebInspector.DebuggerProjectDelegate.prototype = {
         var contentProvider = script.isInlineScript() ? new WebInspector.ConcatenatedScriptsContentProvider([script]) : script;
         var splitURL = WebInspector.ParsedURL.splitURL(script.sourceURL);
         var name = splitURL[splitURL.length - 1];
-        name = "[VM] " + name + " (" + script.scriptId + ")";
+        name = "VM" + script.scriptId + (name ? " " + name : "");
         return this.addContentProvider("", name, script.sourceURL, contentProvider, false, script.isContentScript);
     },
     

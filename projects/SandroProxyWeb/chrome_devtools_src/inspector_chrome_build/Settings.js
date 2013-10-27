@@ -42,7 +42,8 @@ var Preferences = {
 }
 
 var Capabilities = {
-    canInspectWorkers: false
+    canInspectWorkers: false,
+    canScreencast: false
 }
 
 /**
@@ -74,7 +75,6 @@ WebInspector.Settings = function()
     this.jsSourceMapsEnabled = this.createSetting("sourceMapsEnabled", true);
     this.cssSourceMapsEnabled = this.createSetting("cssSourceMapsEnabled", true);
     this.cacheDisabled = this.createSetting("cacheDisabled", false);
-    this.enableOverridesOnStartup = this.createSetting("enableOverridesOnStartup", false);
     this.overrideUserAgent = this.createSetting("overrideUserAgent", false);
     this.userAgent = this.createSetting("userAgent", "");
     this.overrideDeviceMetrics = this.createSetting("overrideDeviceMetrics", false);
@@ -90,9 +90,12 @@ WebInspector.Settings = function()
     this.overrideDeviceOrientation = this.createSetting("overrideDeviceOrientation", false);
     this.deviceOrientationOverride = this.createSetting("deviceOrientationOverride", "");
     this.showAdvancedHeapSnapshotProperties = this.createSetting("showAdvancedHeapSnapshotProperties", false);
+    this.highResolutionCpuProfiling = this.createSetting("highResolutionCpuProfiling", false);
     this.searchInContentScripts = this.createSetting("searchInContentScripts", false);
     this.textEditorIndent = this.createSetting("textEditorIndent", "    ");
     this.textEditorAutoDetectIndent = this.createSetting("textEditorAutoIndentIndent", true);
+    this.textEditorAutocompletion = this.createSetting("textEditorAutocompletion", true);
+    this.textEditorBracketMatching = this.createSetting("textEditorBracketMatching", true);
     this.lastDockState = this.createSetting("lastDockState", "");
     this.cssReloadEnabled = this.createSetting("cssReloadEnabled", false);
     this.showCpuOnTimelineRuler = this.createSetting("showCpuOnTimelineRuler", false);
@@ -104,15 +107,16 @@ WebInspector.Settings = function()
     this.workerInspectorWidth = this.createSetting("workerInspectorWidth", 600);
     this.workerInspectorHeight = this.createSetting("workerInspectorHeight", 600);
     this.messageURLFilters = this.createSetting("messageURLFilters", {});
-    this.messageSourceFilters = this.createSetting("messageSourceFilters", {"CSS": true});
+    this.hideCSSErrorsInConsole = this.createSetting("hideCSSErrorsInConsole", true);
     this.messageLevelFilters = this.createSetting("messageLevelFilters", {});
     this.splitVerticallyWhenDockedToRight = this.createSetting("splitVerticallyWhenDockedToRight", true);
     this.visiblePanels = this.createSetting("visiblePanels", {});
     this.shortcutPanelSwitch = this.createSetting("shortcutPanelSwitch", false);
-    this.portForwardings = this.createSetting("portForwardings", []);
     this.showWhitespacesInEditor = this.createSetting("showWhitespacesInEditor", false);
     this.skipStackFramesSwitch = this.createSetting("skipStackFramesSwitch", false);
     this.skipStackFramesPattern = this.createSetting("skipStackFramesPattern", "");
+    this.screencastEnabled = this.createSetting("screencastEnabled", false);
+    this.screencastSidebarWidth = this.createSetting("screencastSidebarWidth", 300);
 }
 
 WebInspector.Settings.prototype = {
@@ -158,11 +162,19 @@ WebInspector.Setting = function(name, defaultValue, eventSupport, storage)
 }
 
 WebInspector.Setting.prototype = {
+    /**
+     * @param {function(WebInspector.Event)} listener
+     * @param {Object=} thisObject
+     */
     addChangeListener: function(listener, thisObject)
     {
         this._eventSupport.addEventListener(this._name, listener, thisObject);
     },
 
+    /**
+     * @param {function(WebInspector.Event)} listener
+     * @param {Object=} thisObject
+     */
     removeChangeListener: function(listener, thisObject)
     {
         this._eventSupport.removeEventListener(this._name, listener, thisObject);
@@ -255,10 +267,10 @@ WebInspector.ExperimentsSettings = function()
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
     this.cssRegions = this._createExperiment("cssRegions", "CSS Regions Support");
     this.showOverridesInDrawer = this._createExperiment("showOverridesInDrawer", "Show Overrides in drawer");
-    this.customizableToolbar = this._createExperiment("customizableToolbar", "Enable toolbar customization");
-    this.tethering = this._createExperiment("tethering", "Enable port forwarding");
-    this.drawerOverlay = this._createExperiment("drawerOverlay", "Open console as overlay");
     this.frameworksDebuggingSupport = this._createExperiment("frameworksDebuggingSupport", "Enable frameworks debugging support");
+    this.layersPanel = this._createExperiment("layersPanel", "Show Layers panel");
+    this.stepIntoSelection = this._createExperiment("stepIntoSelection", "Show step-in candidates while debugging.");
+    this.openConsoleWithCtrlTilde = this._createExperiment("openConsoleWithCtrlTilde", "Open console with Ctrl/Cmd+Tilde, not Esc");
 
     this._cleanUpSetting();
 }
@@ -303,7 +315,7 @@ WebInspector.ExperimentsSettings.prototype = {
 
         if (!this.experimentsEnabled)
             return false;
-        
+
         var experimentsSetting = this._setting.get();
         return experimentsSetting[experimentName];
     },
@@ -440,7 +452,8 @@ WebInspector.VersionController.prototype = {
     {
         var fileSystemMappingSetting = WebInspector.settings.createSetting("fileSystemMapping", {});
         fileSystemMappingSetting.set({});
-        delete window.localStorage["fileMappingEntries"];
+        if (window.localStorage)
+            delete window.localStorage["fileMappingEntries"];
     },
 
     _updateVersionFrom3To4: function()

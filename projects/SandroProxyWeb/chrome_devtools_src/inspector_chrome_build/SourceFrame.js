@@ -66,6 +66,7 @@ WebInspector.SourceFrame = function(contentProvider)
 /**
  * @param {string} query
  * @param {string=} modifiers
+ * @return {!RegExp}
  */
 WebInspector.SourceFrame.createSearchRegex = function(query, modifiers)
 {
@@ -74,8 +75,10 @@ WebInspector.SourceFrame.createSearchRegex = function(query, modifiers)
 
     // First try creating regex if user knows the / / hint.
     try {
-        if (/^\/.*\/$/.test(query))
+        if (/^\/.+\/$/.test(query)) {
             regex = new RegExp(query.substring(1, query.length - 1), modifiers);
+            regex.__fromRegExpQuery = true;
+        }
     } catch (e) {
         // Silent catch.
     }
@@ -333,11 +336,26 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
-     * @param {?string} content
-     * @param {boolean} contentEncoded
-     * @param {string} mimeType
+     * @param {string} highlighterType
      */
-    setContent: function(content, contentEncoded, mimeType)
+    setHighlighterType: function(highlighterType)
+    {
+        this._highlighterType = highlighterType;
+        this._updateHighlighterType("");
+    },
+
+    /**
+     * @param {string} content
+     */
+    _updateHighlighterType: function(content)
+    {
+        this._textEditor.setMimeType(this._simplifyMimeType(content, this._highlighterType));
+    },
+
+    /**
+     * @param {?string} content
+     */
+    setContent: function(content)
     {
         if (!this._loaded) {
             this._loaded = true;
@@ -351,7 +369,7 @@ WebInspector.SourceFrame.prototype = {
             this._textEditor.setSelection(selection);
         }
 
-        this._textEditor.setMimeType(this._simplifyMimeType(content, mimeType));
+        this._updateHighlighterType(content || "");
 
         this._textEditor.beginUpdates();
 
@@ -539,7 +557,11 @@ WebInspector.SourceFrame.prototype = {
 
         var text = this._textEditor.text();
         var range = this._textEditor.range();
-        text = text.replace(WebInspector.SourceFrame.createSearchRegex(query, "g"), replacement);
+        var regex = WebInspector.SourceFrame.createSearchRegex(query, "g");
+        if (regex.__fromRegExpQuery)
+            text = text.replace(regex, replacement);
+        else
+            text = text.replace(regex, function() { return replacement; });
 
         this._isReplacing = true;
         this._textEditor.editRange(range, text);
@@ -702,7 +724,7 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
-     * @param {string} text 
+     * @param {string} text
      */
     commitEditing: function(text)
     {
@@ -715,6 +737,7 @@ WebInspector.SourceFrame.prototype = {
     {
         this._updateSourcePosition(textRange);
         this.dispatchEventToListeners(WebInspector.SourceFrame.Events.SelectionChanged, textRange);
+        WebInspector.notifications.dispatchEventToListeners(WebInspector.SourceFrame.Events.SelectionChanged, textRange);
     },
 
     /**

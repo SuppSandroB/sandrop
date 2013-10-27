@@ -28,11 +28,9 @@
  */
 
 #timeline-overview-panel {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 80px;
+    flex: 0 0 81px;
+    position: relative;
+    border-bottom: 1px solid rgb(140, 140, 140);
 }
 
 #timeline-overview-panel .timeline-graph-bar {
@@ -45,34 +43,12 @@
     bottom: auto !important;
 }
 
-.timeline.split-view-vertical .split-view-resizer {
-    top: 20px;
-}
-
-.timeline-sidebar-background {
-    top: 90px;
-    bottom: 0;
-}
-
-#timeline-overview-separator {
-    position: absolute;
-    top: 80px;
-    left: 0;
-    right: 0;
-    background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(253, 253, 253)), to(rgb(213, 213, 213)));
-    border-top: 1px solid rgb(140, 140, 140);
-    border-bottom: 1px solid rgb(115, 115, 115);
-    height: 10px;
-}
-
 #timeline-overview-sidebar {
     position: absolute;
     width: 200px;
     top: 0;
     bottom: 0;
     left: 0;
-    padding-top: 2px;
-    background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(242, 242, 242)), to(rgb(209, 209, 209)));
     border-right: 1px solid rgb(163, 163, 163);
 }
 
@@ -105,14 +81,11 @@
 }
 
 #timeline-container {
-    position: absolute;
-    top: 90px;
-    left: 0;
-    bottom: 0;
-    right: 0;
     border-right: 0 none transparent;
     overflow-y: scroll;
     overflow-x: hidden;
+    position: relative;
+    flex: auto;
 }
 
 #timeline-container .split-view-sidebar {
@@ -124,65 +97,9 @@
     color: inherit;
 }
 
-.timeline-misc-status-bar-items {
-    right: 64px;
+.status-bar-item.timeline-frame-statistics {
+    pointer-events: none;
 }
-
-.timeline-misc-status-bar-filters {
-    display: -webkit-flex;
-    -webkit-flex-orientation: row;
-}
-
-.timeline-category-statusbar-item {
-    height: 24px;
-    line-height: 22px;
-    padding-left: 6px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    text-shadow: white 0 1px 0;
-    overflow: hidden;
-    min-width: 20px;
-    -webkit-flex: auto 0 1;
-}
-
-.timeline-category-statusbar-item,
-.timeline-records-counter {
-    color: rgb(65, 65, 65);
-}
-
-.timeline-category-checkbox {
-    width: 10px;
-    height: 10px;
-    margin: 0 3px 0 9px;
-    padding: 0;
-    border-radius: 2px;
-    border: solid 1px;
-    display: inline-block;
-    overflow: visible;
-    opacity: 0.8;
-    vertical-align: -1px;
-}
-
-
-.timeline-category-checkbox-check {
-    -webkit-appearance: none;
-    width: 11px;
-    height: 11px;
-    margin-top: -2px;
-    margin-left: 1px;
-}
-
-.timeline-category-checkbox-checked {
-    background-image: url(Images/statusbarButtonGlyphs.png);
-    background-size: 320px 120px;
-    background-position: -129px -110px;
-}
-
-@media (-webkit-min-device-pixel-ratio: 1.5) {
-.timeline-category-checkbox-checked {
-    background-image: url(Images/statusbarButtonGlyphs2x.png);
-}
-} /* media */
 
 .timeline-tree-item {
     height: 18px;
@@ -388,6 +305,12 @@
     margin-left: 0;
 }
 
+.popover ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
 .garbage-collect-status-bar-item .glyph {
     -webkit-mask-position: -128px -24px;
 }
@@ -402,23 +325,6 @@
 
 .timeline-frame-overview-status-bar-item.toggled-on .glyph {
     background-color: rgb(66, 129, 235) !important;
-}
-
-.timeline-records-stats, .storage-application-cache-status, .storage-application-cache-connectivity {
-    text-shadow: white 0 1px 0;
-}
-
-.timeline-records-stats {
-    margin-top: 3px;
-    margin-left: 6px;
-    -webkit-flex: 1;
-}
-
-.timeline-records-stats-container {
-    display: inline-block;
-    border-left: 1px solid rgb(202, 202, 202);
-    height: 24px;
-    margin-left: 6px;
 }
 
 .timeline-frames-stats {
@@ -461,6 +367,8 @@
 #timeline-overview-sidebar .sidebar-tree-item {
     line-height: 26px;
     height: 24px;
+    margin-top: 0;
+    border-top: none;
 }
 
 #timeline-overview-sidebar .sidebar-tree-item .titles.no-subtitle {
@@ -526,6 +434,8 @@
 
 #memory-graphs-container {
     border-top: 1px solid #AAA;
+    position: relative;
+    flex: 0 0 auto;
 }
 
 #memory-graphs-canvas-container {
@@ -622,11 +532,6 @@
 }
 
 #timeline-grid-header {
-    position: absolute;
-    left: 200px;
-    right: 0;
-    top: 90px;
-    bottom: 0;
     pointer-events: none;
 }
 
@@ -691,4 +596,9 @@
 @-webkit-keyframes timeline_record_highlight {
     from {background-color: rgba(255, 255, 120, 1); }
     to { background-color: rgba(255, 255, 120, 0); }
+}
+
+.timeline-filters-header {
+    flex: 0 0 23px;
+    overflow: hidden;
 }

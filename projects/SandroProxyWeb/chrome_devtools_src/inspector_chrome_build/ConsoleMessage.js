@@ -71,12 +71,18 @@ WebInspector.ConsoleMessageImpl = function(source, level, message, linkifier, ty
 }
 
 WebInspector.ConsoleMessageImpl.prototype = {
+    request: function()
+    {
+        return this._request;
+    },
+
     wasShown: function()
     {
         for (var i = 0; this._dataGrids && i < this._dataGrids.length; ++i) {
             var dataGrid = this._dataGrids[i];
             var parentElement = this._dataGridParents.get(dataGrid) || null;
             dataGrid.show(parentElement);
+            dataGrid.updateWidths();
         }
     },
 
@@ -163,7 +169,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
         }
 
         if (this.source !== WebInspector.ConsoleMessage.MessageSource.Network || this._request) {
-            if (this._stackTrace && this._stackTrace.length && this._stackTrace[0].url) {
+            if (this._stackTrace && this._stackTrace.length && this._stackTrace[0].scriptId) {
                 this._anchorElement = this._linkifyCallFrame(this._stackTrace[0]);
             } else if (this.url && this.url !== "undefined") {
                 this._anchorElement = this._linkifyLocation(this.url, this.line, this.column);
@@ -236,6 +242,12 @@ WebInspector.ConsoleMessageImpl.prototype = {
         // FIXME(62725): stack trace line/column numbers are one-based.
         lineNumber = lineNumber ? lineNumber - 1 : 0;
         columnNumber = columnNumber ? columnNumber - 1 : 0;
+        if (this.source === WebInspector.ConsoleMessage.MessageSource.CSS) {
+            var headerIds = WebInspector.cssModel.styleSheetIdsForURL(url);
+            var cssLocation = new WebInspector.CSSLocation(url, lineNumber, columnNumber);
+            return this._linkifier.linkifyCSSLocation(headerIds[0] || null, cssLocation, "console-message-url");
+        }
+
         return this._linkifier.linkifyLocation(url, lineNumber, columnNumber, "console-message-url");
     },
 
@@ -245,7 +257,11 @@ WebInspector.ConsoleMessageImpl.prototype = {
      */
     _linkifyCallFrame: function(callFrame)
     {
-        return this._linkifyLocation(callFrame.url, callFrame.lineNumber, callFrame.columnNumber);
+        // FIXME(62725): stack trace line/column numbers are one-based.
+        var lineNumber = callFrame.lineNumber ? callFrame.lineNumber - 1 : 0;
+        var columnNumber = callFrame.columnNumber ? callFrame.columnNumber - 1 : 0;
+        var rawLocation = new WebInspector.DebuggerModel.Location(callFrame.scriptId, lineNumber, columnNumber);
+        return this._linkifier.linkifyRawLocation(rawLocation, "console-message-url");
     },
 
     /**
@@ -310,6 +326,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
      * @param {Object} output
      * @param {boolean=} forceObjectFormat
      * @param {boolean=} includePreview
+     * @return {!Element}
      */
     _formatParameter: function(output, forceObjectFormat, includePreview)
     {
@@ -338,9 +355,14 @@ WebInspector.ConsoleMessageImpl.prototype = {
         elem.appendChild(document.createTextNode(val));
     },
 
+    /**
+     * @param {WebInspector.RemoteObject} obj
+     * @param {Element} elem
+     * @param {boolean} includePreview
+     */
     _formatParameterAsObject: function(obj, elem, includePreview)
     {
-        this._formatParameterAsArrayOrObject(obj, obj.description, elem, includePreview);
+        this._formatParameterAsArrayOrObject(obj, obj.description || "", elem, includePreview);
     },
 
     /**
@@ -371,7 +393,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {WebInspector.RemoteObject} obj
+     * @param {!WebInspector.RemoteObject} obj
      * @param {string} description
      * @param {Element} titleElement
      * @return {boolean} true iff preview captured all information.
@@ -389,12 +411,15 @@ WebInspector.ConsoleMessageImpl.prototype = {
                 titleElement.createTextChild(", ");
 
             var property = preview.properties[i];
-            if (!isArray || property.name != i) {
-                titleElement.createChild("span", "name").textContent = property.name;
+            var name = property.name;
+            if (!isArray || name != i) {
+                if (/^\s|\s$|^$|\n/.test(name))
+                    name = "\"" + name.replace(/\n/g, "\u21B5") + "\"";
+                titleElement.createChild("span", "name").textContent = name;
                 titleElement.createTextChild(": ");
             }
 
-            titleElement.appendChild(this._renderPropertyPreview(property));
+            titleElement.appendChild(this._renderPropertyPreviewOrAccessor(obj, [property]));
         }
         if (preview.overflow)
             titleElement.createChild("span").textContent = "\u2026";
@@ -403,37 +428,52 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {RuntimeAgent.PropertyPreview} property
+     * @param {!WebInspector.RemoteObject} object
+     * @param {!Array.<RuntimeAgent.PropertyPreview>} propertyPath
      * @return {Element}
      */
-    _renderPropertyPreview: function(property)
+    _renderPropertyPreviewOrAccessor: function(object, propertyPath)
+    {
+        var property = propertyPath.peekLast();
+        if (property.type === "accessor")
+            return this._formatAsAccessorProperty(object, propertyPath.select("name"), false);
+        return this._renderPropertyPreview(property.type, /** @type {string} */ (property.subtype), property.value);
+    },
+
+    /**
+     * @param {string} type
+     * @param {string} subtype
+     * @param {string=} description
+     * @return {Element}
+     */
+    _renderPropertyPreview: function(type, subtype, description)
     {
         var span = document.createElement("span");
-        span.className = "console-formatted-" + property.type;
+        span.className = "console-formatted-" + type;
 
-        if (property.type === "function") {
+        if (type === "function") {
             span.textContent = "function";
             return span;
         }
 
-        if (property.type === "object" && property.subtype === "regexp") {
+        if (type === "object" && subtype === "regexp") {
             span.addStyleClass("console-formatted-string");
-            span.textContent = property.value;
+            span.textContent = description;
             return span;
         }
 
-        if (property.type === "object" && property.subtype === "node" && property.value) {
+        if (type === "object" && subtype === "node" && description) {
             span.addStyleClass("console-formatted-preview-node");
-            WebInspector.DOMPresentationUtils.createSpansForNodeTitle(span, property.value);
+            WebInspector.DOMPresentationUtils.createSpansForNodeTitle(span, description);
             return span;
         }
 
-        if (property.type === "string") {
-            span.textContent = "\"" + property.value + "\"";
+        if (type === "string") {
+            span.textContent = "\"" + description.replace(/\n/g, "\u21B5") + "\"";
             return span;
         }
 
-        span.textContent = property.value;
+        span.textContent = description;
         return span;
     },
 
@@ -447,7 +487,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
                 this._formatParameterAsObject(object, elem, false);
                 return;
             }
-            var treeOutline = new WebInspector.ElementsTreeOutline(false, false, true);
+            var treeOutline = new WebInspector.ElementsTreeOutline(false, false);
             treeOutline.setVisible(true);
             treeOutline.rootDOMNode = WebInspector.domAgent.nodeForId(nodeId);
             treeOutline.element.addStyleClass("outline-disclosure");
@@ -508,11 +548,21 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
             var rowValue = {};
             const maxColumnsToRender = 20;
-            for (var j = 0; j < rowPreview.properties.length && columnNames.length < maxColumnsToRender; ++j) {
+            for (var j = 0; j < rowPreview.properties.length; ++j) {
                 var cellProperty = rowPreview.properties[j];
-                if (columnNames.indexOf(cellProperty.name) === -1)
+                var columnRendered = columnNames.indexOf(cellProperty.name) != -1;
+                if (!columnRendered) {
+                    if (columnNames.length === maxColumnsToRender)
+                        continue;
+                    columnRendered = true;
                     columnNames.push(cellProperty.name);
-                rowValue[cellProperty.name] = this._renderPropertyPreview(cellProperty);
+                }
+
+                if (columnRendered) {
+                    var cellElement = this._renderPropertyPreviewOrAccessor(table, [rowProperty, cellProperty]);
+                    cellElement.addStyleClass("nowrap-below");
+                    rowValue[cellProperty.name] = cellElement;
+                }
             }
             rows.push([rowProperty.name, rowValue]);
         }
@@ -549,6 +599,11 @@ WebInspector.ConsoleMessageImpl.prototype = {
         elem.appendChild(document.createTextNode("\""));
     },
 
+    /**
+     * @param {!WebInspector.RemoteObject} array
+     * @param {Element} elem
+     * @param {Array.<WebInspector.RemoteObjectProperty>} properties
+     */
     _printArray: function(array, elem, properties)
     {
         if (!properties)
@@ -558,7 +613,11 @@ WebInspector.ConsoleMessageImpl.prototype = {
         for (var i = 0; i < properties.length; ++i) {
             var property = properties[i];
             var name = property.name;
-            if (!isNaN(name))
+            if (isNaN(name))
+                continue;
+            if (property.getter)
+                elements[name] = this._formatAsAccessorProperty(array, [name], true);
+            else if (property.value)
                 elements[name] = this._formatAsArrayEntry(property.value);
         }
 
@@ -594,10 +653,58 @@ WebInspector.ConsoleMessageImpl.prototype = {
         elem.appendChild(document.createTextNode("]"));
     },
 
+    /**
+     * @param {!WebInspector.RemoteObject} output
+     * @return {!Element}
+     */
     _formatAsArrayEntry: function(output)
     {
         // Prevent infinite expansion of cross-referencing arrays.
-        return this._formatParameter(output, output.subtype && output.subtype === "array", false);
+        return this._formatParameter(output, output.subtype === "array", false);
+    },
+
+    /**
+     * @param {!WebInspector.RemoteObject} object
+     * @param {!Array.<string>} propertyPath
+     * @param {boolean} isArrayEntry
+     * @return {!Element}
+     */
+    _formatAsAccessorProperty: function(object, propertyPath, isArrayEntry)
+    {
+        var rootElement = WebInspector.ObjectPropertyTreeElement.createRemoteObjectAccessorPropertySpan(object, propertyPath, onInvokeGetterClick.bind(this));
+
+        /**
+         * @param {?WebInspector.RemoteObject} result
+         * @param {boolean=} wasThrown
+         */
+        function onInvokeGetterClick(result, wasThrown)
+        {
+            if (!result)
+                return;
+            rootElement.removeChildren();
+            if (wasThrown) {
+                var element = rootElement.createChild("span", "error-message");
+                element.textContent = WebInspector.UIString("<exception>");
+                element.title = result.description;
+            } else if (isArrayEntry) {
+                rootElement.appendChild(this._formatAsArrayEntry(result));
+            } else {
+                // Make a PropertyPreview from the RemoteObject similar to the backend logic.
+                const maxLength = 100;
+                var type = result.type;
+                var subtype = result.subtype;
+                var description = "";
+                if (type !== "function" && result.description) {
+                    if (type === "string" || subtype === "regexp")
+                        description = result.description.trimMiddle(maxLength);
+                    else
+                        description = result.description.trimEnd(maxLength);
+                }
+                rootElement.appendChild(this._renderPropertyPreview(type, subtype, description));
+            }
+        }
+
+        return rootElement;
     },
 
     _formatWithSubstitutionString: function(format, parameters, formattedResult)
@@ -787,9 +894,11 @@ WebInspector.ConsoleMessageImpl.prototype = {
             messageTextElement.appendChild(document.createTextNode(functionName));
             content.appendChild(messageTextElement);
 
-            if (frame.url) {
+            if (frame.scriptId) {
                 content.appendChild(document.createTextNode(" "));
                 var urlElement = this._linkifyCallFrame(frame);
+                if (!urlElement)
+                    continue;
                 content.appendChild(urlElement);
             }
 

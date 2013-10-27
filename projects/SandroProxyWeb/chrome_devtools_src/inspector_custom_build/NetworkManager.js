@@ -49,7 +49,10 @@ WebInspector.NetworkManager.EventTypes = {
     RequestUpdated: "RequestUpdated",
     RequestFinished: "RequestFinished",
     RequestUpdateDropped: "RequestUpdateDropped",
-    SandroProxyConnectionsSnapshot: "ConnectionsSnapshot"
+    SandroProxyConsoleMessages: "SandroProxyConsoleMessages",
+    SandroProxyConnectionsSnapshot: "ConnectionsSnapshot",
+    SandroProxyLogsFetch: "LogsFetch",
+    SandroProxyLogMessage: "LogMessage"
 }
 
 WebInspector.NetworkManager._MIMETypes = {
@@ -152,7 +155,7 @@ WebInspector.NetworkDispatcher.prototype = {
     _updateNetworkRequestWithRequest: function(networkRequest, request)
     {
         networkRequest.requestMethod = request.method;
-        networkRequest.requestHeaders = this._headersMapToHeadersArray(request.headers);
+        networkRequest.setRequestHeaders(this._headersMapToHeadersArray(request.headers));
         networkRequest.requestFormData = request.postData;
     },
 
@@ -173,10 +176,10 @@ WebInspector.NetworkDispatcher.prototype = {
         networkRequest.responseHeaders = this._headersMapToHeadersArray(response.headers);
         if (response.headersText)
             networkRequest.responseHeadersText = response.headersText;
-        if (response.requestHeaders)
-            networkRequest.requestHeaders = this._headersMapToHeadersArray(response.requestHeaders);
-        if (response.requestHeadersText)
-            networkRequest.requestHeadersText = response.requestHeadersText;
+        if (response.requestHeaders) {
+            networkRequest.setRequestHeaders(this._headersMapToHeadersArray(response.requestHeaders));
+            networkRequest.setRequestHeadersText(response.requestHeadersText || "");
+        }
 
         networkRequest.connectionReused = response.connectionReused;
         networkRequest.connectionId = response.connectionId;
@@ -232,17 +235,6 @@ WebInspector.NetworkDispatcher.prototype = {
     },
 
     /**
-     * @param {WebInspector.NetworkRequest} networkRequest
-     * @param {?NetworkAgent.CachedResource} cachedResource
-     */
-    _updateNetworkRequestWithCachedResource: function(networkRequest, cachedResource)
-    {
-        networkRequest.type = WebInspector.resourceTypes[cachedResource.type];
-        networkRequest.resourceSize = cachedResource.bodySize;
-        this._updateNetworkRequestWithResponse(networkRequest, cachedResource.response);
-    },
-
-    /**
      * @param {NetworkAgent.Response} response
      * @return {boolean}
      */
@@ -255,7 +247,7 @@ WebInspector.NetworkDispatcher.prototype = {
 
     /**
      * @param {NetworkAgent.RequestId} requestId
-     * @param {NetworkAgent.FrameId} frameId
+     * @param {PageAgent.FrameId} frameId
      * @param {NetworkAgent.LoaderId} loaderId
      * @param {string} documentURL
      * @param {NetworkAgent.Request} request
@@ -295,7 +287,7 @@ WebInspector.NetworkDispatcher.prototype = {
 
     /**
      * @param {NetworkAgent.RequestId} requestId
-     * @param {NetworkAgent.FrameId} frameId
+     * @param {PageAgent.FrameId} frameId
      * @param {NetworkAgent.LoaderId} loaderId
      * @param {NetworkAgent.Timestamp} time
      * @param {PageAgent.ResourceType} resourceType
@@ -380,26 +372,6 @@ WebInspector.NetworkDispatcher.prototype = {
 
     /**
      * @param {NetworkAgent.RequestId} requestId
-     * @param {NetworkAgent.FrameId} frameId
-     * @param {NetworkAgent.LoaderId} loaderId
-     * @param {string} documentURL
-     * @param {NetworkAgent.Timestamp} time
-     * @param {NetworkAgent.Initiator} initiator
-     * @param {NetworkAgent.CachedResource} cachedResource
-     */
-    requestServedFromMemoryCache: function(requestId, frameId, loaderId, documentURL, time, initiator, cachedResource)
-    {
-        var networkRequest = this._createNetworkRequest(requestId, frameId, loaderId, cachedResource.url, documentURL, initiator);
-        this._updateNetworkRequestWithCachedResource(networkRequest, cachedResource);
-        networkRequest.cached = true;
-        networkRequest.requestMethod = "GET";
-        this._startNetworkRequest(networkRequest);
-        networkRequest.startTime = networkRequest.responseReceivedTime = time;
-        this._finishNetworkRequest(networkRequest, time);
-    },
-
-    /**
-     * @param {NetworkAgent.RequestId} requestId
      * @param {string} requestURL
      */
     webSocketCreated: function(requestId, requestURL)
@@ -421,7 +393,7 @@ WebInspector.NetworkDispatcher.prototype = {
             return;
 
         networkRequest.requestMethod = "GET";
-        networkRequest.requestHeaders = this._headersMapToHeadersArray(request.headers);
+        networkRequest.setRequestHeaders(this._headersMapToHeadersArray(request.headers));
         networkRequest.startTime = time;
 
         this._updateNetworkRequest(networkRequest);
@@ -509,10 +481,29 @@ WebInspector.NetworkDispatcher.prototype = {
         this._finishNetworkRequest(networkRequest, time);
     },
     
+    
+    sandroProxyConsoleMessages : function(messages)
+    {
+        // TODO add validation
+        this._consoleMessages(messages);
+    },
+    
     sandroProxyConnectionsSnapshot: function(snapshot)
     {
         // TODO add validations
         this._connectionsSnapshot(snapshot);
+    },
+
+    sandroProxyLogsFetch: function(logs)
+    {
+        // TODO add validations
+        this._logsFetch(logs);
+    },
+    
+    sandroProxyLogMessage: function(message)
+    {
+        // TODO add validations
+        this._logMessage(message);
     },
     
     /**
@@ -567,9 +558,38 @@ WebInspector.NetworkDispatcher.prototype = {
         delete this._inflightRequestsByURL[networkRequest.url];
     },
     
+    
+    _consoleMessages: function(messages)
+    {
+        // TODO sandroproxy just display on console received messages
+        for (var pos in messages) {
+            WebInspector.console.addMessage(WebInspector.ConsoleMessage.create(WebInspector.ConsoleMessage.MessageSource.Network,
+                WebInspector.ConsoleMessage.MessageLevel.Log,
+                WebInspector.UIString(messages[pos]),
+                WebInspector.ConsoleMessage.MessageType.Log,
+                "",
+                0,
+                0,
+                1,
+                [],
+                null,
+                null));
+        }
+    },
+    
     _connectionsSnapshot: function(snapshot)
     {
       this._dispatchEventToListeners(WebInspector.NetworkManager.EventTypes.SandroProxyConnectionsSnapshot, snapshot);     
+    },
+
+    _logsFetch: function(fetch)
+    {
+      this._dispatchEventToListeners(WebInspector.NetworkManager.EventTypes.SandroProxyLogsFetch, fetch);     
+    },
+    
+    _logMessage: function(message)
+    {
+      this._dispatchEventToListeners(WebInspector.NetworkManager.EventTypes.SandroProxyLogMessage, message);     
     },
 
     /**

@@ -176,12 +176,14 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
     {
         this.nameElement = document.createElement("span");
         this.nameElement.className = "name";
-        this.nameElement.textContent = this.property.name;
+        var name = this.property.name;
+        if (/^\s|\s$|^$|\n/.test(name))
+            name = "\"" + name.replace(/\n/g, "\u21B5") + "\"";
+        this.nameElement.textContent = name;
         if (!this.property.enumerable)
             this.nameElement.addStyleClass("dimmed");
         if (this.property.isAccessorProperty())
             this.nameElement.addStyleClass("properties-accessor-property-name");
-
 
         var separatorElement = document.createElement("span");
         separatorElement.className = "separator";
@@ -192,16 +194,17 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
             this.valueElement.className = "value";
             var description = this.property.value.description;
             // Render \n as a nice unicode cr symbol.
-            if (this.property.wasThrown)
+            if (this.property.wasThrown) {
                 this.valueElement.textContent = "[Exception: " + description + "]";
-            else if (this.property.value.type === "string" && typeof description === "string") {
+            } else if (this.property.value.type === "string" && typeof description === "string") {
                 this.valueElement.textContent = "\"" + description.replace(/\n/g, "\u21B5") + "\"";
                 this.valueElement._originalTextContent = "\"" + description + "\"";
             } else if (this.property.value.type === "function" && typeof description === "string") {
                 this.valueElement.textContent = /.*/.exec(description)[0].replace(/ +$/g, "");
                 this.valueElement._originalTextContent = description;
-            } else if (this.property.value.type !== "object" || this.property.value.subtype !== "node")
+            } else if (this.property.value.type !== "object" || this.property.value.subtype !== "node") {
                 this.valueElement.textContent = description;
+            }
 
             if (this.property.wasThrown)
                 this.valueElement.addStyleClass("error");
@@ -215,22 +218,21 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
                 WebInspector.DOMPresentationUtils.createSpansForNodeTitle(this.valueElement, this.property.value.description);
                 this.valueElement.addEventListener("mousemove", this._mouseMove.bind(this, this.property.value), false);
                 this.valueElement.addEventListener("mouseout", this._mouseOut.bind(this, this.property.value), false);
-            } else
+            } else {
                 this.valueElement.title = description || "";
+            }
 
             this.listItemElement.removeChildren();
 
             this.hasChildren = this.property.value.hasChildren && !this.property.wasThrown;
         } else {
             if (this.property.getter) {
-                this.valueElement = document.createElement("span");
-                this.valueElement.addStyleClass("properties-calculate-value-button");
-                this.valueElement.textContent = "(...)";
-                this.valueElement.title = "Invoke property getter";
-                this.valueElement.addEventListener("click", this._onInvokeGetterClick.bind(this), false);
+                this.valueElement = WebInspector.ObjectPropertyTreeElement.createRemoteObjectAccessorPropertySpan(this.property.parentObject, [this.property.name], this._onInvokeGetterClick.bind(this));
             } else {
                 this.valueElement = document.createElement("span");
-                this.valueElement.textContent = "<unreadable>"
+                this.valueElement.className = "console-formatted-undefined";
+                this.valueElement.textContent = WebInspector.UIString("<unreadable>");
+                this.valueElement.title = WebInspector.UIString("No property getter");
             }
         }
 
@@ -408,34 +410,19 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         return result;
     },
 
-    _onInvokeGetterClick: function(event)
+    /**
+     * @param {?WebInspector.RemoteObject} result
+     * @param {boolean=} wasThrown
+     */
+    _onInvokeGetterClick: function(result, wasThrown)
     {
-        /**
-         * @param {?Protocol.Error} error
-         * @param {RuntimeAgent.RemoteObject} result
-         * @param {boolean=} wasThrown
-         */
-        function evaluateCallback(error, result, wasThrown)
-        {
-            if (error)
-                return;
-            var remoteObject = WebInspector.RemoteObject.fromPayload(result);
-            this.property.value = remoteObject;
-            this.property.wasThrown = wasThrown;
-
-            this.update();
-            this.shouldRefreshChildren = true;
-        }
-
-        event.consume();
-
-        if (!this.property.getter)
+        if (!result)
             return;
+        this.property.value = result;
+        this.property.wasThrown = wasThrown;
 
-        var functionText = "function(th){return this.call(th);}"
-        var functionArguments = [ {objectId: this.property.parentObject.objectId} ]
-        RuntimeAgent.callFunctionOn(this.property.getter.objectId, functionText, functionArguments,
-            undefined, false, undefined, evaluateCallback.bind(this));
+        this.update();
+        this.shouldRefreshChildren = true;
     },
 
     __proto__: TreeElement.prototype
@@ -536,6 +523,29 @@ WebInspector.ObjectPropertyTreeElement.populateWithProperties = function(treeEle
             treeElement.appendChild(new treeElementConstructor(internalProperties[i]));
         }
     }
+}
+
+/**
+ * @param {!WebInspector.RemoteObject} object
+ * @param {!Array.<string>} propertyPath
+ * @param {function(?WebInspector.RemoteObject, boolean=)} callback
+ * @return {!Element}
+ */
+WebInspector.ObjectPropertyTreeElement.createRemoteObjectAccessorPropertySpan = function(object, propertyPath, callback)
+{
+    var rootElement = document.createElement("span");
+    var element = rootElement.createChild("span", "properties-calculate-value-button");
+    element.textContent = WebInspector.UIString("(...)");
+    element.title = WebInspector.UIString("Invoke property getter");
+    element.addEventListener("click", onInvokeGetterClick, false);
+
+    function onInvokeGetterClick(event)
+    {
+        event.consume();
+        object.getProperty(propertyPath, callback);
+    }
+
+    return rootElement;
 }
 
 /**
@@ -813,9 +823,15 @@ WebInspector.ArrayGroupingTreeElement._populateAsFragment = function(treeElement
         return result;
     }
 
-    /** @this {WebInspector.ArrayGroupingTreeElement} */
-    function processArrayFragment(arrayFragment)
+    /**
+     * @param {?WebInspector.RemoteObject} arrayFragment
+     * @param {boolean=} wasThrown
+     * @this {WebInspector.ArrayGroupingTreeElement}
+     */
+    function processArrayFragment(arrayFragment, wasThrown)
     {
+        if (!arrayFragment || wasThrown)
+            return;
         arrayFragment.getAllProperties(false, processProperties.bind(this));
     }
 
@@ -860,17 +876,26 @@ WebInspector.ArrayGroupingTreeElement._populateNonIndexProperties = function(tre
         return result;
     }
 
-    function processObjectFragment(arrayFragment)
+    /**
+     * @param {?WebInspector.RemoteObject} arrayFragment
+     * @param {boolean=} wasThrown
+     */
+    function processObjectFragment(arrayFragment, wasThrown)
     {
+        if (!arrayFragment || wasThrown)
+            return;
         arrayFragment.getOwnProperties(processProperties.bind(this));
     }
 
-    /** @this {WebInspector.ArrayGroupingTreeElement} */
+    /**
+     * @param {?Array.<WebInspector.RemoteObjectProperty>} properties
+     * @param {?Array.<WebInspector.RemoteObjectProperty>=} internalProperties
+     * @this {WebInspector.ArrayGroupingTreeElement}
+     */
     function processProperties(properties, internalProperties)
     {
         if (!properties)
             return;
-
         properties.sort(WebInspector.ObjectPropertiesSection.CompareProperties);
         for (var i = 0; i < properties.length; ++i) {
             properties[i].parentObject = this._object;

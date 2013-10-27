@@ -30,9 +30,10 @@
 
 /**
  * @constructor
+ * @param{WebInspector.HeapSnapshotProgress} progress
  * @extends {WebInspector.HeapSnapshot}
  */
-WebInspector.JSHeapSnapshot = function(profile)
+WebInspector.JSHeapSnapshot = function(profile, progress)
 {
     this._nodeFlags = { // bit flags
         canBeQueried: 1,
@@ -42,10 +43,28 @@ WebInspector.JSHeapSnapshot = function(profile)
         visitedMarkerMask: 0x0ffff, // bits: 0,1111,1111,1111,1111
         visitedMarker:     0x10000  // bits: 1,0000,0000,0000,0000
     };
-    WebInspector.HeapSnapshot.call(this, profile);
+    this._lazyStringCache = { };
+    WebInspector.HeapSnapshot.call(this, profile, progress);
 }
 
 WebInspector.JSHeapSnapshot.prototype = {
+    maxJsNodeId: function()
+    {
+        var nodeFieldCount = this._nodeFieldCount;
+        var nodes = this._nodes;
+        var nodesLength = nodes.length;
+        var id = 0;
+        for (var nodeIndex = this._nodeIdOffset; nodeIndex < nodesLength; nodeIndex += nodeFieldCount) {
+            var nextId = nodes[nodeIndex];
+            // JS objects have odd ids, skip native objects.
+            if (nextId % 2 === 0)
+                continue;
+            if (id < nodes[nodeIndex])
+                id = nodes[nodeIndex];
+        }
+        return id;
+    },
+
     createNode: function(nodeIndex)
     {
         return new WebInspector.JSHeapSnapshotNode(this, nodeIndex);
@@ -392,6 +411,67 @@ WebInspector.JSHeapSnapshotNode.prototype = {
     {
         var flags = this._snapshot._flagsOfNode(this);
         return !!(flags & this._snapshot._nodeFlags.pageObject);
+    },
+
+
+    name: function() {
+        var snapshot = this._snapshot;
+        if (this._type() === snapshot._nodeConsStringType) {
+            var string = snapshot._lazyStringCache[this.nodeIndex];
+            if (typeof string === "undefined") {
+                string = this._consStringName();
+                snapshot._lazyStringCache[this.nodeIndex] = string;
+            }
+            return string;
+        }
+        return WebInspector.HeapSnapshotNode.prototype.name.call(this);
+    },
+
+    _consStringName: function()
+    {
+        var snapshot = this._snapshot;
+        var consStringType = snapshot._nodeConsStringType;
+        var edgeInternalType = snapshot._edgeInternalType;
+        var edgeFieldsCount = snapshot._edgeFieldsCount;
+        var edgeToNodeOffset = snapshot._edgeToNodeOffset;
+        var edgeTypeOffset = snapshot._edgeTypeOffset;
+        var edgeNameOffset = snapshot._edgeNameOffset;
+        var strings = snapshot._strings;
+        var edges = snapshot._containmentEdges;
+        var firstEdgeIndexes = snapshot._firstEdgeIndexes;
+        var nodeFieldCount = snapshot._nodeFieldCount;
+        var nodeTypeOffset = snapshot._nodeTypeOffset;
+        var nodeNameOffset = snapshot._nodeNameOffset;
+        var nodes = snapshot._nodes;
+        var nodesStack = [];
+        nodesStack.push(this.nodeIndex);
+        var name = "";
+
+        while (nodesStack.length && name.length < 1024) {
+            var nodeIndex = nodesStack.pop();
+            if (nodes[nodeIndex + nodeTypeOffset] !== consStringType) {
+                name += strings[nodes[nodeIndex + nodeNameOffset]];
+                continue;
+            }
+            var nodeOrdinal = nodeIndex / nodeFieldCount;
+            var beginEdgeIndex = firstEdgeIndexes[nodeOrdinal];
+            var endEdgeIndex = firstEdgeIndexes[nodeOrdinal + 1];
+            var firstNodeIndex = 0;
+            var secondNodeIndex = 0;
+            for (var edgeIndex = beginEdgeIndex; edgeIndex < endEdgeIndex && (!firstNodeIndex || !secondNodeIndex); edgeIndex += edgeFieldsCount) {
+                var edgeType = edges[edgeIndex + edgeTypeOffset];
+                if (edgeType === edgeInternalType) {
+                    var edgeName = strings[edges[edgeIndex + edgeNameOffset]];
+                    if (edgeName === "first")
+                        firstNodeIndex = edges[edgeIndex + edgeToNodeOffset];
+                    else if (edgeName === "second")
+                        secondNodeIndex = edges[edgeIndex + edgeToNodeOffset];
+                }
+            }
+            nodesStack.push(secondNodeIndex);
+            nodesStack.push(firstNodeIndex);
+        }
+        return name;
     },
 
     className: function()

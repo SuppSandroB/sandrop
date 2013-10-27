@@ -45,6 +45,7 @@ WebInspector.ProfileDataGridNode = function(profileNode, owningTree, hasChildren
     this.selfTime = profileNode.selfTime;
     this.totalTime = profileNode.totalTime;
     this.functionName = profileNode.functionName;
+    this._deoptReason = (!profileNode.deoptReason || profileNode.deoptReason === "no reason") ? "" : profileNode.deoptReason;
     this.url = profileNode.url;
 }
 
@@ -53,12 +54,21 @@ WebInspector.ProfileDataGridNode.prototype = {
     {
         function formatMilliseconds(time)
         {
-            return WebInspector.UIString("%.0f\u2009ms", time);
+            return WebInspector.UIString("%.1f\u2009ms", time);
         }
 
         var data = {};
 
-        data["function"] = this.functionName;
+        if (this._deoptReason) {
+            var div = document.createElement("div");
+            var marker = div.createChild("span");
+            marker.className = "profile-warn-marker";
+            marker.title = WebInspector.UIString("Not optimized: %s", this._deoptReason);
+            var functionName = div.createChild("span");
+            functionName.textContent = this.functionName;
+            data["function"] = div;
+        } else
+            data["function"] = this.functionName;
 
         if (this.tree.profileView.showSelfTimeAsPercent.get())
             data["self"] = WebInspector.UIString("%.2f%", this.selfPercent);
@@ -90,13 +100,19 @@ WebInspector.ProfileDataGridNode.prototype = {
         if (columnIdentifier !== "function")
             return cell;
 
+        if (this._deoptReason)
+            cell.addStyleClass("not-optimized");
+
         if (this.profileNode._searchMatchedFunctionColumn)
             cell.addStyleClass("highlight");
 
-        if (this.profileNode.url) {
-            // FIXME(62725): profileNode should reference a debugger location.
+        if (this.profileNode.scriptId !== "0") {
             var lineNumber = this.profileNode.lineNumber ? this.profileNode.lineNumber - 1 : 0;
-            var urlElement = this.tree.profileView._linkifier.linkifyLocation(this.profileNode.url, lineNumber, 0, "profile-node-file");
+            var columnNumber = this.profileNode.columnNumber ? this.profileNode.columnNumber - 1 : 0;
+            var location = new WebInspector.DebuggerModel.Location(this.profileNode.scriptId, lineNumber, columnNumber);
+            var urlElement = this.tree.profileView._linkifier.linkifyRawLocation(location, "profile-node-file");
+            if (!urlElement)
+                urlElement = this.tree.profileView._linkifier.linkifyLocation(this.profileNode.url, lineNumber, columnNumber, "profile-node-file");
             urlElement.style.maxWidth = "75%";
             cell.insertBefore(urlElement, cell.firstChild);
         }
@@ -217,12 +233,10 @@ WebInspector.ProfileDataGridNode.prototype = {
 
         this._sharedPopulate();
 
-        if (this._parent) {
-            var currentComparator = this._parent.lastComparator;
+        var currentComparator = this.tree.lastComparator;
 
-            if (currentComparator)
-                this.sort(currentComparator, true);
-        }
+        if (currentComparator)
+            this.sort(currentComparator, true);
     },
 
     // When focusing and collapsing we modify lots of nodes in the tree.

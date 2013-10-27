@@ -58,12 +58,14 @@ WebInspector.NavigatorView = function()
     this._rootNode.populate();
 
     WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.InspectedURLChanged, this._inspectedURLChanged, this);
+    this.element.addEventListener("contextmenu", this.handleContextMenu.bind(this), false);
 }
 
 WebInspector.NavigatorView.Events = {
     ItemSelected: "ItemSelected",
     ItemSearchStarted: "ItemSearchStarted",
-    ItemRenamingRequested: "ItemRenamingRequested"
+    ItemRenamingRequested: "ItemRenamingRequested",
+    ItemCreationRequested: "ItemCreationRequested"
 }
 
 WebInspector.NavigatorView.iconClassForType = function(type)
@@ -115,7 +117,7 @@ WebInspector.NavigatorView.prototype = {
         var projectNode = this._rootNode.child(project.id());
         if (!projectNode) {
             var type = project.type() === WebInspector.projectTypes.FileSystem ? WebInspector.NavigatorTreeOutline.Types.FileSystem : WebInspector.NavigatorTreeOutline.Types.Domain;
-            projectNode = new WebInspector.NavigatorFolderTreeNode(this, project.id(), type, "", project.displayName());
+            projectNode = new WebInspector.NavigatorFolderTreeNode(this, project, project.id(), type, "", project.displayName());
             this._rootNode.appendChild(projectNode);
         }
         return projectNode;
@@ -147,7 +149,7 @@ WebInspector.NavigatorView.prototype = {
             parentNode = this._folderNode(projectNode, folderPath.substring(0, index));
 
         var name = folderPath.substring(index + 1);
-        folderNode = new WebInspector.NavigatorFolderTreeNode(this, name, WebInspector.NavigatorTreeOutline.Types.Folder, folderPath, name);
+        folderNode = new WebInspector.NavigatorFolderTreeNode(this, null, name, WebInspector.NavigatorTreeOutline.Types.Folder, folderPath, name);
         subfolderNodes.put(folderPath, folderNode);
         parentNode.appendChild(folderNode);
         return folderNode;
@@ -172,11 +174,18 @@ WebInspector.NavigatorView.prototype = {
      * @param {WebInspector.UISourceCode} uiSourceCode
      * @param {boolean} focusSource
      */
-    _scriptSelected: function(uiSourceCode, focusSource)
+    _sourceSelected: function(uiSourceCode, focusSource)
     {
         this._lastSelectedUISourceCode = uiSourceCode;
         var data = { uiSourceCode: uiSourceCode, focusSource: focusSource};
         this.dispatchEventToListeners(WebInspector.NavigatorView.Events.ItemSelected, data);
+    },
+
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    sourceDeleted: function(uiSourceCode)
+    {
     },
 
     /**
@@ -209,9 +218,18 @@ WebInspector.NavigatorView.prototype = {
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
      */
+    updateIcon: function(uiSourceCode)
+    {
+        var node = this._uiSourceCodeNodes.get(uiSourceCode);
+        node.updateIcon();
+    },
+
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
     requestRename: function(uiSourceCode)
     {
-        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ItemRenamingRequested, uiSourceCode);
+        this.dispatchEventToListeners(WebInspector.SourcesNavigator.Events.ItemRenamingRequested, uiSourceCode);
     },
 
     /**
@@ -238,13 +256,139 @@ WebInspector.NavigatorView.prototype = {
         this._rootNode.reset();
     },
 
-    handleContextMenu: function(event, uiSourceCode)
+    /**
+     * @param {Event} event
+     */
+    handleContextMenu: function(event)
     {
         var contextMenu = new WebInspector.ContextMenu(event);
-        contextMenu.appendApplicableItems(uiSourceCode);
+        this._appendAddFolderItem(contextMenu);
         contextMenu.show();
     },
 
+    /**
+     * @param {WebInspector.ContextMenu} contextMenu
+     */
+    _appendAddFolderItem: function(contextMenu)
+    {
+        function addFolder()
+        {
+            WebInspector.isolatedFileSystemManager.addFileSystem();
+        }
+
+        var addFolderLabel = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Add folder to workspace" : "Add Folder to Workspace");
+        contextMenu.appendItem(addFolderLabel, addFolder);
+    },
+
+    /**
+     * @param {WebInspector.Project} project
+     * @param {string} path
+     */
+    _handleContextMenuRefresh: function(project, path)
+    {
+        project.refresh(path);
+    },
+
+    /**
+     * @param {WebInspector.Project} project
+     * @param {string} path
+     * @param {WebInspector.UISourceCode=} uiSourceCode
+     */
+    _handleContextMenuCreate: function(project, path, uiSourceCode)
+    {
+        var data = {};
+        data.project = project;
+        data.path = path;
+        data.uiSourceCode = uiSourceCode;
+        this.dispatchEventToListeners(WebInspector.NavigatorView.Events.ItemCreationRequested, data);
+    },
+
+    /**
+     * @param {WebInspector.Project} project
+     * @param {string} path
+     */
+    _handleContextMenuExclude: function(project, path)
+    {
+        var shouldExclude = window.confirm(WebInspector.UIString("Are you sure you want to exclude this folder?"));
+        if (shouldExclude) {
+            WebInspector.startBatchUpdate();
+            project.excludeFolder(path);
+            WebInspector.endBatchUpdate();
+        }
+    },
+
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _handleContextMenuDelete: function(uiSourceCode)
+    {
+        var shouldDelete = window.confirm(WebInspector.UIString("Are you sure you want to delete this file?"));
+        if (shouldDelete)
+            uiSourceCode.project().deleteFile(uiSourceCode.path());
+    },
+
+    /**
+     * @param {Event} event
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    handleFileContextMenu: function(event, uiSourceCode)
+    {
+        var contextMenu = new WebInspector.ContextMenu(event);
+        contextMenu.appendApplicableItems(uiSourceCode);
+        contextMenu.appendSeparator();
+
+        var project = uiSourceCode.project();
+        var path = uiSourceCode.parentPath();
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Refresh parent" : "Refresh Parent"), this._handleContextMenuRefresh.bind(this, project, path));
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Duplicate file" : "Duplicate File"), this._handleContextMenuCreate.bind(this, project, path, uiSourceCode));
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Exclude parent folder" : "Exclude Parent Folder"), this._handleContextMenuExclude.bind(this, project, path));
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Delete file" : "Delete File"), this._handleContextMenuDelete.bind(this, uiSourceCode));
+        contextMenu.appendSeparator();
+        this._appendAddFolderItem(contextMenu);
+        contextMenu.show();
+    },
+
+    /**
+     * @param {Event} event
+     * @param {WebInspector.NavigatorFolderTreeNode} node
+     */
+    handleFolderContextMenu: function(event, node)
+    {
+        var contextMenu = new WebInspector.ContextMenu(event);
+        var path = "/";
+        var projectNode = node;
+        while (projectNode.parent !== this._rootNode) {
+            path = "/" + projectNode.id + path;
+            projectNode = projectNode.parent;
+        }
+
+        var project = projectNode._project;
+
+        if (project.type() === WebInspector.projectTypes.FileSystem) {
+            contextMenu.appendItem(WebInspector.UIString("Refresh"), this._handleContextMenuRefresh.bind(this, project, path));
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "New file" : "New File"), this._handleContextMenuCreate.bind(this, project, path));
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Exclude folder" : "Exclude Folder"), this._handleContextMenuExclude.bind(this, project, path));
+        }
+        contextMenu.appendSeparator();
+        this._appendAddFolderItem(contextMenu);
+        if (project.type() === WebInspector.projectTypes.FileSystem && node === projectNode) {
+            function removeFolder()
+            {
+                var shouldRemove = window.confirm(WebInspector.UIString("Are you sure you want to remove this folder?"));
+                if (shouldRemove)
+                    project.remove();
+            }
+
+            var removeFolderLabel = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Remove folder from workspace" : "Remove Folder from Workspace");
+            contextMenu.appendItem(removeFolderLabel, removeFolder);
+        }
+
+        contextMenu.show();
+    },
+
+    /**
+     * @param {Event} event
+     */
    _treeKeyPress: function(event)
    {
         if (WebInspector.isBeingEdited(this._scriptsTree.childrenListElement))
@@ -379,6 +523,15 @@ WebInspector.BaseNavigatorTreeElement.prototype = {
         this.listItemElement.appendChild(this.titleElement);
     },
 
+    updateIconClasses: function(iconClasses)
+    {
+        for (var i = 0; i < this._iconClasses.length; ++i)
+            this.listItemElement.removeStyleClass(this._iconClasses[i]);
+        this._iconClasses = iconClasses;
+        for (var i = 0; i < this._iconClasses.length; ++i)
+            this.listItemElement.addStyleClass(this._iconClasses[i]);
+    },
+
     onreveal: function()
     {
         if (this.listItemElement)
@@ -416,13 +569,15 @@ WebInspector.BaseNavigatorTreeElement.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.BaseNavigatorTreeElement}
+ * @param {WebInspector.NavigatorView} navigatorView
  * @param {string} type
  * @param {string} title
  */
-WebInspector.NavigatorFolderTreeElement = function(type, title)
+WebInspector.NavigatorFolderTreeElement = function(navigatorView, type, title)
 {
     var iconClass = WebInspector.NavigatorView.iconClassForType(type);
     WebInspector.BaseNavigatorTreeElement.call(this, type, title, [iconClass], true);
+    this._navigatorView = navigatorView;
 }
 
 WebInspector.NavigatorFolderTreeElement.prototype = {
@@ -435,6 +590,7 @@ WebInspector.NavigatorFolderTreeElement.prototype = {
     {
         WebInspector.BaseNavigatorTreeElement.prototype.onattach.call(this);
         this.collapse();
+        this.listItemElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), false);
     },
 
     /**
@@ -452,6 +608,17 @@ WebInspector.NavigatorFolderTreeElement.prototype = {
         this.tooltip = paths.join("/");
     },
 
+    /**
+     * @param {Event} event
+     */
+    _handleContextMenuEvent: function(event)
+    {
+        if (!this._node)
+            return;
+        this.select();
+        this._navigatorView.handleFolderContextMenu(event, this._node);
+    },
+
     __proto__: WebInspector.BaseNavigatorTreeElement.prototype
 }
 
@@ -464,9 +631,9 @@ WebInspector.NavigatorFolderTreeElement.prototype = {
  */
 WebInspector.NavigatorSourceTreeElement = function(navigatorView, uiSourceCode, title)
 {
-    WebInspector.BaseNavigatorTreeElement.call(this, WebInspector.NavigatorTreeOutline.Types.UISourceCode, title, ["navigator-" + uiSourceCode.contentType().name() + "-tree-item"], false);
     this._navigatorView = navigatorView;
     this._uiSourceCode = uiSourceCode;
+    WebInspector.BaseNavigatorTreeElement.call(this, WebInspector.NavigatorTreeOutline.Types.UISourceCode, title, this._calculateIconClasses(), false);
     this.tooltip = uiSourceCode.originURL();
 }
 
@@ -477,6 +644,19 @@ WebInspector.NavigatorSourceTreeElement.prototype = {
     get uiSourceCode()
     {
         return this._uiSourceCode;
+    },
+
+    /**
+     * @return {Array.<string>}
+     */
+    _calculateIconClasses: function()
+    {
+        return ["navigator-" + this._uiSourceCode.contentType().name() + "-tree-item"];
+    },
+
+    updateIcon: function()
+    {
+        this.updateIconClasses(this._calculateIconClasses());
     },
 
     onattach: function()
@@ -495,10 +675,8 @@ WebInspector.NavigatorSourceTreeElement.prototype = {
             this._uiSourceCode.requestContent(callback.bind(this));
         /**
          * @param {?string} content
-         * @param {boolean} contentEncoded
-         * @param {string} mimeType
          */
-        function callback(content, contentEncoded, mimeType)
+        function callback(content)
         {
             this._warmedUpContent = content;
         }
@@ -537,7 +715,7 @@ WebInspector.NavigatorSourceTreeElement.prototype = {
 
     onspace: function()
     {
-        this._navigatorView._scriptSelected(this.uiSourceCode, true);
+        this._navigatorView._sourceSelected(this.uiSourceCode, true);
         return true;
     },
 
@@ -546,7 +724,7 @@ WebInspector.NavigatorSourceTreeElement.prototype = {
      */
     _onclick: function(event)
     {
-        this._navigatorView._scriptSelected(this.uiSourceCode, false);
+        this._navigatorView._sourceSelected(this.uiSourceCode, false);
     },
 
     /**
@@ -555,12 +733,18 @@ WebInspector.NavigatorSourceTreeElement.prototype = {
     ondblclick: function(event)
     {
         var middleClick = event.button === 1;
-        this._navigatorView._scriptSelected(this.uiSourceCode, !middleClick);
+        this._navigatorView._sourceSelected(this.uiSourceCode, !middleClick);
     },
 
     onenter: function()
     {
-        this._navigatorView._scriptSelected(this.uiSourceCode, true);
+        this._navigatorView._sourceSelected(this.uiSourceCode, true);
+        return true;
+    },
+
+    ondelete: function()
+    {
+        this._navigatorView.sourceDeleted(this.uiSourceCode);
         return true;
     },
 
@@ -570,7 +754,7 @@ WebInspector.NavigatorSourceTreeElement.prototype = {
     _handleContextMenuEvent: function(event)
     {
         this.select();
-        this._navigatorView.handleContextMenu(event, this._uiSourceCode);
+        this._navigatorView.handleFileContextMenu(event, this._uiSourceCode);
     },
 
     __proto__: WebInspector.BaseNavigatorTreeElement.prototype
@@ -760,6 +944,12 @@ WebInspector.NavigatorUISourceCodeTreeNode.prototype = {
         return this._uiSourceCode;
     },
 
+    updateIcon: function()
+    {
+        if (this._treeElement)
+            this._treeElement.updateIcon();
+    },
+
     /**
      * @return {TreeElement}
      */
@@ -788,7 +978,7 @@ WebInspector.NavigatorUISourceCodeTreeNode.prototype = {
             return;
 
         var titleText = this._uiSourceCode.displayName();
-        if (!ignoreIsDirty && this._uiSourceCode.isDirty())
+        if (!ignoreIsDirty && (this._uiSourceCode.isDirty() || this._uiSourceCode.hasUnsavedCommittedChanges()))
             titleText = "*" + titleText;
         this._treeElement.titleText = titleText;
     },
@@ -906,15 +1096,17 @@ WebInspector.NavigatorUISourceCodeTreeNode.prototype = {
  * @constructor
  * @extends {WebInspector.NavigatorTreeNode}
  * @param {WebInspector.NavigatorView} navigatorView
+ * @param {WebInspector.Project} project
  * @param {string} id
  * @param {string} type
  * @param {string} folderPath
  * @param {string} title
  */
-WebInspector.NavigatorFolderTreeNode = function(navigatorView, id, type, folderPath, title)
+WebInspector.NavigatorFolderTreeNode = function(navigatorView, project, id, type, folderPath, title)
 {
     WebInspector.NavigatorTreeNode.call(this, id);
     this._navigatorView = navigatorView;
+    this._project = project;
     this._type = type;
     this._folderPath = folderPath;
     this._title = title;
@@ -937,7 +1129,7 @@ WebInspector.NavigatorFolderTreeNode.prototype = {
      */
     _createTreeElement: function(title, node)
     {
-        var treeElement = new WebInspector.NavigatorFolderTreeElement(this._type, title);
+        var treeElement = new WebInspector.NavigatorFolderTreeElement(this._navigatorView, this._type, title);
         treeElement.setNode(node);
         return treeElement;
     },

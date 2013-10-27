@@ -106,10 +106,9 @@ WebInspector.Popover.prototype = {
             this._contentDiv.appendChild(this.contentElement);
 
         this._positionElement(anchor, preferredWidth, preferredHeight, arrowDirection);
-        this.element.classList.add("fx-appear");
 
         if (this._popoverHelper) {
-            contentElement.addEventListener("mousemove", this._popoverHelper._killHidePopoverTimer.bind(this._popoverHelper), true);
+            this._contentDiv.addEventListener("mousemove", this._popoverHelper._killHidePopoverTimer.bind(this._popoverHelper), true);
             this.element.addEventListener("mouseout", this._popoverHelper._popoverMouseOut.bind(this._popoverHelper), true);
         }
     },
@@ -117,7 +116,6 @@ WebInspector.Popover.prototype = {
     hide: function()
     {
         this.detach();
-        this.element.classList.remove("fx-appear");
         delete WebInspector.Popover._popover;
     },
 
@@ -447,6 +445,11 @@ WebInspector.PopoverContentHelper.prototype = {
         this._contentTable.appendChild(row);
     },
 
+    /**
+     * @param {string} title
+     * @param {!Array.<ConsoleAgent.CallFrame>} stackTrace
+     * @param {function(ConsoleAgent.CallFrame)} callFrameLinkifier
+     */
     appendStackTrace: function(title, stackTrace, callFrameLinkifier)
     {
         this.appendTextRow("", "");
@@ -455,7 +458,7 @@ WebInspector.PopoverContentHelper.prototype = {
             var stackFrame = stackTrace[i];
             var row = document.createElement("tr");
             row.className = "details";
-            row.appendChild(this._createCell(stackFrame.functionName ? stackFrame.functionName : WebInspector.UIString("(anonymous function)"), "function-name"));
+            row.appendChild(this._createCell(stackFrame.functionName || WebInspector.UIString("(anonymous function)"), "function-name"));
             row.appendChild(this._createCell(" @ "));
             var linkCell = document.createElement("td");
             var urlElement = callFrameLinkifier(stackFrame);

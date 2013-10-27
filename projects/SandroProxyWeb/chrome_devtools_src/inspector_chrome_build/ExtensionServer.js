@@ -244,7 +244,7 @@ WebInspector.ExtensionServer.prototype = {
         if (!panel.addExtensionSidebarPane)
             return this._status.E_NOTSUPPORTED();
         var id = message.id;
-        var sidebar = new WebInspector.ExtensionSidebarPane(message.title, message.id);
+        var sidebar = new WebInspector.ExtensionSidebarPane(message.title, id);
         this._clientObjects[id] = sidebar;
         panel.addExtensionSidebarPane(id, sidebar);
 
@@ -306,7 +306,7 @@ WebInspector.ExtensionServer.prototype = {
         var contentProvider = WebInspector.workspace.uiSourceCodeForOriginURL(url) || WebInspector.resourceForURL(url);
         if (!contentProvider)
             return false;
-            
+
         var lineNumber = details.lineNumber;
         if (typeof lineNumber === "number")
             lineNumber += 1;
@@ -325,7 +325,8 @@ WebInspector.ExtensionServer.prototype = {
         var injectedScript;
         if (options.injectedScript)
             injectedScript = "(function(){" + options.injectedScript + "})()";
-        PageAgent.reload(!!options.ignoreCache, injectedScript);
+        var preprocessingScript = options.preprocessingScript;
+        PageAgent.reload(!!options.ignoreCache, injectedScript, preprocessingScript);
         return this._status.OK();
     },
 
@@ -345,7 +346,7 @@ WebInspector.ExtensionServer.prototype = {
                 result = { isException: true, value: resultPayload.description };
             else
                 result = { value: resultPayload.value };
-      
+
             this._dispatchCallback(message.requestId, port, result);
         }
         return this.evaluate(message.expression, true, true, message.evaluateOptions, port._extensionOrigin, callback.bind(this));
@@ -460,17 +461,16 @@ WebInspector.ExtensionServer.prototype = {
     {
         /**
          * @param {?string} content
-         * @param {boolean} contentEncoded
-         * @param {string} mimeType
          */
-        function onContentAvailable(content, contentEncoded, mimeType)
+        function onContentAvailable(content)
         {
             var response = {
-                encoding: contentEncoded ? "base64" : "",
+                encoding: (content === null) || contentProvider.contentType().isTextType() ? "" : "base64",
                 content: content
             };
             this._dispatchCallback(message.requestId, port, response);
         }
+
         contentProvider.requestContent(onContentAvailable.bind(this));
     },
 
@@ -604,10 +604,14 @@ WebInspector.ExtensionServer.prototype = {
             WebInspector.workspace,
             WebInspector.Workspace.Events.UISourceCodeAdded,
             this._notifyResourceAdded);
-        this._registerAutosubscriptionHandler(WebInspector.extensionAPI.Events.ElementsPanelObjectSelected,
+        this._registerAutosubscriptionHandler(WebInspector.extensionAPI.Events.PanelObjectSelected + "elements",
             WebInspector.notifications,
             WebInspector.ElementsTreeOutline.Events.SelectedNodeChanged,
             this._notifyElementsSelectionChanged);
+        this._registerAutosubscriptionHandler(WebInspector.extensionAPI.Events.PanelObjectSelected + "sources",
+            WebInspector.notifications,
+            WebInspector.SourceFrame.Events.SelectionChanged,
+            this._notifySourceFrameSelectionChanged);
         this._registerAutosubscriptionHandler(WebInspector.extensionAPI.Events.ResourceContentCommitted,
             WebInspector.workspace,
             WebInspector.Workspace.Events.UISourceCodeContentCommitted,
@@ -630,12 +634,35 @@ WebInspector.ExtensionServer.prototype = {
 
         WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.InspectedURLChanged,
             this._inspectedURLChanged, this);
+
         this._initDone = true;
         if (this._pendingExtensions) {
             this._pendingExtensions.forEach(this._innerAddExtension, this);
             delete this._pendingExtensions;
         }
         InspectorExtensionRegistry.getExtensionsAsync();
+    },
+
+    /**
+     * @param {WebInspector.TextRange} textRange
+     */
+    _makeSourceSelection: function(textRange)
+    {
+        var sourcesPanel = WebInspector.inspectorView.panel("sources");
+        var selection = {
+            startLine: textRange.startLine,
+            startColumn: textRange.startColumn,
+            endLine: textRange.endLine,
+            endColumn: textRange.endColumn,
+            url: sourcesPanel.tabbedEditorContainer.currentFile().uri()
+        };
+
+        return selection;
+    },
+
+    _notifySourceFrameSelectionChanged: function(event)
+    {
+        this._postNotification(WebInspector.extensionAPI.Events.PanelObjectSelected + "sources", this._makeSourceSelection(event.data));
     },
 
     _notifyConsoleMessageAdded: function(event)
@@ -664,7 +691,7 @@ WebInspector.ExtensionServer.prototype = {
 
     _notifyElementsSelectionChanged: function()
     {
-        this._postNotification(WebInspector.extensionAPI.Events.ElementsPanelObjectSelected);
+        this._postNotification(WebInspector.extensionAPI.Events.PanelObjectSelected + "elements");
     },
 
     _notifyTimelineEventRecorded: function(event)
@@ -812,7 +839,7 @@ WebInspector.ExtensionServer.prototype = {
      * @param {string} securityOrigin
      * @param {function(?string, ?RuntimeAgent.RemoteObject, boolean=)} callback
      */
-    evaluate: function(expression, exposeCommandLineAPI, returnByValue, options, securityOrigin, callback) 
+    evaluate: function(expression, exposeCommandLineAPI, returnByValue, options, securityOrigin, callback)
     {
         var contextId;
         if (typeof options === "object") {
@@ -820,7 +847,7 @@ WebInspector.ExtensionServer.prototype = {
             function resolveURLToFrame(url)
             {
                 var found;
-                function hasMatchingURL(frame) 
+                function hasMatchingURL(frame)
                 {
                     found = (frame.url === url) ? frame : null;
                     return found;
@@ -845,7 +872,7 @@ WebInspector.ExtensionServer.prototype = {
                 contextSecurityOrigin = options.scriptExecutionContext;
 
             var frameContextList = WebInspector.runtimeModel.contextListByFrame(frame);
-            var context; 
+            var context;
             if (contextSecurityOrigin) {
                 context = frameContextList.contextBySecurityOrigin(contextSecurityOrigin);
                 if (!context) {
@@ -854,7 +881,7 @@ WebInspector.ExtensionServer.prototype = {
                 }
             } else {
                 context = frameContextList.mainWorldContext();
-                if (!context) 
+                if (!context)
                     return this._status.E_FAILED(frame.url + " has no execution context");
             }
 

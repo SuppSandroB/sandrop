@@ -81,12 +81,22 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
 
     /**
      * @param {string} path
-     * @param {function(?string,boolean,string)} callback
+     * @param {function(?string)} callback
      */
     requestFileContent: function(path, callback)
     {
         var contentProvider = this._contentProviders[path];
         contentProvider.requestContent(callback);
+
+        /**
+         * @param {?string} content
+         * @param {boolean} encoded
+         * @param {string} mimeType
+         */
+        function innerCallback(content, encoded, mimeType)
+        {
+            callback(content);
+        }
     },
 
     /**
@@ -118,7 +128,7 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
     /**
      * @param {string} path
      * @param {string} newName
-     * @param {function(boolean, string=)} callback
+     * @param {function(boolean, string=, string=, string=, WebInspector.ResourceType=)} callback
      */
     rename: function(path, newName, callback)
     {
@@ -134,6 +144,41 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
                 this._updateName(path, newName);
             callback(success, newName);
         }
+    },
+
+    /**
+     * @param {string} path
+     */
+    refresh: function(path)
+    {
+    },
+
+    /**
+     * @param {string} path
+     */
+    excludeFolder: function(path)
+    {
+    },
+
+    /**
+     * @param {string} path
+     * @param {?string} name
+     * @param {string} content
+     * @param {function(?string)} callback
+     */
+    createFile: function(path, name, content, callback)
+    {
+    },
+
+    /**
+     * @param {string} path
+     */
+    deleteFile: function(path)
+    {
+    },
+
+    remove: function()
+    {
     },
 
     /**
@@ -187,8 +232,8 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
         var paths = Object.keys(this._contentProviders);
         var totalCount = paths.length;
         if (totalCount === 0) {
-            progress.done();
-            callback(result);
+            // searchInContent should call back later.
+            setTimeout(doneCallback, 0);
             return;
         }
 

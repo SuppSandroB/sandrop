@@ -80,9 +80,9 @@ iframe.view {
     position: absolute;
     left: 0;
     right: 0;
-    height: 100%;
     top: 0;
     z-index: -100;
+    bottom: 0;
 }
 
 .resources-event-dividers {
@@ -102,7 +102,6 @@ iframe.view {
     right: 0;
     background-color: rgba(255, 255, 255, 0.8);
     background-clip: padding-box;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.3);
     height: 20px;
     z-index: 200;
     pointer-events: none;
@@ -152,6 +151,7 @@ iframe.view {
     bottom: 0;
     background-color: rgba(125, 173, 217, 0.5);
     z-index: 250;
+    pointer-events: none;
 }
 
 .overview-grid-window {
@@ -207,6 +207,10 @@ iframe.view {
 }
 
 /* Network timing is shared between popover and network item view pane */
+
+.network-timing-table td {
+    padding: 0;
+}
 
 .network-timing-row {
     position: relative;

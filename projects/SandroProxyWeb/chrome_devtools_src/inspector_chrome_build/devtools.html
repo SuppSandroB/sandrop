@@ -125,13 +125,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <script type="text/javascript" src="EmptyView.js"></script>
     <script type="text/javascript" src="ScriptFormatter.js"></script>
     <script type="text/javascript" src="DOMSyntaxHighlighter.js"></script>
-    <script type="text/javascript" src="TextEditorModel.js"></script>
-    <script type="text/javascript" src="TextEditorHighlighter.js"></script>
+    <script type="text/javascript" src="TextRange.js"></script>
     <script type="text/javascript" src="TextUtils.js"></script>
-    <script type="text/javascript" src="SourceTokenizer.js"></script>
-    <script type="text/javascript" src="SourceCSSTokenizer.js"></script>
-    <script type="text/javascript" src="SourceHTMLTokenizer.js"></script>
-    <script type="text/javascript" src="SourceJavaScriptTokenizer.js"></script>
     <script type="text/javascript" src="FileSystemModel.js"></script>
     <script type="text/javascript" src="FileUtils.js"></script>
     <script type="text/javascript" src="DebuggerModel.js"></script>
@@ -146,6 +141,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <script type="text/javascript" src="IsolatedFileSystem.js"></script>
     <script type="text/javascript" src="IsolatedFileSystemManager.js"></script>
     <script type="text/javascript" src="Workspace.js"></script>
+    <script type="text/javascript" src="WorkspaceController.js"></script>
     <script type="text/javascript" src="ContentProviderBasedProjectDelegate.js"></script>
     <script type="text/javascript" src="SimpleWorkspaceProvider.js"></script>
     <script type="text/javascript" src="BreakpointManager.js"></script>
@@ -162,12 +158,14 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <script type="text/javascript" src="GoToLineDialog.js"></script>
     <script type="text/javascript" src="SidebarOverlay.js"></script>
     <script type="text/javascript" src="SettingsScreen.js"></script>
+    <script type="text/javascript" src="EditFileSystemDialog.js"></script>
     <script type="text/javascript" src="ShortcutsScreen.js"></script>
     <script type="text/javascript" src="OverridesView.js"></script>
     <script type="text/javascript" src="HAREntry.js"></script>
     <script type="text/javascript" src="CookieParser.js"></script>
     <script type="text/javascript" src="Toolbar.js"></script>
     <script type="text/javascript" src="SearchController.js"></script>
+    <script type="text/javascript" src="FilterBar.js"></script>
     <script type="text/javascript" src="InspectElementModeController.js"></script>
     <script type="text/javascript" src="WorkerManager.js"></script>
     <script type="text/javascript" src="UserMetrics.js"></script>
@@ -182,33 +180,14 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <script type="text/javascript" src="ElementsPanelDescriptor.js"></script>
     <script type="text/javascript" src="NetworkPanelDescriptor.js"></script>
     <script type="text/javascript" src="ProfilesPanelDescriptor.js"></script>
-    <script type="text/javascript" src="ScriptsPanelDescriptor.js"></script>
+    <script type="text/javascript" src="SourcesPanelDescriptor.js"></script>
     <script type="text/javascript" src="TimelinePanelDescriptor.js"></script>
+    <script type="text/javascript" src="LayersPanelDescriptor.js"></script>
     <script type="text/javascript" src="DockController.js"></script>
     <script type="text/javascript" src="TracingAgent.js"></script>
+    <script type="text/javascript" src="ScreencastView.js"></script>
     <script type="text/javascript" src="DevToolsExtensionAPI.js"></script>
     <script type="text/javascript" src="Tests.js"></script>
 </head>
-<body class="undocked" id="-webkit-web-inspector">
-    <div id="toolbar">
-        <div class="toolbar-item close-left"><div class="close-button" id="close-button-left"></div></div>
-        <div id="toolbar-controls">
-            <div class="toolbar-item"><div id="toolbar-panels-menu" class="hidden">&hellip;</div></div>
-            <div class="toolbar-item"><div id="toolbar-dropdown-arrow" class="hidden">&raquo;</div></div>
-            <div class="toolbar-item close-right"><div class="close-button" id="close-button-right"></div></div>
-        </div>
-    </div>
-    <div id="main">
-        <div id="floating-status-bar-container" class="status-bar"><div id="floating-status-bar-resizer"></div></div>
-    </div>
-    <div id="drawer"></div>
-    <div id="main-status-bar" class="status-bar">
-        <div id="bottom-status-bar-container">
-            <div id="panel-status-bar">
-                <div id="drawer-view-anchor"></div>
-            </div>
-        </div>
-        <div id="error-warning-count" class="hidden"></div>
-    </div>
-</body>
+<body class="undocked" id="-blink-dev-tools"></body>
 </html>

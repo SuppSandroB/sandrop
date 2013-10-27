@@ -38,6 +38,10 @@
 WebInspector.FileSystemProjectDelegate = function(isolatedFileSystem, workspace)
 {
     this._fileSystem = isolatedFileSystem;
+    this._normalizedFileSystemPath = this._fileSystem.path();
+    if (WebInspector.isWin())
+        this._normalizedFileSystemPath = this._normalizedFileSystemPath.replace(/\\/g, "/");
+    this._fileSystemURL = "file://" + this._normalizedFileSystemPath + "/";
     this._workspace = workspace;
     /** @type {Object.<number, function(Array.<string>)>} */
     this._searchCallbacks = {};
@@ -88,7 +92,7 @@ WebInspector.FileSystemProjectDelegate.prototype = {
      */
     displayName: function()
     {
-        return this._fileSystem.path().substr(this._fileSystem.path().lastIndexOf("/") + 1);
+        return this._normalizedFileSystemPath.substr(this._normalizedFileSystemPath.lastIndexOf("/") + 1);
     },
 
     /**
@@ -102,22 +106,12 @@ WebInspector.FileSystemProjectDelegate.prototype = {
 
     /**
      * @param {string} path
-     * @param {function(?string,boolean,string)} callback
+     * @param {function(?string)} callback
      */
     requestFileContent: function(path, callback)
     {
         var filePath = this._filePathForPath(path);
-        this._fileSystem.requestFileContent(filePath, innerCallback.bind(this));
-        
-        /**
-         * @param {?string} content
-         */
-        function innerCallback(content)
-        {
-            var extension = this._extensionForPath(path);
-            var mimeType = WebInspector.ResourceType.mimeTypesForExtensions[extension];
-            callback(content, false, mimeType);
-        }
+        this._fileSystem.requestFileContent(filePath, callback);
     },
 
     /**
@@ -160,12 +154,32 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     /**
      * @param {string} path
      * @param {string} newName
-     * @param {function(boolean, string=)} callback
+     * @param {function(boolean, string=, string=, string=, WebInspector.ResourceType=)} callback
      */
     rename: function(path, newName, callback)
     {
         var filePath = this._filePathForPath(path);
-        this._fileSystem.renameFile(filePath, newName, callback);
+        this._fileSystem.renameFile(filePath, newName, innerCallback.bind(this));
+
+        /**
+         * @param {boolean} success
+         * @param {string=} newName
+         */
+        function innerCallback(success, newName)
+        {
+            if (!success) {
+                callback(false, newName);
+                return;
+            }
+            var slash = filePath.lastIndexOf("/");
+            var parentPath = filePath.substring(0, slash);
+            filePath = parentPath + "/" + newName;
+            var newURL = this._workspace.urlForPath(this._fileSystem.path(), filePath);
+            var extension = this._extensionForPath(newName);
+            var newOriginURL = this._fileSystemURL + filePath
+            var newContentType = this._contentTypeForExtension(extension);
+            callback(true, newName, newURL, newOriginURL, newContentType);
+        }
     },
 
     /**
@@ -203,40 +217,43 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     {
         var requestId = ++WebInspector.FileSystemProjectDelegate._lastRequestId;
         this._searchCallbacks[requestId] = innerCallback.bind(this);
-        progress.setTotalWork(1);
-        // FIXME: remove next line and uncomment InspectorFrontendHost call once the chromium counterpart patch is landed.
-        setTimeout(innerCallback.bind(this, []), 0);
-        // InspectorFrontendHost.searchInPath(requestId, this._fileSystem.path(), isRegex ? "" : query);
+        InspectorFrontendHost.searchInPath(requestId, this._fileSystem.path(), isRegex ? "" : query);
 
         function innerCallback(files)
         {
-            var compositeProgress = new WebInspector.CompositeProgress(progress);
-            var frontendHostSearchProgress = compositeProgress.createSubProgress();
-            var frontendSearchProgress = compositeProgress.createSubProgress();
-            frontendHostSearchProgress.setTotalWork(1);
-            frontendHostSearchProgress.done();
-
-            function trimFileSystemPath(fullPath)
+            function trimAndNormalizeFileSystemPath(fullPath)
             {
-                return fullPath.substr(this._fileSystem.path().length + 1);
+                var trimmedPath = fullPath.substr(this._fileSystem.path().length + 1);
+                if (WebInspector.isWin())
+                    trimmedPath = trimmedPath.replace(/\\/g, "/");
+                return trimmedPath;
             }
 
-            files = files.map(trimFileSystemPath.bind(this));
+            files = files.map(trimAndNormalizeFileSystemPath.bind(this));
             var result = new StringMap();
-            var totalCount = files.length;
-            if (totalCount === 0) {
-                frontendSearchProgress.done();
+            progress.setTotalWork(files.length);
+            if (files.length === 0) {
+                progress.done();
                 callback(result);
                 return;
             }
 
-            var barrier = new CallbackBarrier();
-            frontendSearchProgress.setTotalWork(totalCount);
-            for (var i = 0; i < files.length; ++i) {
-                var filePath = this._filePathForPath(files[i]);
-                this._fileSystem.requestFileContent(filePath, barrier.createCallback(contentCallback.bind(this, files[i])));
+            var fileIndex = 0;
+            var maxFileContentRequests = 20;
+            var callbacksLeft = 0;
+
+            function searchInNextFiles()
+            {
+                for (; callbacksLeft < maxFileContentRequests; ++callbacksLeft) {
+                    if (fileIndex >= files.length)
+                        break;
+                    var path = files[fileIndex++];
+                    var filePath = this._filePathForPath(path);
+                    this._fileSystem.requestFileContent(filePath, contentCallback.bind(this, path));
+                }
             }
-            barrier.callWhenDone(doneCallback);
+
+            searchInNextFiles.call(this);
 
             /**
              * @param {string} path
@@ -247,23 +264,19 @@ WebInspector.FileSystemProjectDelegate.prototype = {
                 var matches = [];
                 if (content !== null)
                     matches = WebInspector.ContentProvider.performSearchInContent(content, query, caseSensitive, isRegex);
-                matchesCallback.call(this, path, matches);
-            }
 
-            /**
-             * @param {string} path
-             * @param {Array.<WebInspector.ContentProvider.SearchMatch>} matches
-             */
-            function matchesCallback(path, matches)
-            {
                 result.put(path, matches);
-                frontendSearchProgress.worked(1);
-            }
+                progress.worked(1);
 
-            function doneCallback()
-            {
-                frontendSearchProgress.done();
-                callback(result);
+                --callbacksLeft;
+                if (fileIndex < files.length) {
+                    searchInNextFiles.call(this);
+                } else {
+                    if (callbacksLeft)
+                        return;
+                    progress.done();
+                    callback(result);
+                }
             }
         }
     },
@@ -292,9 +305,7 @@ WebInspector.FileSystemProjectDelegate.prototype = {
         this._indexingProgresses[requestId] = progress;
         progress.setTotalWork(1);
         progress.addEventListener(WebInspector.Progress.Events.Canceled, this._indexingCanceled.bind(this, requestId));
-        // FIXME: remove next line and uncomment InspectorFrontendHost call once the chromium counterpart patch is landed.
-        setTimeout(this.indexingDone.bind(this, requestId), 0);
-        // InspectorFrontendHost.indexPath(requestId, this._fileSystem.path());
+        InspectorFrontendHost.indexPath(requestId, this._fileSystem.path());
     },
 
     /**
@@ -304,8 +315,7 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     {
         if (!this._indexingProgresses[requestId])
             return;
-        // FIXME: uncomment InspectorFrontendHost call once the chromium counterpart patch is landed.
-        // InspectorFrontendHost.stopIndexing(requestId);
+        InspectorFrontendHost.stopIndexing(requestId);
         delete this._indexingProgresses[requestId];
         delete this._indexingCallbacks[requestId];
     },
@@ -382,23 +392,83 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     },
 
     /**
+     * @param {string} path
+     */
+    refresh: function(path)
+    {
+        this._fileSystem.requestFilesRecursive(path, this._addFile.bind(this));
+    },
+
+    /**
+     * @param {string} path
+     */
+    excludeFolder: function(path)
+    {
+        WebInspector.isolatedFileSystemManager.mapping().addExcludedFolder(this._fileSystem.path(), path);
+    },
+
+    /**
+     * @param {string} path
+     * @param {?string} name
+     * @param {string} content
+     * @param {function(?string)} callback
+     */
+    createFile: function(path, name, content, callback)
+    {
+        this._fileSystem.createFile(path, name, innerCallback.bind(this));
+        var createFilePath;
+
+        /**
+         * @param {?string} filePath
+         */
+        function innerCallback(filePath)
+        {
+            createFilePath = filePath;
+            if (!filePath || !content) {
+                contentSet.call(this);
+                return;
+            }
+            this._fileSystem.setFileContent(filePath, content, contentSet.bind(this));
+        }
+
+        function contentSet()
+        {
+            this._addFile(createFilePath);
+            callback(createFilePath);
+        }
+    },
+
+    /**
+     * @param {string} path
+     */
+    deleteFile: function(path)
+    {
+        this._fileSystem.deleteFile(path);
+        this._removeFile(path);
+    },
+
+    remove: function()
+    {
+        WebInspector.isolatedFileSystemManager.removeFileSystem(this._fileSystem.path());
+    },
+
+    /**
      * @param {string} filePath
      */
     _addFile: function(filePath)
     {
         if (!filePath)
             console.assert(false);
-        var fullPath = this._fileSystem.path() + "/" + filePath;
 
         var slash = filePath.lastIndexOf("/");
         var parentPath = filePath.substring(0, slash);
         var name = filePath.substring(slash + 1);
 
         var url = this._workspace.urlForPath(this._fileSystem.path(), filePath);
-        var extension = this._extensionForPath(filePath);
+        var extension = this._extensionForPath(name);
         var contentType = this._contentTypeForExtension(extension);
 
-        var fileDescriptor = new WebInspector.FileDescriptor(parentPath, name, "file://" + fullPath, url, contentType, true);
+        var fileDescriptor = new WebInspector.FileDescriptor(parentPath, name, this._fileSystemURL + filePath, url, contentType, true);
         this.dispatchEventToListeners(WebInspector.ProjectDelegate.Events.FileAdded, fileDescriptor);
     },
 

@@ -31,6 +31,7 @@
 WebInspector.ConnectionsView = function(coulmnsVisibilitySetting)
 {
     WebInspector.View.call(this);
+    this.element.classList.add("vbox", "fill");
     this.registerRequiredCSS("networkLogView.css");
     
     this._coulmnsVisibilitySetting = coulmnsVisibilitySetting;
@@ -680,3 +681,5 @@ WebInspector.ConnectionsView._stateFilter = function(allowedStatesGroups, connec
     }
     return false;
 }
+
+//# sourceURL=http://192.168.1.135/devtools/sandroproxy/connections/ConnectionsView.js

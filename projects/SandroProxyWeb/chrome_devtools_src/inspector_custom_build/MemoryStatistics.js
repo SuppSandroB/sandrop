@@ -191,11 +191,19 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {number} top
+     * @return {number}
      */
-     setTopPosition: function(top)
+    height: function()
     {
-        this._memorySidebarView.element.style.top = top + "px";
+        return this._memorySidebarView.element.offsetHeight;
+    },
+
+    /**
+     * @param {number} height
+     */
+    setHeight: function(height)
+    {
+        this._memorySidebarView.element.style.flexBasis = height + "px";
         this._updateSize();
     },
 
@@ -384,7 +392,12 @@ WebInspector.MemoryStatistics.prototype = {
     show: function()
     {
         var anchor = /** @type {Element|null} */ (this._containerAnchor.nextSibling);
+        var savedSidebarSize = this._timelinePanel.splitView.sidebarWidth();
         this._memorySidebarView.show(this._timelinePanel.element, anchor);
+        if (savedSidebarSize > 0) {
+            this.setSidebarWidth(savedSidebarSize);
+            this._timelinePanel.splitView.setSidebarWidth(savedSidebarSize);
+        }
         this._updateSize();
         this._refreshDividers();
         setTimeout(this._draw.bind(this), 0);

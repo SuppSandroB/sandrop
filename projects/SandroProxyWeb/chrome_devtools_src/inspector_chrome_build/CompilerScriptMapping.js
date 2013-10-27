@@ -47,8 +47,8 @@ WebInspector.CompilerScriptMapping = function(workspace, networkWorkspaceProvide
     this._sourceMapForScriptId = {};
     /** @type {!Map.<WebInspector.SourceMap, WebInspector.Script>} */
     this._scriptForSourceMap = new Map();
-    /** @type {!Object.<string, WebInspector.SourceMap>} */
-    this._sourceMapForURL = {};
+    /** @type {!StringMap.<WebInspector.SourceMap>} */
+    this._sourceMapForURL = new StringMap();
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this._debuggerReset, this);
 }
 
@@ -85,19 +85,11 @@ WebInspector.CompilerScriptMapping.prototype = {
     {
         if (!uiSourceCode.url)
             return null;
-        var sourceMap = this._sourceMapForURL[uiSourceCode.url];
+        var sourceMap = this._sourceMapForURL.get(uiSourceCode.url);
         if (!sourceMap)
             return null;
         var entry = sourceMap.findEntryReversed(uiSourceCode.url, lineNumber);
         return WebInspector.debuggerModel.createRawLocation(this._scriptForSourceMap.get(sourceMap) || null, entry[0], entry[1]);
-    },
-
-    /**
-     * @return {boolean}
-     */
-    isIdentity: function()
-    {
-        return false;
     },
 
     /**
@@ -128,9 +120,9 @@ WebInspector.CompilerScriptMapping.prototype = {
             var sourceURLs = sourceMap.sources();
             for (var i = 0; i < sourceURLs.length; ++i) {
                 var sourceURL = sourceURLs[i];
-                if (this._sourceMapForURL[sourceURL])
+                if (this._sourceMapForURL.get(sourceURL))
                     continue;
-                this._sourceMapForURL[sourceURL] = sourceMap;
+                this._sourceMapForURL.put(sourceURL, sourceMap);
                 if (!this._workspace.hasMappingForURL(sourceURL) && !this._workspace.uiSourceCodeForURL(sourceURL)) {
                     var contentProvider = sourceMap.sourceContentProvider(sourceURL, WebInspector.resourceTypes.Script);
                     this._networkWorkspaceProvider.addFileForURL(sourceURL, contentProvider, true);
@@ -139,6 +131,8 @@ WebInspector.CompilerScriptMapping.prototype = {
                 if (uiSourceCode) {
                     this._bindUISourceCode(uiSourceCode);
                     uiSourceCode.isContentScript = script.isContentScript;
+                } else {
+                    WebInspector.showErrorMessage(WebInspector.UIString("Failed to locate workspace file mapped to URL %s from source map %s", sourceURL, sourceMap.url()));
                 }
             }
             script.updateLocations();
@@ -154,12 +148,20 @@ WebInspector.CompilerScriptMapping.prototype = {
     },
 
     /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _unbindUISourceCode: function(uiSourceCode)
+    {
+        uiSourceCode.setSourceMapping(null);
+    },
+
+    /**
      * @param {WebInspector.Event} event
      */
     _uiSourceCodeAddedToWorkspace: function(event)
     {
         var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
-        if (!uiSourceCode.url || !this._sourceMapForURL[uiSourceCode.url])
+        if (!uiSourceCode.url || !this._sourceMapForURL.get(uiSourceCode.url))
             return;
         this._bindUISourceCode(uiSourceCode);
     },
@@ -222,10 +224,24 @@ WebInspector.CompilerScriptMapping.prototype = {
 
     _debuggerReset: function()
     {
+        function unbindUISourceCodesForSourceMap(sourceMap)
+        {
+            var sourceURLs = sourceMap.sources();
+            for (var i = 0; i < sourceURLs.length; ++i) {
+                var sourceURL = sourceURLs[i];
+                var uiSourceCode = this._workspace.uiSourceCodeForURL(sourceURL);
+                if (!uiSourceCode)
+                    continue;
+                this._unbindUISourceCode(uiSourceCode);
+            }
+        }
+
+        this._sourceMapForURL.values().forEach(unbindUISourceCodesForSourceMap.bind(this));
+
         this._sourceMapForSourceMapURL = {};
         this._pendingSourceMapLoadingCallbacks = {};
         this._sourceMapForScriptId = {};
-        this._scriptForSourceMap = new Map();
-        this._sourceMapForURL = {};
+        this._scriptForSourceMap.clear();
+        this._sourceMapForURL.clear();
     }
 }

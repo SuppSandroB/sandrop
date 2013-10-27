@@ -73,7 +73,9 @@ WebInspector.FileContentView.prototype = {
         } else {
             this._innerView.detach();
             this._content = new WebInspector.FileContentView.FileContentProvider(this._file, metadata);
-            this._innerView = new WebInspector.SourceFrame(this._content);
+            var sourceFrame = new WebInspector.SourceFrame(this._content);
+            sourceFrame.setHighlighterType(this._file.resourceType.canonicalMimeType());
+            this._innerView = sourceFrame;
             this._innerView.show(this.element);
         }
     },
@@ -120,7 +122,7 @@ WebInspector.FileContentView.FileContentProvider.prototype = {
     },
 
     /**
-     * @param {function(?string, boolean, string)} callback
+     * @param {function(?string)} callback
      */
     requestContent: function(callback)
     {
@@ -129,7 +131,7 @@ WebInspector.FileContentView.FileContentProvider.prototype = {
     },
 
     /**
-     * @param {function(?string, boolean, string)} callback
+     * @param {function(?string)} callback
      * @param {number} errorCode
      * @param {string=} content
      * @param {boolean=} base64Encoded
@@ -138,12 +140,12 @@ WebInspector.FileContentView.FileContentProvider.prototype = {
     _fileContentReceived: function(callback, errorCode, content, base64Encoded, charset)
     {
         if (errorCode || !content) {
-            callback(null, false, "");
+            callback(null);
             return;
         }
 
         this._charset = charset;
-        callback(content, false, this.contentType().canonicalMimeType());
+        callback(content);
     },
 
     /**

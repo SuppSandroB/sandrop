@@ -31,7 +31,7 @@
 /**
  * @constructor
  * @extends {WebInspector.UISourceCodeFrame}
- * @param {WebInspector.ScriptsPanel} scriptsPanel
+ * @param {WebInspector.SourcesPanel} scriptsPanel
  * @param {WebInspector.UISourceCode} uiSourceCode
  */
 WebInspector.JavaScriptSourceFrame = function(scriptsPanel, uiSourceCode)
@@ -51,6 +51,10 @@ WebInspector.JavaScriptSourceFrame = function(scriptsPanel, uiSourceCode)
 
     this.textEditor.addEventListener(WebInspector.TextEditor.Events.GutterClick, this._handleGutterClick.bind(this), this);
 
+    this.textEditor.element.addEventListener("mousedown", this._onMouseDownAndClick.bind(this, true), true);
+    this.textEditor.element.addEventListener("click", this._onMouseDownAndClick.bind(this, false), true);
+
+
     this._breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.BreakpointAdded, this._breakpointAdded, this);
     this._breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.BreakpointRemoved, this._breakpointRemoved, this);
 
@@ -68,8 +72,30 @@ WebInspector.JavaScriptSourceFrame = function(scriptsPanel, uiSourceCode)
 WebInspector.JavaScriptSourceFrame.prototype = {
     _registerShortcuts: function()
     {
-        var modifiers = WebInspector.KeyboardShortcut.Modifiers;
-        this.addShortcut(WebInspector.KeyboardShortcut.makeKey("e", modifiers.Shift | modifiers.Ctrl), this._evaluateSelectionInConsole.bind(this));
+        var shortcutKeys = WebInspector.SourcesPanelDescriptor.ShortcutKeys;
+        for (var i = 0; i < shortcutKeys.EvaluateSelectionInConsole.length; ++i) {
+            var keyDescriptor = shortcutKeys.EvaluateSelectionInConsole[i];
+            this.addShortcut(keyDescriptor.key, this._evaluateSelectionInConsole.bind(this));
+        }
+        for (var i = 0; i < shortcutKeys.AddSelectionToWatch.length; ++i) {
+            var keyDescriptor = shortcutKeys.AddSelectionToWatch[i];
+            this.addShortcut(keyDescriptor.key, this._addCurrentSelectionToWatch.bind(this));
+        }
+    },
+
+    _addCurrentSelectionToWatch: function()
+    {
+        var textSelection = this.textEditor.selection();
+        if (textSelection && !textSelection.isEmpty())
+            this._innerAddToWatch(this.textEditor.copyRange(textSelection));
+    },
+
+    /**
+     * @param {string} expression
+     */
+    _innerAddToWatch: function(expression)
+    {
+        this._scriptsPanel.addToWatch(expression);
     },
 
     /**
@@ -129,7 +155,7 @@ WebInspector.JavaScriptSourceFrame.prototype = {
         if (textSelection && !textSelection.isEmpty()) {
             var selection = this.textEditor.copyRange(textSelection);
             var addToWatchLabel = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Add to watch" : "Add to Watch");
-            contextMenu.appendItem(addToWatchLabel, this._scriptsPanel.addToWatch.bind(this._scriptsPanel, selection));
+            contextMenu.appendItem(addToWatchLabel, this._innerAddToWatch.bind(this, selection));
             var evaluateLabel = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Evaluate in console" : "Evaluate in Console");
             contextMenu.appendItem(evaluateLabel, WebInspector.evaluateInConsole.bind(WebInspector, selection));
             contextMenu.appendSeparator();
@@ -243,7 +269,7 @@ WebInspector.JavaScriptSourceFrame.prototype = {
             return null;
         var mouseLine = textPosition.startLine;
         var mouseColumn = textPosition.startColumn;
-        var textSelection = this.textEditor.selection();
+        var textSelection = this.textEditor.selection().normalize();
         if (textSelection && !textSelection.isEmpty()) {
             if (textSelection.startLine !== textSelection.endLine || textSelection.startLine !== mouseLine || mouseColumn < textSelection.startColumn || mouseColumn > textSelection.endColumn)
                 return null;
@@ -360,6 +386,12 @@ WebInspector.JavaScriptSourceFrame.prototype = {
             if (this._popoverHelper.isPopoverVisible()) {
                 this._popoverHelper.hidePopover();
                 event.consume();
+                return;
+            }
+            if (this._stepIntoMarkup && WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event)) {
+                this._stepIntoMarkup.stoptIteratingSelection();
+                event.consume();
+                return;
             }
         }
     },
@@ -416,23 +448,43 @@ WebInspector.JavaScriptSourceFrame.prototype = {
 
     /**
      * @param {number} lineNumber
+     * @param {WebInspector.DebuggerModel.CallFrame} callFrame
      */
-    setExecutionLine: function(lineNumber)
+    setExecutionLine: function(lineNumber, callFrame)
     {
         this._executionLineNumber = lineNumber;
+        this._executionCallFrame = callFrame;
         if (this.loaded) {
             this.textEditor.setExecutionLine(lineNumber);
-            this.revealLine(this._executionLineNumber);
-            if (this.canEditSource())
-                this.setSelection(WebInspector.TextRange.createFromLocation(lineNumber, 0));
+
+            if (WebInspector.experimentsSettings.stepIntoSelection.isEnabled()) {
+                /**
+                 * @param {Array.<DebuggerAgent.Location>} locations
+                 */
+                function locationsCallback(locations)
+                {
+                    if (this._executionCallFrame !== callFrame || this._stepIntoMarkup)
+                        return;
+                    this._stepIntoMarkup = WebInspector.JavaScriptSourceFrame.StepIntoMarkup.create(this, locations);
+                    if (this._stepIntoMarkup)
+                        this._stepIntoMarkup.show();
+                }
+                callFrame.getStepIntoLocations(locationsCallback.bind(this));
+            }
         }
     },
 
     clearExecutionLine: function()
     {
+        if (this._stepIntoMarkup) {
+            this._stepIntoMarkup.dispose();
+            delete this._stepIntoMarkup;
+        }
+
         if (this.loaded && typeof this._executionLineNumber === "number")
             this.textEditor.clearExecutionLine();
         delete this._executionLineNumber;
+        delete this._executionCallFrame;
     },
 
     _lineNumberAfterEditing: function(lineNumber, oldRange, newRange)
@@ -454,6 +506,24 @@ WebInspector.JavaScriptSourceFrame.prototype = {
         if (oldRange.startLine < lineNumber && lineNumber < oldRange.endLine)
             newLineNumber = oldRange.startLine;
         return newLineNumber;
+    },
+
+    _onMouseDownAndClick: function(isMouseDown, event)
+    {
+        var markup = this._stepIntoMarkup;
+        if (!markup)
+            return;
+        var index = markup.findItemByCoordinates(event.x, event.y);
+        if (typeof index === "undefined")
+            return;
+
+        if (isMouseDown) {
+            // Do not let text editor to spoil 'click' event that is coming for us.
+            event.consume();
+        } else {
+            var rawLocation = markup.getRawPosition(index);
+            this._scriptsPanel.doStepIntoSelection(rawLocation);
+        }
     },
 
     /**
@@ -543,7 +613,7 @@ WebInspector.JavaScriptSourceFrame.prototype = {
     onTextEditorContentLoaded: function()
     {
         if (typeof this._executionLineNumber === "number")
-            this.setExecutionLine(this._executionLineNumber);
+            this.setExecutionLine(this._executionLineNumber, this._executionCallFrame);
 
         var breakpointLocations = this._breakpointManager.breakpointLocationsForUISourceCode(this._uiSourceCode);
         for (var i = 0; i < breakpointLocations.length; ++i)
@@ -628,7 +698,15 @@ WebInspector.JavaScriptSourceFrame.prototype = {
     _continueToLine: function(lineNumber)
     {
         var rawLocation = /** @type {WebInspector.DebuggerModel.Location} */ (this._uiSourceCode.uiLocationToRawLocation(lineNumber, 0));
-        WebInspector.debuggerModel.continueToLocation(rawLocation);
+        this._scriptsPanel.continueToLocation(rawLocation);
+    },
+
+    /**
+     * @return {WebInspector.JavaScriptSourceFrame.StepIntoMarkup|undefined}
+     */
+    stepIntoMarkup: function()
+    {
+        return this._stepIntoMarkup;
     },
 
     dispose: function()
@@ -646,3 +724,199 @@ WebInspector.JavaScriptSourceFrame.prototype = {
 
     __proto__: WebInspector.UISourceCodeFrame.prototype
 }
+
+/**
+ * @constructor
+ * @param {Array.<DebuggerAgent.Location>} rawPositions
+ * @param {Array.<WebInspector.TextRange>} editorRanges
+ * @param {number} firstToExecute
+ * @param {WebInspector.JavaScriptSourceFrame} sourceFrame
+ */
+WebInspector.JavaScriptSourceFrame.StepIntoMarkup = function(rawPositions, editorRanges, firstToExecute, sourceFrame)
+{
+    this._positions = rawPositions;
+    this._editorRanges = editorRanges;
+    this._highlightDescriptors = new Array(rawPositions.length);
+    this._currentHighlight = undefined;
+    this._firstToExecute = firstToExecute;
+    this._currentSelection = undefined;
+    this._sourceFrame = sourceFrame;
+};
+
+WebInspector.JavaScriptSourceFrame.StepIntoMarkup.prototype = {
+    show: function()
+    {
+        var highlight = this._getVisibleHighlight();
+        for (var i = 0; i < this._positions.length; ++i)
+            this._highlightItem(i, i === highlight);
+        this._shownVisibleHighlight = highlight;
+    },
+
+    startIteratingSelection: function()
+    {
+        this._currentSelection = this._positions.length
+        this._redrawHighlight();
+    },
+
+    stopIteratingSelection: function()
+    {
+        this._currentSelection = undefined;
+        this._redrawHighlight();
+    },
+
+    /**
+     * @param {boolean} backward
+     */
+    iterateSelection: function(backward)
+    {
+        if (typeof this._currentSelection === "undefined")
+            return;
+        var nextSelection = backward ? this._currentSelection - 1 : this._currentSelection + 1;
+        var modulo = this._positions.length + 1;
+        nextSelection = (nextSelection + modulo) % modulo;
+        this._currentSelection = nextSelection;
+        this._redrawHighlight();
+    },
+
+    _redrawHighlight: function()
+    {
+        var visibleHighlight = this._getVisibleHighlight();
+        if (this._shownVisibleHighlight === visibleHighlight)
+            return;
+        this._hideItemHighlight(this._shownVisibleHighlight);
+        this._hideItemHighlight(visibleHighlight);
+        this._highlightItem(this._shownVisibleHighlight, false);
+        this._highlightItem(visibleHighlight, true);
+        this._shownVisibleHighlight = visibleHighlight;
+    },
+
+    /**
+     * @return {number}
+     */
+    _getVisibleHighlight: function()
+    {
+        return typeof this._currentSelection === "undefined" ? this._firstToExecute : this._currentSelection;
+    },
+
+    /**
+     * @param {number} position
+     * @param {boolean} selected
+     */
+    _highlightItem: function(position, selected)
+    {
+        if (position === this._positions.length)
+            return;
+        var styleName = selected ? "source-frame-stepin-mark-highlighted" : "source-frame-stepin-mark";
+        var textEditor = this._sourceFrame.textEditor;
+        var highlightDescriptor = textEditor.highlightRange(this._editorRanges[position], styleName);
+        this._highlightDescriptors[position] = highlightDescriptor;
+    },
+
+    /**
+     * @param {number} position
+     */
+    _hideItemHighlight: function(position)
+    {
+        if (position === this._positions.length)
+            return;
+        var highlightDescriptor = this._highlightDescriptors[position];
+        console.assert(highlightDescriptor);
+        var textEditor = this._sourceFrame.textEditor;
+        textEditor.removeHighlight(highlightDescriptor);
+        this._highlightDescriptors[position] = undefined;
+    },
+
+    dispose: function()
+    {
+        for (var i = 0; i < this._positions.length; ++i)
+            this._hideItemHighlight(i);
+    },
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @return {number|undefined}
+     */
+    findItemByCoordinates: function(x, y)
+    {
+        var textPosition = this._sourceFrame.textEditor.coordinatesToCursorPosition(x, y);
+        if (!textPosition)
+            return;
+
+        var ranges = this._editorRanges;
+
+        for (var i = 0; i < ranges.length; ++i) {
+          var nextRange = ranges[i];
+          if (nextRange.startLine == textPosition.startLine && nextRange.startColumn <= textPosition.startColumn && nextRange.endColumn >= textPosition.startColumn)
+              return i;
+        }
+    },
+
+    /**
+     * @return {number|undefined}
+     */
+    getSelectedItemIndex: function()
+    {
+        if (this._currentSelection === this._positions.length)
+            return undefined;
+        return this._currentSelection;
+    },
+
+    /**
+     * @return {WebInspector.DebuggerModel.Location}
+     */
+    getRawPosition: function(position)
+    {
+        return /** @type {WebInspector.DebuggerModel.Location} */ (this._positions[position]);
+    }
+
+};
+
+/**
+ * @param {WebInspector.JavaScriptSourceFrame} sourceFrame
+ * @param {Array.<DebuggerAgent.Location>} stepIntoRawLocations
+ * @return {?WebInspector.JavaScriptSourceFrame.StepIntoMarkup}
+ */
+WebInspector.JavaScriptSourceFrame.StepIntoMarkup.create = function(sourceFrame, stepIntoRawLocations)
+{
+    if (!stepIntoRawLocations.length)
+        return null;
+
+    var firstToExecute = stepIntoRawLocations[0];
+    stepIntoRawLocations.sort(WebInspector.JavaScriptSourceFrame.StepIntoMarkup._Comparator);
+    var firstToExecuteIndex = stepIntoRawLocations.indexOf(firstToExecute);
+
+    var textEditor = sourceFrame.textEditor;
+    var uiRanges = [];
+    for (var i = 0; i < stepIntoRawLocations.length; ++i) {
+        var uiLocation = WebInspector.debuggerModel.rawLocationToUILocation(/** @type {WebInspector.DebuggerModel.Location} */ (stepIntoRawLocations[i]));
+
+        var token = textEditor.tokenAtTextPosition(uiLocation.lineNumber, uiLocation.columnNumber);
+        var startColumn;
+        var endColumn;
+        if (token) {
+            startColumn = token.startColumn;
+            endColumn = token.endColumn;
+        } else {
+            startColumn = uiLocation.columnNumber;
+            endColumn = uiLocation.columnNumber;
+        }
+        var range = new WebInspector.TextRange(uiLocation.lineNumber, startColumn, uiLocation.lineNumber, endColumn);
+        uiRanges.push(range);
+    }
+
+    return new WebInspector.JavaScriptSourceFrame.StepIntoMarkup(stepIntoRawLocations, uiRanges, firstToExecuteIndex, sourceFrame);
+};
+
+/**
+ * @param {DebuggerAgent.Location} locationA
+ * @param {DebuggerAgent.Location} locationB
+ * @return {number}
+ */
+WebInspector.JavaScriptSourceFrame.StepIntoMarkup._Comparator = function(locationA, locationB)
+{
+    if (locationA.lineNumber === locationB.lineNumber)
+        return locationA.columnNumber - locationB.columnNumber;
+    else
+        return locationA.lineNumber - locationB.lineNumber;
+};
