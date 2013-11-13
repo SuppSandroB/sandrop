@@ -4,13 +4,17 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,7 +71,10 @@ public class DNSProxy implements Runnable {
   private final ExecutorService mThreadPool = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 
   private Map<String, DNSResponseDto> dnsResponseCache;
+  private static List<String> dnsLocalServers;
+  
   private static Map<String, String> dnsHostCache = null;
+  
 
   private DatagramSocket srvSocket;
 
@@ -108,6 +115,21 @@ public class DNSProxy implements Runnable {
 
   private SqlLiteStore database;
 
+  
+  private static void getDnsServers() throws Exception{
+      Class<?> SystemProperties = Class.forName("android.os.SystemProperties");
+      Method method = SystemProperties.getMethod("get", new Class[] { String.class });
+      ArrayList<String> servers = new ArrayList<String>();
+      for (String name : new String[] { "net.dns1", "net.dns2", "net.dns3", "net.dns4" }) {
+          String value = (String) method.invoke(null, name);
+          if (value != null && !"".equals(value) && !servers.contains(value))
+              servers.add(value);
+      }
+      if (servers.size() == 0){
+          Log.e(TAG, "No local dns servers for net.dnsx system properties");
+      }
+      dnsLocalServers = servers;
+  }
 
   public DNSProxy(Context ctx, int port, String providerId) {
 
@@ -134,6 +156,13 @@ public class DNSProxy implements Runnable {
 //    }
     _logger.setLevel(Level.FINEST);
     database = SqlLiteStore.getInstance(ctx, null);
+    if (localProvider){
+        try {
+            getDnsServers();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
   }
 
   public int init() throws Exception {
@@ -249,12 +278,18 @@ public class DNSProxy implements Runnable {
       response[start] = ip;
       start++;
     }
-
+    
     byte[] result = new byte[start];
     System.arraycopy(response, 0, result, 0, start);
     if (LOGD) Log.d(TAG, "DNS Response package size: " + start);
 
     return result;
+  }
+  
+  protected byte[] replayDNSResponse(DatagramPacket dnsresponse){
+      byte[] result = new byte[dnsresponse.getLength()];
+      System.arraycopy(dnsresponse.getData(), 0, result, 0, dnsresponse.getLength());
+      return result;
   }
 
   /**
@@ -391,23 +426,55 @@ public class DNSProxy implements Runnable {
 
     return result;
   }
-
+  
   @Override
   public void run() {
 
     loadCache();
 
-    byte[] qbuffer = new byte[576];
+    byte[] qbuffer = new byte[1024];
 
     while (true) {
       try {
-        final DatagramPacket dnsq = new DatagramPacket(qbuffer,
+        final DatagramPacket dnsPacket = new DatagramPacket(qbuffer,
             qbuffer.length);
 
-        srvSocket.receive(dnsq);
+        srvSocket.receive(dnsPacket);
+        if (LOGD) Log.d(TAG, "new request from real client: " + dnsPacket.getLength());
+        if (localProvider && dnsLocalServers != null && dnsLocalServers.size() > 0 && dnsLocalServers.get(0).length() > 0){
+            
+            if (LOGD) Log.d(TAG, "local provider just send it up ");
+            DatagramSocket dnsSocket = new DatagramSocket();
+            String requestdata = "";
+            requestdata = new BigInteger(1, dnsPacket.getData()).toString(16);
+            String dnsServer = null;
+            for (int i = 0; i < dnsLocalServers.size(); i++) {
+                try{
+                    dnsServer = dnsLocalServers.get(i);
+                    if (dnsServer != null && dnsServer.length() > 0){
+                        DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), 53);
+                        if (LOGD) Log.d(TAG, "address:" + dt.getAddress() + " port: " + dt.getPort() + " data:" + requestdata + " dns server:" + dnsServer);
+                        dnsSocket.send(dt);
+                        DatagramPacket dnsPacketResponse = new DatagramPacket(qbuffer, qbuffer.length);
+                        dnsSocket.receive(dnsPacketResponse);
+                        // TODO parse response and cache it; consider also time to live value
+                        String responsedata = "";
+                        responsedata = new BigInteger(1, dnsPacketResponse.getData()).toString(16); 
+                        if (LOGD) Log.d(TAG, "response with " + responsedata + " port: ");
+                        sendDns(replayDNSResponse(dnsPacketResponse), dnsPacket, srvSocket);
+                        dnsSocket.close();
+                        if (LOGD) Log.d(TAG, "new response relayed to real client" );
+                        break;
+                    }
+                }catch(Exception ex){
+                    ex.printStackTrace();
+                }
+            }
+            continue;
+        }
 
-        byte[] data = dnsq.getData();
-        int dnsqLength = dnsq.getLength();
+        byte[] data = dnsPacket.getData();
+        int dnsqLength = dnsPacket.getLength();
         final byte[] udpreq = new byte[dnsqLength];
         System.arraycopy(data, 0, udpreq, 0, dnsqLength);
 
@@ -418,7 +485,7 @@ public class DNSProxy implements Runnable {
         DNSResponseDto resp = queryFromCache(questDomain);
 
         if (resp != null) {
-          sendDns(resp.getDNSResponse(), dnsq, srvSocket);
+          sendDns(resp.getDNSResponse(), dnsPacket, srvSocket);
           if (LOGD) Log.d(TAG, "DNS cache hit for " + questDomain);
 //        } else if (questDomain.toLowerCase().endsWith(dnsRelayGeaHostName) && providerId.toLowerCase().equals(dnsRelayGeaHostName)) {
 //          byte[] ips = parseIPString(dnsRelayGaeIp);
@@ -430,13 +497,13 @@ public class DNSProxy implements Runnable {
             byte[] ips = parseIPString(dnsRelayPingEuIp);
             byte[] answer = createDNSResponse(udpreq, ips);
             addToCache(questDomain, answer);
-            sendDns(answer, dnsq, srvSocket);
+            sendDns(answer, dnsPacket, srvSocket);
             if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
         } else if (questDomain.toLowerCase().endsWith(dnsRelayWwwIpCnHostName) && providerId.toLowerCase().equals(dnsRelayWwwIpCnHostName)) {
             byte[] ips = parseIPString(dnsRelayWwwIpCnIp);
             byte[] answer = createDNSResponse(udpreq, ips);
             addToCache(questDomain, answer);
-            sendDns(answer, dnsq, srvSocket);
+            sendDns(answer, dnsPacket, srvSocket);
             if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
 //        } else if (questDomain.toLowerCase().endsWith(dnsRelayMyhostsSinappHostName) && providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)) {
 //            byte[] ips = parseIPString(dnsRelayMyhostsSinappIp);
@@ -461,7 +528,7 @@ public class DNSProxy implements Runnable {
                 }
                 if (answer != null && answer.length != 0) {
                   addToCache(questDomain, answer);
-                  sendDns(answer, dnsq, srvSocket);
+                  sendDns(answer, dnsPacket, srvSocket);
                   if (LOGD) Log.d(TAG,
                       "Success to get DNS response for "
                           + questDomain
