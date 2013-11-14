@@ -68,6 +68,7 @@ public class DNSProxy implements Runnable {
   private static final String TAG = DNSProxy.class.getSimpleName();
 
   private final static int MAX_THREAD_NUM = 5;
+  private final static int LOCAL_DNS_PORT = 53;
   private final ExecutorService mThreadPool = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 
   private Map<String, DNSResponseDto> dnsResponseCache;
@@ -452,7 +453,7 @@ public class DNSProxy implements Runnable {
                 try{
                     dnsServer = dnsLocalServers.get(i);
                     if (dnsServer != null && dnsServer.length() > 0){
-                        DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), 53);
+                        DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), LOCAL_DNS_PORT);
                         if (LOGD) Log.d(TAG, "address:" + dt.getAddress() + " port: " + dt.getPort() + " data:" + requestdata + " dns server:" + dnsServer);
                         dnsSocket.send(dt);
                         DatagramPacket dnsPacketResponse = new DatagramPacket(qbuffer, qbuffer.length);
