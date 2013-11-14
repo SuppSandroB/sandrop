@@ -13,6 +13,7 @@ import java.net.SocketException;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,12 @@ import org.sandrop.webscarab.model.NamedValue;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
+
+import dnsutils.DNS;
+import dnsutils.DNSInputStream;
+import dnsutils.DNSQuery;
+import dnsutils.DNSRR;
+import dnsutils.record.Address;
 
 
 import android.content.Context;
@@ -442,37 +449,7 @@ public class DNSProxy implements Runnable {
 
         srvSocket.receive(dnsPacket);
         if (LOGD) Log.d(TAG, "new request from real client: " + dnsPacket.getLength());
-        if (localProvider && dnsLocalServers != null && dnsLocalServers.size() > 0 && dnsLocalServers.get(0).length() > 0){
-            
-            if (LOGD) Log.d(TAG, "local provider just send it up ");
-            DatagramSocket dnsSocket = new DatagramSocket();
-            String requestdata = "";
-            requestdata = new BigInteger(1, dnsPacket.getData()).toString(16);
-            String dnsServer = null;
-            for (int i = 0; i < dnsLocalServers.size(); i++) {
-                try{
-                    dnsServer = dnsLocalServers.get(i);
-                    if (dnsServer != null && dnsServer.length() > 0){
-                        DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), LOCAL_DNS_PORT);
-                        if (LOGD) Log.d(TAG, "address:" + dt.getAddress() + " port: " + dt.getPort() + " data:" + requestdata + " dns server:" + dnsServer);
-                        dnsSocket.send(dt);
-                        DatagramPacket dnsPacketResponse = new DatagramPacket(qbuffer, qbuffer.length);
-                        dnsSocket.receive(dnsPacketResponse);
-                        // TODO parse response and cache it; consider also time to live value
-                        String responsedata = "";
-                        responsedata = new BigInteger(1, dnsPacketResponse.getData()).toString(16); 
-                        if (LOGD) Log.d(TAG, "response with " + responsedata + " port: ");
-                        sendDns(replayDNSResponse(dnsPacketResponse), dnsPacket, srvSocket);
-                        dnsSocket.close();
-                        if (LOGD) Log.d(TAG, "new response relayed to real client" );
-                        break;
-                    }
-                }catch(Exception ex){
-                    ex.printStackTrace();
-                }
-            }
-            continue;
-        }
+        
 
         byte[] data = dnsPacket.getData();
         int dnsqLength = dnsPacket.getLength();
@@ -494,6 +471,48 @@ public class DNSProxy implements Runnable {
 //          addToCache(questDomain, answer);
 //          sendDns(answer, dnsq, srvSocket);
 //          if (LOGD) Log.d(TAG, "Custom DNS resolver for " + dnsRelayGeaHostName  + " to " + dnsRelayGaeIp);
+        } else if (localProvider && dnsLocalServers != null && dnsLocalServers.size() > 0 && dnsLocalServers.get(0).length() > 0){
+            if (LOGD) Log.d(TAG, "local provider just send it up ");
+            DatagramSocket dnsSocket = new DatagramSocket();
+            String dnsServer = null;
+            DNSQuery dnsQuery = new DNSQuery(dnsPacket.getData(), dnsPacket.getLength());
+            for (int i = 0; i < dnsLocalServers.size(); i++) {
+                try{
+                    dnsServer = dnsLocalServers.get(i);
+                    if (dnsServer != null && dnsServer.length() > 0){
+                        DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), LOCAL_DNS_PORT);
+                        dnsSocket.send(dt);
+                        DatagramPacket dnsPacketResponse = new DatagramPacket(qbuffer, qbuffer.length);
+                        dnsSocket.receive(dnsPacketResponse);
+                        try{
+                            dnsQuery.receiveResponse(dnsPacketResponse.getData(), dnsPacketResponse.getLength());
+                            Enumeration<DNSRR> dnsrr = dnsQuery.getAnswers();
+                            if (dnsrr != null){
+                                while (dnsrr.hasMoreElements()){
+                                    DNSRR dnsr = dnsrr.nextElement();
+                                    if (dnsr.getRRType() == DNS.TYPE_A){
+                                        Address address = (Address) dnsr;
+                                        byte[] answer = createDNSResponse(udpreq, address.getAddress());
+                                        // TODO here we could also add time to live
+                                        addToCache(questDomain, answer);
+                                        // we add just first one and break;
+                                        break;
+                                    }
+                                }
+                            }
+                        }catch(Exception ex){
+                            ex.printStackTrace();
+                        }
+                        sendDns(replayDNSResponse(dnsPacketResponse), dnsPacket, srvSocket);
+                        dnsSocket.close();
+                        if (LOGD) Log.d(TAG, "new response relayed to real client" );
+                        break;
+                    }
+                }catch(Exception ex){
+                    ex.printStackTrace();
+                }
+            }
+            continue;
         } else if (questDomain.toLowerCase().endsWith(dnsRelayPingEuHostName) && providerId.toLowerCase().equals(dnsRelayPingEuHostName)) {
             byte[] ips = parseIPString(dnsRelayPingEuIp);
             byte[] answer = createDNSResponse(udpreq, ips);
