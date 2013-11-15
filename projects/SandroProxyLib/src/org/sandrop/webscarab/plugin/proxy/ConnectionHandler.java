@@ -209,13 +209,13 @@ public class ConnectionHandler implements Runnable {
                             } else{
                                 target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
                             }
-                            SocketForwarder.connect(forwarderName, _sock, target);
+                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir());
                             return;
                         }else{
                             String forwarderName = _base.getHost() + ":" + _base.getPort();
                             _logger.fine("Acting as forwarder on " + forwarderName);
                             Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
-                            SocketForwarder.connect(forwarderName, _sock, target);
+                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir());
                             return;
                         }
                         

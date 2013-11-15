@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
-import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -472,7 +471,6 @@ public class DNSProxy implements Runnable {
 //          sendDns(answer, dnsq, srvSocket);
 //          if (LOGD) Log.d(TAG, "Custom DNS resolver for " + dnsRelayGeaHostName  + " to " + dnsRelayGaeIp);
         } else if (localProvider && dnsLocalServers != null && dnsLocalServers.size() > 0 && dnsLocalServers.get(0).length() > 0){
-            if (LOGD) Log.d(TAG, "local provider just send it up ");
             DatagramSocket dnsSocket = new DatagramSocket();
             String dnsServer = null;
             DNSQuery dnsQuery = new DNSQuery(dnsPacket.getData(), dnsPacket.getLength());
@@ -480,6 +478,7 @@ public class DNSProxy implements Runnable {
                 try{
                     dnsServer = dnsLocalServers.get(i);
                     if (dnsServer != null && dnsServer.length() > 0){
+                        if (LOGD) Log.d(TAG, "used local provider -> just send it up to " + dnsServer + " for " + dnsQuery.getQueryHost());
                         DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), LOCAL_DNS_PORT);
                         dnsSocket.send(dt);
                         DatagramPacket dnsPacketResponse = new DatagramPacket(qbuffer, qbuffer.length);

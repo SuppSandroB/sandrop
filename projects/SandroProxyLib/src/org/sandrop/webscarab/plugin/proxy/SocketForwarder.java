@@ -31,11 +31,13 @@
  */
 package org.sandrop.webscarab.plugin.proxy;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
+import org.sandroproxy.utils.PreferenceUtils;
 import android.util.Log;
 
 public class SocketForwarder extends Thread {
@@ -45,14 +47,25 @@ public class SocketForwarder extends Thread {
     
     private InputStream in;
     private OutputStream out;
+    private PcapWriter pcapWriter;
+    private boolean flip;
     
 
-    public static void connect(String name, Socket clientSocket, Socket serverSocket) throws IOException {
+    public static void connect(String name, Socket clientSocket, Socket serverSocket, boolean captureAsPcap, File storageDir) throws Exception {
         if (clientSocket != null && serverSocket != null && clientSocket.isConnected() && serverSocket.isConnected()){
             clientSocket.setSoTimeout(0);
             serverSocket.setSoTimeout(0);
-            SocketForwarder clientServer = new SocketForwarder(name + "_clientServer", clientSocket.getInputStream(), serverSocket.getOutputStream());
-            SocketForwarder serverClient = new SocketForwarder(name + "_serverClient", serverSocket.getInputStream(), clientSocket.getOutputStream());
+            // we create pcapWriter and pass it to threads to write on
+            PcapWriter pcapWriter = null;
+            if (captureAsPcap && storageDir != null){
+                String storageFile = storageDir.getAbsolutePath();
+                String pcapFileName = storageFile + "/" + name + "_" + System.currentTimeMillis() +  ".pcap";
+                pcapFileName = pcapFileName.replace("*", "_").replace(":", "_");
+                pcapWriter = new PcapWriter(clientSocket, serverSocket, pcapFileName);
+            }
+            // we could also pass OutputStream on which wireshark listens
+            SocketForwarder clientServer = new SocketForwarder(name + "_clientServer", clientSocket.getInputStream(), serverSocket.getOutputStream(), pcapWriter, false);
+            SocketForwarder serverClient = new SocketForwarder(name + "_serverClient", serverSocket.getInputStream(), clientSocket.getOutputStream(), pcapWriter, true);
                 clientServer.start();
                 serverClient.start();
                 while (clientServer.isAlive()) {
@@ -81,9 +94,11 @@ public class SocketForwarder extends Thread {
         
     }
 
-    public SocketForwarder(String name, InputStream in, OutputStream out) {
+    public SocketForwarder(String name, InputStream in, OutputStream out, PcapWriter pcapWriter, boolean flip) {
             this.in = in;
             this.out = out;
+            this.pcapWriter = pcapWriter;
+            this.flip = flip;
             setName(name);
             setDaemon(true);
     }
@@ -92,9 +107,15 @@ public class SocketForwarder extends Thread {
             try {
                     byte[] buff = new byte[4096];
                     int got;
-                    while ((got = in.read(buff)) > -1)
-                            out.write(buff, 0, got);
-            } catch (IOException ignore) {
+                    while ((got = in.read(buff)) > -1){
+                        out.write(buff, 0, got);
+                        if (pcapWriter != null){
+                            byte[] readData = new byte[got];
+                            System.arraycopy(buff, 0, readData, 0, got);
+                            pcapWriter.writeData(readData, System.currentTimeMillis() * 1000, flip);
+                        }
+                    }
+            } catch (Exception ignore) {
             } finally {
                     try {
                             in.close();

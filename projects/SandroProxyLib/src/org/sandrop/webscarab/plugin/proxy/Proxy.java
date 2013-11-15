@@ -91,6 +91,7 @@ public class Proxy implements Plugin {
     private IClientResolver _clientResolver;
     private boolean _captureData = false;
     private boolean _useFakeCerts = false;
+    private File storageDir = null;
 
     private ProxyUI _ui = null;
 
@@ -154,6 +155,8 @@ public class Proxy implements Plugin {
                 return;
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
+            storageDir = dataStorageDir;
+            PcapWriter.init(storageDir+ "/capture_" + System.currentTimeMillis() + ".pcap");
             
             String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.getAndroidContext());
             String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.getAndroidContext());
@@ -179,6 +182,10 @@ public class Proxy implements Plugin {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    
+    public File getStorageDir(){
+        return storageDir;
     }
 
     public Hook[] getScriptingHooks() {
@@ -430,6 +437,11 @@ public class Proxy implements Plugin {
             _ui.setEnabled(_running);
         _status = "Stopped";
         _webSocketManager.unload();
+        try {
+            PcapWriter.release();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         return !_running;
     }
 

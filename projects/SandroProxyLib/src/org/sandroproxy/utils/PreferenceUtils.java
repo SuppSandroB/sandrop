@@ -78,8 +78,6 @@ public class PreferenceUtils {
     public static String dnsProxyPortKey = "preference_dns_proxy_port_key";
     public static String dnsProxyPortActiveKey = "preference_dns_proxy_port_key_active";
     
-    
-    
     public static String getProxyPort(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         return pref.getString(proxyPort, "8008");
@@ -223,7 +221,7 @@ public class PreferenceUtils {
     public static boolean isDnsLocalProviderActive(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         String providerId = pref.getString(dnsProxyProviderActiveKey, ""); 
-        return providerId.equalsIgnoreCase("None");
+        return providerId.equalsIgnoreCase("Local");
     }
     
     public static String getDnsProxyPortSelected(Context context){
