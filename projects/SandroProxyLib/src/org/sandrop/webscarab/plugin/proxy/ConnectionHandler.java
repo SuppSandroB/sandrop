@@ -70,7 +70,8 @@ public class ConnectionHandler implements Runnable {
     private boolean _captureData = true;
     private boolean _useFakeCerts = false;
     private ITransparentProxyResolver _transparentResolver = null;
-    private IClientResolver _clientResolver = null;
+    private ConnectionDescriptor _connectionDescriptor = null;
+    private String clientId = "device";
 
     private HTTPClient _httpClient = null;
 
@@ -87,7 +88,7 @@ public class ConnectionHandler implements Runnable {
     public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, 
                                                             boolean captureData, boolean useFakeCerts, 
                                                             ITransparentProxyResolver transparentProxyResolver,
-                                                            IClientResolver clientResolver) {
+                                                            ConnectionDescriptor connectionDescriptor) {
         _logger.setLevel(Level.FINEST);
         _proxy = proxy;
         _sock = sock;
@@ -95,10 +96,13 @@ public class ConnectionHandler implements Runnable {
         _transparent = transparent;
         _transparentSecure = transparentSecure;
         _transparentResolver = transparentProxyResolver;
-        _clientResolver = clientResolver;
+        _connectionDescriptor = connectionDescriptor;
         _plugins = _proxy.getPlugins();
         _captureData = captureData;
         _useFakeCerts = useFakeCerts;
+        if (connectionDescriptor != null){
+            clientId = connectionDescriptor.getNamespace();
+        }
         try {
             _sock.setTcpNoDelay(true);
             _sock.setSoTimeout(_socket_timeout_normal);
@@ -126,11 +130,7 @@ public class ConnectionHandler implements Runnable {
         boolean switchProtocol = false;
         try {
             
-            ConnectionDescriptor connectionDescriptor = null;
-            if (_clientResolver != null && _captureData){
-                connectionDescriptor = _clientResolver.getClientDescriptorBySocket(_sock);
-            }
-            
+            ConnectionDescriptor connectionDescriptor = _connectionDescriptor;
             Request request = null;
             // if we do not already have a base URL (i.e. we operate as a normal
             // proxy rather than a reverse proxy), check for a CONNECT
@@ -172,7 +172,7 @@ public class ConnectionHandler implements Runnable {
                             _clientOut.flush();
                         } catch (IOException ioe) {
                             _logger
-                                    .severe("IOException writing the CONNECT OK Response to the browser "
+                                    .severe("IOException writing the CONNECT OK Response to the " + clientId
                                             + ioe);
                             return;
                         }
@@ -197,7 +197,7 @@ public class ConnectionHandler implements Runnable {
                                 return;
                             }
                             String forwarderName = hostData.name + ":" + hostData.destPort;
-                            _logger.fine("Acting as forwarder on " + forwarderName);
+                            _logger.fine("Acting as forwarder on " + forwarderName + " for " + clientId);
                             String hostName = hostData.hostName != null ? hostData.hostName : hostData.tcpAddress;
                             _base = new HttpUrl("https://" + hostName + ":" +  hostData.destPort);
                             Socket target;
@@ -209,13 +209,13 @@ public class ConnectionHandler implements Runnable {
                             } else{
                                 target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
                             }
-                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir());
+                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir(), connectionDescriptor);
                             return;
                         }else{
                             String forwarderName = _base.getHost() + ":" + _base.getPort();
-                            _logger.fine("Acting as forwarder on " + forwarderName);
+                            _logger.fine("Acting as forwarder on " + forwarderName + " for " + clientId);
                             Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
-                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir());
+                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir(), connectionDescriptor);
                             return;
                         }
                         
@@ -278,7 +278,7 @@ public class ConnectionHandler implements Runnable {
                         }
                         // we have no exception but ssl chiper is null-> switch to http
                         if (sslSocket == null || sslSocket.getSession() == null){
-                            _logger.finest("!!Error Check if client trust SandroProxy CA certificate or ignore on ws:// protocol");
+                            _logger.finest("!!Error Check if " + clientId + " trust SandroProxy CA certificate or ignore on ws:// protocol");
                             String oldHost = _base.getHost();
                             int oldPort = _base.getPort();
                             _base = new HttpUrl("http://" + oldHost + ":"+ oldPort);
@@ -290,14 +290,14 @@ public class ConnectionHandler implements Runnable {
                             try{
                                 readBit = pis.read();
                             }catch (Exception ex){
-                                _logger.finest("!!Error Check if client trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
+                                _logger.finest("!!Error Check if " + clientId + " trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
                                 return;
                             }
                             
                             if (readBit != -1){
                                 pis.unread(readBit);
                             }else{
-                                _logger.finest("!!Error Check if client trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
+                                _logger.finest("!!Error Check if " + clientId + " trust SandroProxy CA certificate \n!! or could be using SSL pinning so mitm will not work");
                                 return;
                             }
                             _clientIn = pis;
@@ -346,7 +346,7 @@ public class ConnectionHandler implements Runnable {
                 // read the request, otherwise we already have it.
                 if (request == null) {
                     request = new Request(_transparent, _transparentSecure);
-                    _logger.fine("Reading request from the browser");
+                    _logger.fine("Reading request from the " + clientId);
                     _sock.setSoTimeout(_socket_timeout_large);
                     request.read(_clientIn, _base);
                     if (request.getMethod() == null || request.getURL() == null) {
@@ -389,7 +389,7 @@ public class ConnectionHandler implements Runnable {
                             continue;
                         } catch (IOException ioe) {
                             _logger
-                                    .severe("IOException writing the CONNECT OK Response to the browser "
+                                    .severe("IOException writing the CONNECT OK Response to the " + clientId
                                             + ioe);
                             return;
                         }
@@ -456,22 +456,22 @@ public class ConnectionHandler implements Runnable {
 
                 try {
                     if (_clientOut != null) {
-                        _logger.fine("Writing the response to the browser");
+                        _logger.fine("Writing the response to the " + clientId);
                         if (response.getStatus().equalsIgnoreCase("101")){
                             switchProtocol = true;
                             _logger.fine("Switching protocols on 101 code");
                             _proxy.getWebSocketManager().addWebSocketsChannel(conversationId, response, _sock, response.getSocket(), response.getSocket().getInputStream());
                             response.writeSwitchProtocol(_clientOut);
-                            _logger.fine("Finished writing headers to client");
+                            _logger.fine("Finished writing headers to " + clientId);
                         }else{
                             response.write(_clientOut);
                         }
                         
-                        _logger.fine("Finished writing the response to the browser");
+                        _logger.fine("Finished writing the response to the " + clientId);
                     }
                 } catch (IOException ioe) {
                     _logger
-                            .severe("Error writing back to the browser : "
+                            .severe("Error writing back to the " + clientId + " : "
                                     + ioe);
                 } finally {
                     if (!switchProtocol){
@@ -519,7 +519,7 @@ public class ConnectionHandler implements Runnable {
                 }
                 
             } catch (IOException ioe) {
-                _logger.warning("Error closing client socket : " + ioe);
+                _logger.warning("Error closing " + clientId + "client socket : " + ioe);
             }
         }
     }

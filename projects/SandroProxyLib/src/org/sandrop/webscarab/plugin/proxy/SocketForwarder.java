@@ -37,7 +37,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
-import org.sandroproxy.utils.PreferenceUtils;
+import org.sandrop.webscarab.model.ConnectionDescriptor;
 import android.util.Log;
 
 public class SocketForwarder extends Thread {
@@ -51,7 +51,7 @@ public class SocketForwarder extends Thread {
     private boolean flip;
     
 
-    public static void connect(String name, Socket clientSocket, Socket serverSocket, boolean captureAsPcap, File storageDir) throws Exception {
+    public static void connect(String name, Socket clientSocket, Socket serverSocket, boolean captureAsPcap, File storageDir, ConnectionDescriptor connDesc) throws Exception {
         if (clientSocket != null && serverSocket != null && clientSocket.isConnected() && serverSocket.isConnected()){
             clientSocket.setSoTimeout(0);
             serverSocket.setSoTimeout(0);
@@ -59,7 +59,11 @@ public class SocketForwarder extends Thread {
             PcapWriter pcapWriter = null;
             if (captureAsPcap && storageDir != null){
                 String storageFile = storageDir.getAbsolutePath();
-                String pcapFileName = storageFile + "/" + name + "_" + System.currentTimeMillis() +  ".pcap";
+                String uid = "";
+                if (connDesc != null){
+                    uid = connDesc.getId() + "_" + connDesc.getNamespace();
+                }
+                String pcapFileName = storageFile + "/" + name + "_" + uid + "_" + System.currentTimeMillis() +  ".pcap";
                 pcapFileName = pcapFileName.replace("*", "_").replace(":", "_");
                 pcapWriter = new PcapWriter(clientSocket, serverSocket, pcapFileName);
             }
