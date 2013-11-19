@@ -45,8 +45,6 @@ import java.util.logging.Logger;
 
 import org.sandrop.webscarab.model.ConnectionDescriptor;
 
-import android.widget.GridLayout.Spec;
-
 public class Listener implements Runnable {
     
     private Proxy _proxy;
@@ -85,16 +83,16 @@ public class Listener implements Runnable {
         }
         while (! _stop) {
             try {
-            	sock = _serversocket.accept();
-            	ConnectionDescriptor connectionDescriptor = null;
-            	IClientResolver clientResolver = _proxy.getClientResolver();
-            	String threadName = Thread.currentThread().getName();
-            	if (clientResolver != null){
-            	    connectionDescriptor = clientResolver.getClientDescriptorBySocket(sock);
-            	    threadName = connectionDescriptor.getId() + "_" + connectionDescriptor.getNamespace();
-            	}
+                sock = _serversocket.accept();
+                ConnectionDescriptor connectionDescriptor = null;
+                IClientResolver clientResolver = _proxy.getClientResolver();
+                String threadName = Thread.currentThread().getName();
+                if (clientResolver != null){
+                    connectionDescriptor = clientResolver.getClientDescriptorBySocket(sock);
+                    threadName = connectionDescriptor.getId() + "_" + connectionDescriptor.getNamespace();
+                }
                 ch = new ConnectionHandler(_proxy, sock, _spec.getBase(), _spec.isTransparentProxy(), _spec.isTransparentProxySecure(),
-                                           _spec.mustCaptureData(), _spec.useFakeCerts(),
+                                           _spec.mustCaptureData(), _spec.useFakeCerts(), _spec.storeSslAsPcap(),
                                            _proxy.getTransparentProxyResolver(), connectionDescriptor);
                 thread = new Thread(ch, Thread.currentThread().getName()+"-"+Integer.toString(_count++));
                 thread.setName(threadName);

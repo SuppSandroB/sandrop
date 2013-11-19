@@ -69,8 +69,6 @@ import org.sandroproxy.constants.Constants;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
-import android.database.sqlite.SQLiteStatement;
-
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -91,7 +89,10 @@ public class Proxy implements Plugin {
     private IClientResolver _clientResolver;
     private boolean _captureData = false;
     private boolean _useFakeCerts = false;
+    private boolean _storeSslAsPcap = false;
+    
     private File storageDir = null;
+    private File pcapStorageDir = null;
 
     private ProxyUI _ui = null;
 
@@ -142,6 +143,7 @@ public class Proxy implements Plugin {
         _clientResolver = clientResolver;
         _captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, false);
         _useFakeCerts = Preferences.getPreferenceBoolean(PreferenceUtils.proxyFakeCerts, false);
+        _storeSslAsPcap = Preferences.getPreferenceBoolean(PreferenceUtils.proxyStoreSslAsPcap, false);
         
         parseListenerConfig();
         _certGenerator = null;
@@ -156,8 +158,14 @@ public class Proxy implements Plugin {
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
             storageDir = dataStorageDir;
-            PcapWriter.init(storageDir+ "/capture_" + System.currentTimeMillis() + ".pcap");
-            
+            if (storageDir.exists() && !_captureData && _storeSslAsPcap){
+                File pcapStorage = new File(dataStorageDir.getAbsoluteFile() + "/pcap");
+                if (!pcapStorage.exists()){
+                    pcapStorage.mkdir();
+                }
+                pcapStorageDir = pcapStorage;
+                PcapWriter.init(pcapStorage.getAbsolutePath() + "/capture_" + System.currentTimeMillis() + ".pcap");
+            }
             String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.getAndroidContext());
             String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.getAndroidContext());
             String caPassword = PreferenceUtils.getCAFilePassword(_framework.getAndroidContext());
@@ -184,8 +192,13 @@ public class Proxy implements Plugin {
         }
     }
     
+    
     public File getStorageDir(){
         return storageDir;
+    }
+    
+    public File getPcapStorageDir(){
+        return pcapStorageDir;
     }
 
     public Hook[] getScriptingHooks() {
@@ -721,10 +734,10 @@ public class Proxy implements Plugin {
             */
             base = null;
             if (!addr.equalsIgnoreCase("") && port != 0){
-                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, _captureData, _useFakeCerts), null);
+                _listeners.put(new ListenerSpec(addr, port, base, primary, false, false, _captureData, _useFakeCerts, _storeSslAsPcap), null);
                 if (Preferences.getPreferenceBoolean("preference_proxy_transparent", false)){
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, _captureData, _useFakeCerts), null);
-                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, _captureData, _useFakeCerts), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTP, base, primary, true, false, _captureData, _useFakeCerts, _storeSslAsPcap), null);
+                    _listeners.put(new ListenerSpec(addr, Constants.TRANSPARENT_PROXY_HTTPS, base, primary, true, true, _captureData, _useFakeCerts, _storeSslAsPcap), null);
                 }
             }else{
                 _logger.fine("Warrning Skipping " + listeners[i]);

@@ -69,6 +69,7 @@ public class ConnectionHandler implements Runnable {
     private boolean _transparentSecure = false;
     private boolean _captureData = true;
     private boolean _useFakeCerts = false;
+    private boolean _storeSslAsPcap = false;
     private ITransparentProxyResolver _transparentResolver = null;
     private ConnectionDescriptor _connectionDescriptor = null;
     private String clientId = "device";
@@ -86,7 +87,7 @@ public class ConnectionHandler implements Runnable {
     private OutputStream _clientOut = null;
 
     public ConnectionHandler(Proxy proxy, Socket sock, HttpUrl base, boolean transparent, boolean transparentSecure, 
-                                                            boolean captureData, boolean useFakeCerts, 
+                                                            boolean captureData, boolean useFakeCerts, boolean storeSslAsPcap,
                                                             ITransparentProxyResolver transparentProxyResolver,
                                                             ConnectionDescriptor connectionDescriptor) {
         _logger.setLevel(Level.FINEST);
@@ -100,8 +101,9 @@ public class ConnectionHandler implements Runnable {
         _plugins = _proxy.getPlugins();
         _captureData = captureData;
         _useFakeCerts = useFakeCerts;
+        _storeSslAsPcap = storeSslAsPcap;
         if (connectionDescriptor != null){
-            clientId = connectionDescriptor.getNamespace();
+            clientId = connectionDescriptor.getNamespace() + " <" + connectionDescriptor.getId() + ">";
         }
         try {
             _sock.setTcpNoDelay(true);
@@ -209,13 +211,26 @@ public class ConnectionHandler implements Runnable {
                             } else{
                                 target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
                             }
-                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir(), connectionDescriptor);
+                            SocketForwarder.connect(forwarderName, _sock, target, _storeSslAsPcap, _proxy.getPcapStorageDir(), connectionDescriptor);
                             return;
                         }else{
                             String forwarderName = _base.getHost() + ":" + _base.getPort();
                             _logger.fine("Acting as forwarder on " + forwarderName + " for " + clientId);
-                            Socket target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
-                            SocketForwarder.connect(forwarderName, _sock, target, true, _proxy.getStorageDir(), connectionDescriptor);
+                            Socket target;
+                            if (_useFakeCerts){
+                                hostData = new SiteData();
+                                hostData.hostName = _base.getHost();
+                                hostData.destPort = _base.getPort();
+                                // TODO same problem as other (charles, fiddler), if tcp/ip it should be fetched from server ssl fix it
+                                hostData.name = hostData.hostName;
+                                // make ssl tunnel with client with fake certificates
+                                _sock = negotiateSSL(_sock, hostData, true);
+                                // make ssl with server 
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true);
+                            } else{
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
+                            }
+                            SocketForwarder.connect(forwarderName, _sock, target, _storeSslAsPcap, _proxy.getPcapStorageDir(), connectionDescriptor);
                             return;
                         }
                         

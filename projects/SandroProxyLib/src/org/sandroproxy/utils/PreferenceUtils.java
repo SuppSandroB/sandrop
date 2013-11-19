@@ -54,6 +54,7 @@ public class PreferenceUtils {
     public static String proxyListenNonLocal = "preference_proxy_listen_non_local";
     public static String proxyCaptureData = "preference_proxy_capture_data";
     public static String proxyFakeCerts = "preference_proxy_use_fake_certificates";
+    public static String proxyStoreSslAsPcap = "preference_proxy_store_ssl_flow_as_pcap";
     public static String caFileNamePath = "preference_ca_cert_file_path";
     public static String caFilePassword = "preference_ca_cert_password";
     public static String dataCaptureWhiteListRegEx = "preference_data_capture_whitelist";

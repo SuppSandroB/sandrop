@@ -48,11 +48,12 @@ public class ListenerSpec implements Comparable {
     private boolean _transparentProxySecure = false;
     private boolean _captureData = true;
     private boolean _useFakeCerts = false;
+    private boolean _storeSslAsPcap = false;
 
     private InetSocketAddress _sockAddr = null;
     
     public ListenerSpec(String address, int port, HttpUrl base, boolean primaryProxy, boolean transparentProxy, boolean transparentProxySecure, 
-                                    boolean captureData, boolean useFakeCerts) {
+                                    boolean captureData, boolean useFakeCerts, boolean storeSslAsPcap) {
         if (address == null) {
             address = "*";
         }
@@ -67,6 +68,9 @@ public class ListenerSpec implements Comparable {
         _transparentProxySecure = transparentProxySecure;
         _captureData = captureData;
         _useFakeCerts = useFakeCerts;
+        if (_captureData == false && storeSslAsPcap){
+            _storeSslAsPcap = true;
+        }
     }
     
     public String getAddress() {
@@ -99,6 +103,9 @@ public class ListenerSpec implements Comparable {
     
     public boolean useFakeCerts(){
         return _useFakeCerts;
+    }
+    public boolean storeSslAsPcap(){
+        return _storeSslAsPcap;
     }
     
     public String getKey() {
