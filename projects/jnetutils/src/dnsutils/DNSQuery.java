@@ -81,10 +81,12 @@ public class DNSQuery {
   
   public DNSQuery (byte[] data, int length) throws IOException {
       DNSInputStream dnsIn = new DNSInputStream (data, 0, length);
-      int id = dnsIn.readShort ();
-      queryID = id;
+      queryID = dnsIn.readShort ();
       queryFlags = dnsIn.readShort ();
       int numQueries = dnsIn.readShort ();
+      int numAnswers = dnsIn.readShort ();
+      int numAuthorities = dnsIn.readShort ();
+      int numAdditional = dnsIn.readShort ();
       while (numQueries -- > 0) { // discard questions
         queryHost = dnsIn.readDomainName ();
         queryType = dnsIn.readShort ();
