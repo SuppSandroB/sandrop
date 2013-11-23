@@ -71,11 +71,12 @@ public class Message {
     private static final byte[] NO_CONTENT = new byte[0];
     private static final byte[] CONTENT_TOO_BIG = "Content to big to parse".getBytes();
     
-    private static boolean LOGD = false;
+    private static boolean LOGD = true;
     private static String TAG = Message.class.getName();
     
     
-    public static int LARGE_CONTENT_SIZE = 1000000;
+    public static int LARGE_CONTENT_SIZE = 1024 * 1024;
+    private static long SUM_MEMORY_CONTENT_ALL = 0;
     
     InputStream _contentStream = null;
     OutputStream _content = null;
@@ -93,6 +94,23 @@ public class Message {
      * Response.
      */
     public Message() {
+    }
+    
+    public static synchronized void addRemoveActiveContentSum(int dataSize, boolean remove){
+        if (!remove){
+            SUM_MEMORY_CONTENT_ALL = SUM_MEMORY_CONTENT_ALL + dataSize;
+        }else{
+            SUM_MEMORY_CONTENT_ALL = SUM_MEMORY_CONTENT_ALL - dataSize;
+        }
+        if (LOGD) Log.d(TAG, "Memory content size is :" + SUM_MEMORY_CONTENT_ALL);
+    }
+    
+    public static synchronized void setActiveContentVal(int val){
+        SUM_MEMORY_CONTENT_ALL = val;
+    }
+    
+    public static synchronized boolean isContentSumExcideed(){
+        return SUM_MEMORY_CONTENT_ALL >= LARGE_CONTENT_SIZE;
     }
     
     public static void setLargeContentSize(String size){
@@ -397,7 +415,11 @@ public class Message {
             InputStream is = getContentInputStream();
             while ((got = is.read(buff))>-1) {
                 os.write(buff, 0, got);
+                if (is instanceof ByteArrayInputStream){
+                    addRemoveActiveContentSum(got, true);
+                }
             }
+            
             is.close();
             _logger.finer("Done writing content bytes");
         }
@@ -739,12 +761,16 @@ public class Message {
         }
         if (_content != null && _gzipped) {
             try {
+                InputStream is = getContentInputStream();
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                GZIPInputStream gzis = new GZIPInputStream(getContentInputStream());
+                GZIPInputStream gzis = new GZIPInputStream(is);
                 byte[] buff = new byte[1024];
                 int got;
                 while ((got = gzis.read(buff))>-1) {
                     baos.write(buff, 0, got);
+                }
+                if (is instanceof ByteArrayInputStream){
+                    addRemoveActiveContentSum(getContentSize(), true);
                 }
                 return baos.toByteArray();
             } catch (Exception ioe) {
@@ -767,6 +793,9 @@ public class Message {
                 while ((got = is.read(buff))>-1) {
                     baos.write(buff, 0, got);
                 }
+                if (is instanceof ByteArrayInputStream){
+                    addRemoveActiveContentSum(getContentSize(), true);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 return NO_CONTENT;
@@ -785,11 +814,16 @@ public class Message {
         }
         if (_content != null && _gzipped) {
             try {
-                GZIPInputStream gzis = new GZIPInputStream(getContentInputStream());
+                InputStream is;
+                is = getContentInputStream();
+                GZIPInputStream gzis = new GZIPInputStream(is);
                 byte[] buff = new byte[1024];
                 int got;
                 while ((got = gzis.read(buff))>-1) {
                     os.write(buff, 0, got);
+                }
+                if (is instanceof ByteArrayInputStream){
+                    addRemoveActiveContentSum(getContentSize(), true);
                 }
             } catch (Exception ioe) {
                 _logger.info("IOException unzipping content : " + ioe);
@@ -804,6 +838,9 @@ public class Message {
                 int got;
                 while ((got = is.read(buff))>-1) {
                     os.write(buff, 0, got);
+                    if (is instanceof ByteArrayInputStream){
+                        addRemoveActiveContentSum(got, true);
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -843,13 +880,16 @@ public class Message {
         while (got > 0) {
             sum += got;
             if (!_skipContentStore){
-                if (sum > LARGE_CONTENT_SIZE && (_content instanceof ByteArrayOutputStream)){
+                if (isContentSumExcideed() && (_content instanceof ByteArrayOutputStream)){
                     if (createRandomFileName()){
                         FileOutputStream fo =  new FileOutputStream(new File(contentFileName));
                         fo.write(((ByteArrayOutputStream)_content).toByteArray());
                         fo.flush();
                         _content = fo;
+                        addRemoveActiveContentSum(sum, true);
                     }
+                }else{
+                    addRemoveActiveContentSum(got, false);
                 }
                 _content.write(buf,0, got);
             }
@@ -892,6 +932,9 @@ public class Message {
             if (os != null) {
                 try {
                     os.write(buf,0,got);
+                    if (_contentStream instanceof ByteArrayInputStream){
+                        addRemoveActiveContentSum(got, true);
+                    }
                 } catch (IOException e) {
                     _logger.info("IOException ioe writing to output stream : " + e);
                     // _logger.info("Had seen " + (_content.size()-got) + " bytes, was writing " + got);
