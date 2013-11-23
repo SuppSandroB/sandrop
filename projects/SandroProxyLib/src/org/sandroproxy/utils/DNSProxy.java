@@ -87,11 +87,11 @@ public class DNSProxy implements Runnable {
    * DNS Proxy upper stream ip's
    */
   
-//  private static String dnsRelayMyhostsSinappHostName = "myhosts.sinaapp.com";
-//  private static String dnsRelayMyhostsSinappIp = "220.181.136.37";
-//      
-//  private static String dnsRelayGeaHostName = "gaednsproxy.appspot.com";
-//  private static String dnsRelayGaeIp = "173.194.70.141";
+  private static String dnsRelayMyhostsSinappHostName = "myhosts.sinaapp.com";
+  private static String dnsRelayMyhostsSinappIp = "220.181.136.37";
+      
+  private static String dnsRelayGeaHostName = "gaednsproxy.appspot.com";
+  private static String dnsRelayGaeIp = "173.194.70.141";
   
   private static String dnsRelayPingEuHostName = "ping.eu";
   private String dnsRelayPingEuIp = "88.198.46.60";
@@ -113,11 +113,11 @@ public class DNSProxy implements Runnable {
 
     this.srvPort = port;
     this.providerId = providerId;
-//    if (providerId.equalsIgnoreCase(dnsRelayGeaHostName)){
-//        dnsRelayHostName = dnsRelayGeaHostName;
-//        dnsRelayIp = dnsRelayGaeIp;
-//        localProvider = false;
-//  }    
+    if (providerId.equalsIgnoreCase(dnsRelayGeaHostName)){
+        dnsRelayHostName = dnsRelayGeaHostName;
+        dnsRelayIp = dnsRelayGaeIp;
+        localProvider = false;
+    }    
     if (providerId.equalsIgnoreCase(dnsRelayPingEuHostName)){
         dnsRelayHostName = dnsRelayPingEuHostName;
         dnsRelayIp = dnsRelayPingEuIp;
@@ -127,11 +127,11 @@ public class DNSProxy implements Runnable {
         dnsRelayIp = dnsRelayWwwIpCnIp;
         localProvider = false;
     } 
-//    else if (providerId.equalsIgnoreCase(dnsRelayMyhostsSinappHostName)){
-//        dnsRelayHostName = dnsRelayMyhostsSinappHostName;
-//        dnsRelayIp = dnsRelayMyhostsSinappIp;
-//        localProvider = false;
-//    }
+    else if (providerId.equalsIgnoreCase(dnsRelayMyhostsSinappHostName)){
+        dnsRelayHostName = dnsRelayMyhostsSinappHostName;
+        dnsRelayIp = dnsRelayMyhostsSinappIp;
+        localProvider = false;
+    }
     _logger.setLevel(Level.FINEST);
     database = SqlLiteStore.getInstance(ctx, null);
   }
@@ -420,12 +420,12 @@ public class DNSProxy implements Runnable {
         if (resp != null) {
           sendDns(resp.getDNSResponse(), dnsq, srvSocket);
           if (LOGD) Log.d(TAG, "DNS cache hit for " + questDomain);
-//        } else if (questDomain.toLowerCase().endsWith(dnsRelayGeaHostName) && providerId.toLowerCase().equals(dnsRelayGeaHostName)) {
-//          byte[] ips = parseIPString(dnsRelayGaeIp);
-//          byte[] answer = createDNSResponse(udpreq, ips);
-//          addToCache(questDomain, answer);
-//          sendDns(answer, dnsq, srvSocket);
-//          if (LOGD) Log.d(TAG, "Custom DNS resolver for " + dnsRelayGeaHostName  + " to " + dnsRelayGaeIp);
+        } else if (questDomain.toLowerCase().endsWith(dnsRelayGeaHostName) && providerId.toLowerCase().equals(dnsRelayGeaHostName)) {
+          byte[] ips = parseIPString(dnsRelayGaeIp);
+          byte[] answer = createDNSResponse(udpreq, ips);
+          addToCache(questDomain, answer);
+          sendDns(answer, dnsq, srvSocket);
+          if (LOGD) Log.d(TAG, "Custom DNS resolver for " + dnsRelayGeaHostName  + " to " + dnsRelayGaeIp);
         } else if (questDomain.toLowerCase().endsWith(dnsRelayPingEuHostName) && providerId.toLowerCase().equals(dnsRelayPingEuHostName)) {
             byte[] ips = parseIPString(dnsRelayPingEuIp);
             byte[] answer = createDNSResponse(udpreq, ips);
@@ -438,12 +438,12 @@ public class DNSProxy implements Runnable {
             addToCache(questDomain, answer);
             sendDns(answer, dnsq, srvSocket);
             if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayWwwIpCnHostName);
-//        } else if (questDomain.toLowerCase().endsWith(dnsRelayMyhostsSinappHostName) && providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)) {
-//            byte[] ips = parseIPString(dnsRelayMyhostsSinappIp);
-//            byte[] answer = createDNSResponse(udpreq, ips);
-//            addToCache(questDomain, answer);
-//            sendDns(answer, dnsq, srvSocket);
-//            if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayMyhostsSinappHostName);
+        } else if (questDomain.toLowerCase().endsWith(dnsRelayMyhostsSinappHostName) && providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)) {
+            byte[] ips = parseIPString(dnsRelayMyhostsSinappIp);
+            byte[] answer = createDNSResponse(udpreq, ips);
+            addToCache(questDomain, answer);
+            sendDns(answer, dnsq, srvSocket);
+            if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayMyhostsSinappHostName);
         } else {
           Runnable runnable = new Runnable() {
             @Override
@@ -502,14 +502,14 @@ public class DNSProxy implements Runnable {
 
   private Request createHttpRequest(String domain) throws Exception{
       Request request = new Request();
-//      if (providerId.toLowerCase().equals(dnsRelayGeaHostName)){
-//          String url = "http://" + dnsRelayHostName + "/?d=" + URLEncoder.encode(Base64.encodeBytes(Base64.encodeBytesToBytes(domain.getBytes())));
-//          HttpUrl base = new HttpUrl(url);
-//          request.setMethod("GET");
-//          request.setHeader(new NamedValue("Host", dnsRelayHostName));
-//          request.setURL(base);
-//          request.setNoBody();
-//      } else 
+      if (providerId.toLowerCase().equals(dnsRelayGeaHostName)){
+          String url = "http://" + dnsRelayHostName + "/?d=" + URLEncoder.encode(Base64.encodeBytes(Base64.encodeBytesToBytes(domain.getBytes())));
+          HttpUrl base = new HttpUrl(url);
+          request.setMethod("GET");
+          request.setHeader(new NamedValue("Host", dnsRelayHostName));
+          request.setURL(base);
+          request.setNoBody();
+      } else 
       if (providerId.toLowerCase().equals(dnsRelayPingEuHostName)){
           String url = "http://" + dnsRelayHostName + "/action.php?atype=3";
           HttpUrl base = new HttpUrl(url);
@@ -524,12 +524,12 @@ public class DNSProxy implements Runnable {
           request.setMethod("GET");
           request.setHeader(new NamedValue("Host", dnsRelayHostName));
           request.setURL(base);
-//      } else if (providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)){
-//          String url = "http://" + dnsRelayHostName + "/lookup.php?host=" + URLEncoder.encode(Base64.encodeBytes(Base64.encodeBytesToBytes(domain.getBytes())));
-//          HttpUrl base = new HttpUrl(url);
-//          request.setMethod("GET");
-//          request.setHeader(new NamedValue("Host", dnsRelayHostName));
-//          request.setURL(base);
+      } else if (providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)){
+          String url = "http://" + dnsRelayHostName + "/lookup.php?host=" + URLEncoder.encode(Base64.encodeBytes(Base64.encodeBytesToBytes(domain.getBytes())));
+          HttpUrl base = new HttpUrl(url);
+          request.setMethod("GET");
+          request.setHeader(new NamedValue("Host", dnsRelayHostName));
+          request.setURL(base);
       }
       
       return request;
@@ -537,17 +537,17 @@ public class DNSProxy implements Runnable {
   
   private String parseResponse(Response response) throws Exception{
       String ip = null;
-//      if (providerId.toLowerCase().equals(dnsRelayGeaHostName)){
-//          InputStream is;
-//          is = response.getContentStream();
-//          BufferedReader br = new BufferedReader(new InputStreamReader(is));
-//          ip = br.readLine();
-//      } else if (providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)){
-//          InputStream is;
-//          is = response.getContentStream();
-//          BufferedReader br = new BufferedReader(new InputStreamReader(is));
-//          ip = br.readLine();
-//      } else 
+      if (providerId.toLowerCase().equals(dnsRelayGeaHostName)){
+          InputStream is;
+          is = response.getContentStream();
+          BufferedReader br = new BufferedReader(new InputStreamReader(is));
+          ip = br.readLine();
+      } else if (providerId.toLowerCase().equals(dnsRelayMyhostsSinappHostName)){
+          InputStream is;
+          is = response.getContentStream();
+          BufferedReader br = new BufferedReader(new InputStreamReader(is));
+          ip = br.readLine();
+      } else 
       if (providerId.toLowerCase().equals(dnsRelayPingEuHostName)){
           InputStream is;
           is = response.getContentStream();
