@@ -89,7 +89,12 @@ public class Listener implements Runnable {
                 String threadName = Thread.currentThread().getName();
                 if (clientResolver != null){
                     connectionDescriptor = clientResolver.getClientDescriptorBySocket(sock);
-                    threadName = connectionDescriptor.getId() + "_" + connectionDescriptor.getNamespace();
+                    if (connectionDescriptor.getId() > -1){
+                        threadName = connectionDescriptor.getId() + "_" + connectionDescriptor.getNamespace();
+                    }else{
+                        threadName = "conn_" + sock.getInetAddress().getHostAddress() + "_" + sock.getPort();
+                    }
+                    
                 }
                 ch = new ConnectionHandler(_proxy, sock, _spec.getBase(), _spec.isTransparentProxy(), _spec.isTransparentProxySecure(),
                                            _spec.mustCaptureData(), _spec.useFakeCerts(), _spec.storeSslAsPcap(),

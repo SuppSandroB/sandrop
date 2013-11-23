@@ -32,10 +32,10 @@
 
 package org.sandrop.webscarab.model;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.io.IOException;
@@ -52,7 +52,6 @@ import java.util.zip.GZIPOutputStream;
 import org.sandrop.webscarab.httpclient.ChunkedInputStream;
 import org.sandrop.webscarab.httpclient.ChunkedOutputStream;
 import org.sandrop.webscarab.httpclient.FixedLengthInputStream;
-import org.sandroproxy.utils.PreferenceUtils;
 
 import android.util.Log;
 
@@ -74,18 +73,11 @@ public class Message {
     private static boolean LOGD = true;
     private static String TAG = Message.class.getName();
     
-    
-    public static int LARGE_CONTENT_SIZE = 1024 * 1024;
-    private static long SUM_MEMORY_CONTENT_ALL = 0;
-    
     InputStream _contentStream = null;
-    OutputStream _content = null;
+    MessageOutputStream _content = null;
     boolean _chunked = false;
     boolean _gzipped = false;
     int _length = -1;
-    private boolean _skipContentStore = false;
-    
-    
     protected Logger _logger = Logger.getLogger(this.getClass().getName());
     
     /** Message is a class that is used to represent the bulk of an HTTP message, namely
@@ -96,38 +88,19 @@ public class Message {
     public Message() {
     }
     
-    public static synchronized void addRemoveActiveContentSum(int dataSize, boolean remove){
-        if (!remove){
-            SUM_MEMORY_CONTENT_ALL = SUM_MEMORY_CONTENT_ALL + dataSize;
-        }else{
-            SUM_MEMORY_CONTENT_ALL = SUM_MEMORY_CONTENT_ALL - dataSize;
-        }
-        if (LOGD) Log.d(TAG, "Memory content size is :" + SUM_MEMORY_CONTENT_ALL);
-    }
     
-    public static synchronized void setActiveContentVal(int val){
-        SUM_MEMORY_CONTENT_ALL = val;
-    }
-    
-    public static synchronized boolean isContentSumExcideed(){
-        return SUM_MEMORY_CONTENT_ALL >= LARGE_CONTENT_SIZE;
-    }
     
     public static void setLargeContentSize(String size){
         try{
             int largeSize = Integer.parseInt(size);
-            LARGE_CONTENT_SIZE = largeSize;
+            MessageOutputStream.LARGE_CONTENT_SIZE = largeSize;
         }catch(Exception ex){
             ex.printStackTrace();
         }
     }
     
     public static long getLargeContentSize(String size){
-        return LARGE_CONTENT_SIZE;
-    }
-    
-    public void skipContentStore(boolean flag){
-        _skipContentStore = flag;
+        return MessageOutputStream.LARGE_CONTENT_SIZE;
     }
     
     /**
@@ -175,13 +148,7 @@ public class Message {
         if (_contentStream != null){
             return _contentStream;
         }
-        if (contentFileName.length() > 0){
-            try{
-                _contentStream = new FileInputStream(new File(contentFileName));
-            }catch (Exception ex){
-                ex.printStackTrace();
-            }
-        }
+        _contentStream = _content.getInputStream();
         return _contentStream;
     }
     
@@ -193,134 +160,82 @@ public class Message {
         return _chunked;
     }
     
-    public boolean isMemoryStoreContent() throws Exception{
-        if (_content != null){
-            if(_content instanceof ByteArrayOutputStream){
-                return true;
-            }
-            if (_content instanceof FileOutputStream){
-                return false;
-            }
-            throw new Exception("Unknown content store type");
-        }
-        return true;
-    }
-    
     public int getContentSize(){
         if (_content != null){
-            if(_content instanceof ByteArrayOutputStream){
-                return ((ByteArrayOutputStream) _content).size();
-            }
-            if (_content instanceof FileOutputStream){
-                try {
-                    return (int)((FileOutputStream) _content).getChannel().size();
-                } catch (IOException e) {
-                    return 0;
-                }
-            }
+            return _content.size();
+        }else{
+            return 0;
         }
-        if (contentFileName.length() > 0){
-            try {
-                File file = new File(contentFileName);
-                FileInputStream fis = new FileInputStream(file);
-                int fileSize = (int) fis.getChannel().size();
-                fis.close();
-                return fileSize ;
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        return 0;
     }
     
-    private String contentFileName = "";
+    public void clean(){
+        try {
+            if (_content != null){
+                _content.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     
-    public void setContentFileName(String fileName){
+//    private boolean createRandomFileName() {
+//        String rootDirName = Preferences.getPreference(PreferenceUtils.dataStorageKey, null);
+//        String tempDirName = null;
+//        if (rootDirName != null && !rootDirName.equals("")){
+//            
+//            File dataDir = new File(rootDirName);
+//            if (!PreferenceUtils.IsDirWritable(dataDir)){
+//                return false;
+//            }
+//            tempDirName = rootDirName + "/tempfiles/";
+//            File tempDir = new File(tempDirName);
+//            if (!tempDir.exists()){
+//                tempDir.mkdir();
+//            }
+//        }
+//        String prefix = tempDirName;
+//        int randRange = 100000;
+//        String fileName = ((Long)Math.round(Math.random() * randRange)).toString() + ".webscarab.temp";
+//        String fullName = prefix + fileName;
+//        while (new File(fullName).exists()){
+//            fileName = ((Long)Math.round(Math.random() * randRange)).toString() + ".webscarab.temp";
+//            fullName = prefix + fileName;
+//        }
+//        contentFileName = fullName;
+//        return true;
+//    }
+    
+    public void setContentFileName(String fileName) throws FileNotFoundException{
         if (fileName != null){
-            contentFileName = fileName;
+            _content = new MessageOutputStream(fileName);
         }
     }
     
     public String getContentFileName(){
-        return contentFileName;
-    }
-    
-    public void clean(){
-        if (contentFileName.length() > 0){
-            File file = new File(contentFileName);
-            if (file.exists() && file.canWrite()){
-                file.delete();
-            }
+        String result = null;
+        if (_content != null){
+            result = _content.getFileName();
         }
-    }
-    
-    private boolean createRandomFileName() {
-        String rootDirName = Preferences.getPreference(PreferenceUtils.dataStorageKey, null);
-        String tempDirName = null;
-        if (rootDirName != null && !rootDirName.equals("")){
-            
-            File dataDir = new File(rootDirName);
-            if (!PreferenceUtils.IsDirWritable(dataDir)){
-                return false;
-            }
-            tempDirName = rootDirName + "/tempfiles/";
-            File tempDir = new File(tempDirName);
-            if (!tempDir.exists()){
-                tempDir.mkdir();
-            }
-        }
-        String prefix = tempDirName;
-        int randRange = 100000;
-        String fileName = ((Long)Math.round(Math.random() * randRange)).toString() + ".webscarab.temp";
-        String fullName = prefix + fileName;
-        while (new File(fullName).exists()){
-            fileName = ((Long)Math.round(Math.random() * randRange)).toString() + ".webscarab.temp";
-            fullName = prefix + fileName;
-        }
-        contentFileName = fullName;
-        return true;
+        return result;
     }
 
     private InputStream getContentInputStream() throws IOException{
-        if (_content instanceof ByteArrayOutputStream){
-            byte[] contentByteArray = ((ByteArrayOutputStream)_content).toByteArray();
-            return new ByteArrayInputStream(contentByteArray);
-        }else{
-            if (contentFileName.length() > 0){
-                File fs = new File(contentFileName);
-                if (fs.exists()){
-                    return new FileInputStream(fs);
-                }else{
-                    throw new IOException("getContentInputStream: file " + contentFileName + " not exist");
-                }
-            }
-            return null;
+        InputStream result = null;
+        if (_content != null){
+            result =  _content.getInputStream();
         }
+        return result;
     }
     
     private void cleanContentInputStream() throws IOException{
-        if (_content instanceof ByteArrayOutputStream){
-        }else{
-            if (contentFileName.length() > 0){
-                File fs = new File(contentFileName);
-                if (fs.exists()){
-                    fs.delete();
-                    return;
-                }else{
-                    throw new IOException("cleanContentInputStream: file " + contentFileName + " not exist");
-                }
-            }
-            throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
+        if (_content != null){
+            _content.close();
         }
     }
     
     public boolean moveContentToFile(File file) throws Exception{
-        if (contentFileName.length() == 0){
-            byte[] contentData = getContent();
-            InputStream is =  getContentInputStream();
-            if (is == null){
-                return false;
-            }
+        InputStream is =  getContentInputStream();
+        if (is != null){
             FileOutputStream fs = new FileOutputStream(file);
             byte[] buffer = new byte[1024]; // Adjust if you want
             int bytesRead;
@@ -331,26 +246,8 @@ public class Message {
             if (LOGD) Log.d(TAG, " byte buffer storing content to file " + file.getAbsolutePath());
             fs.flush();
             fs.close();
-            contentFileName = file.getAbsolutePath();
             return true;
         }else{
-            if (contentFileName.length() > 0 && !file.getAbsolutePath().equalsIgnoreCase(contentFileName)){
-                File fs = new File(contentFileName);
-                if (fs.exists()){
-                    String absolutePath = file.getAbsolutePath();
-                    if (LOGD) Log.d(TAG, " start rename file storing content to file " + absolutePath);
-                    fs.renameTo(file);
-                    if (LOGD) Log.d(TAG, " end rename file storing content to file " + absolutePath);
-                    contentFileName = absolutePath;
-                   return true;
-                }else{
-                    // throw new IOException("cleanContentInputStream: file " + contentFileName + " not exist");
-                    if (LOGD) Log.d(TAG, "empty file storing content to file " + file.getAbsolutePath());
-                    return false;
-                }
-            }
-            // throw new IOException("cleanContentInputStream: Empty file name to retrive stream not exist");
-            if (LOGD) Log.d(TAG, "NOT storing content to file " + file.getAbsolutePath());
             return false;
         }
     }
@@ -415,9 +312,6 @@ public class Message {
             InputStream is = getContentInputStream();
             while ((got = is.read(buff))>-1) {
                 os.write(buff, 0, got);
-                if (is instanceof ByteArrayInputStream){
-                    addRemoveActiveContentSum(got, true);
-                }
             }
             
             is.close();
@@ -461,7 +355,7 @@ public class Message {
             }
         } while (!line.equals(""));
         
-        _content = new ByteArrayOutputStream();
+        _content = new MessageOutputStream();
         try {
             _content.write(buffer.toString().getBytes());
         } catch (IOException ioe) {} // can't fail
@@ -747,13 +641,8 @@ public class Message {
      */
     public byte[] getContent() {
         try {
-            if (_contentStream != null && _contentStream instanceof FileInputStream){
-                if (((FileInputStream)_contentStream).getChannel().size() > LARGE_CONTENT_SIZE){
-                    return CONTENT_TOO_BIG;
-                }
-            }
             flushContentStream(null);
-            if (getContentSize() > LARGE_CONTENT_SIZE){
+            if (getContentSize() > MessageOutputStream.LARGE_CONTENT_SIZE){
                 return CONTENT_TOO_BIG;
             }
         } catch (IOException ioe) {
@@ -769,16 +658,13 @@ public class Message {
                 while ((got = gzis.read(buff))>-1) {
                     baos.write(buff, 0, got);
                 }
-                if (is instanceof ByteArrayInputStream){
-                    addRemoveActiveContentSum(getContentSize(), true);
-                }
                 return baos.toByteArray();
             } catch (Exception ioe) {
                 _logger.info("Exception unzipping content : " + ioe);
                 return NO_CONTENT;
             }
         }
-        if ((_content != null || contentFileName.length() > 0)) {
+        if ((_content != null)) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             
             try {
@@ -793,9 +679,6 @@ public class Message {
                 while ((got = is.read(buff))>-1) {
                     baos.write(buff, 0, got);
                 }
-                if (is instanceof ByteArrayInputStream){
-                    addRemoveActiveContentSum(getContentSize(), true);
-                }
             } catch (Exception e) {
                 e.printStackTrace();
                 return NO_CONTENT;
@@ -806,47 +689,47 @@ public class Message {
         }
     }
     
-    public void flushContentToOutputStream(OutputStream os) throws IOException {
-        try {
-            flushContentStream(null);
-        } catch (IOException ioe) {
-            _logger.info("IOException flushing the contentStream: " + ioe);
-        }
-        if (_content != null && _gzipped) {
-            try {
-                InputStream is;
-                is = getContentInputStream();
-                GZIPInputStream gzis = new GZIPInputStream(is);
-                byte[] buff = new byte[1024];
-                int got;
-                while ((got = gzis.read(buff))>-1) {
-                    os.write(buff, 0, got);
-                }
-                if (is instanceof ByteArrayInputStream){
-                    addRemoveActiveContentSum(getContentSize(), true);
-                }
-            } catch (Exception ioe) {
-                _logger.info("IOException unzipping content : " + ioe);
-            }
-        }
-        if (_content != null) {
-            InputStream is;
-            try {
-                is = getContentInputStream();
-            
-                byte[] buff = new byte[1024];
-                int got;
-                while ((got = is.read(buff))>-1) {
-                    os.write(buff, 0, got);
-                    if (is instanceof ByteArrayInputStream){
-                        addRemoveActiveContentSum(got, true);
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
+//    public void flushContentToOutputStream(OutputStream os) throws IOException {
+//        try {
+//            flushContentStream(null);
+//        } catch (IOException ioe) {
+//            _logger.info("IOException flushing the contentStream: " + ioe);
+//        }
+//        if (_content != null && _gzipped) {
+//            try {
+//                InputStream is;
+//                is = getContentInputStream();
+//                GZIPInputStream gzis = new GZIPInputStream(is);
+//                byte[] buff = new byte[1024];
+//                int got;
+//                while ((got = gzis.read(buff))>-1) {
+//                    os.write(buff, 0, got);
+//                }
+//                if (is instanceof ByteArrayInputStream){
+//                    addRemoveActiveContentSum(getContentSize(), true);
+//                }
+//            } catch (Exception ioe) {
+//                _logger.info("IOException unzipping content : " + ioe);
+//            }
+//        }
+//        if (_content != null) {
+//            InputStream is;
+//            try {
+//                is = getContentInputStream();
+//            
+//                byte[] buff = new byte[1024];
+//                int got;
+//                while ((got = is.read(buff))>-1) {
+//                    os.write(buff, 0, got);
+//                    if (is instanceof ByteArrayInputStream){
+//                        addRemoveActiveContentSum(got, true);
+//                    }
+//                }
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
     
     /**
      * reads all content from the content stream if one exists. Bytes read are stored internally, and returned via getContent()
@@ -870,7 +753,7 @@ public class Message {
     private void flushContentStream(OutputStream os) throws IOException {
         IOException ioe = null;
         if (_contentStream == null) return;
-        _content = new ByteArrayOutputStream();
+        _content = new MessageOutputStream();
         byte[] buf = new byte[4096];
         _logger.finest("Reading initial bytes from contentStream " + _contentStream);
         
@@ -879,21 +762,7 @@ public class Message {
         _logger.finest("Got " + got + " bytes");
         while (got > 0) {
             sum += got;
-            if (!_skipContentStore){
-                if (isContentSumExcideed() && (_content instanceof ByteArrayOutputStream)){
-                    if (createRandomFileName()){
-                        FileOutputStream fo =  new FileOutputStream(new File(contentFileName));
-                        fo.write(((ByteArrayOutputStream)_content).toByteArray());
-                        fo.flush();
-                        _content = fo;
-                        addRemoveActiveContentSum(sum, true);
-                    }
-                }else{
-                    addRemoveActiveContentSum(got, false);
-                }
-                _content.write(buf,0, got);
-            }
-            
+            _content.write(buf,0, got);
             if (os != null) {
                 try {
                     os.write(buf,0,got);
@@ -903,6 +772,8 @@ public class Message {
                     ioe = e;
                     os = null;
                 }
+            }else{
+                if (LOGD) Log.d(TAG, "output Stream is null");
             }
             got = _contentStream.read(buf);
             _logger.finest("Got " + got + " bytes");
@@ -918,36 +789,36 @@ public class Message {
      * supplied outputStream until the entire contentStream has been read and
      * saved.
      */
-    public void flushContentStreamToOutputStream(OutputStream os) throws IOException {
-        IOException ioe = null;
-        if (_contentStream == null && contentFileName.length() > 0){
-            _contentStream = new FileInputStream(new File(contentFileName));
-        }
-        if (_contentStream == null) return;
-        byte[] buf = new byte[4096];
-        _logger.finest("Reading initial bytes from contentStream " + _contentStream);
-        int got = _contentStream.read(buf);
-        _logger.finest("Got " + got + " bytes");
-        while (got > 0) {
-            if (os != null) {
-                try {
-                    os.write(buf,0,got);
-                    if (_contentStream instanceof ByteArrayInputStream){
-                        addRemoveActiveContentSum(got, true);
-                    }
-                } catch (IOException e) {
-                    _logger.info("IOException ioe writing to output stream : " + e);
-                    // _logger.info("Had seen " + (_content.size()-got) + " bytes, was writing " + got);
-                    ioe = e;
-                    os = null;
-                }
-            }
-            got = _contentStream.read(buf);
-            _logger.finest("Got " + got + " bytes");
-        }
-        _contentStream = null;
-        if (ioe != null) throw ioe;
-    }
+//    public void flushContentStreamToOutputStream(OutputStream os) throws IOException {
+//        IOException ioe = null;
+//        if (_contentStream == null && contentFileName.length() > 0){
+//            _contentStream = new FileInputStream(new File(contentFileName));
+//        }
+//        if (_contentStream == null) return;
+//        byte[] buf = new byte[4096];
+//        _logger.finest("Reading initial bytes from contentStream " + _contentStream);
+//        int got = _contentStream.read(buf);
+//        _logger.finest("Got " + got + " bytes");
+//        while (got > 0) {
+//            if (os != null) {
+//                try {
+//                    os.write(buf,0,got);
+//                    if (_contentStream instanceof ByteArrayInputStream){
+//                        addRemoveActiveContentSum(got, true);
+//                    }
+//                } catch (IOException e) {
+//                    _logger.info("IOException ioe writing to output stream : " + e);
+//                    // _logger.info("Had seen " + (_content.size()-got) + " bytes, was writing " + got);
+//                    ioe = e;
+//                    os = null;
+//                }
+//            }
+//            got = _contentStream.read(buf);
+//            _logger.finest("Got " + got + " bytes");
+//        }
+//        _contentStream = null;
+//        if (ioe != null) throw ioe;
+//    }
     
     
     
@@ -975,7 +846,7 @@ public class Message {
         }
         if (_gzipped) {
             try {
-                _content = new ByteArrayOutputStream();
+                _content = new MessageOutputStream();
                 GZIPOutputStream gzos = new GZIPOutputStream(_content);
                 gzos.write(bytes);
                 gzos.close();
@@ -983,7 +854,7 @@ public class Message {
                 _logger.info("IOException gzipping content : " + ioe);
             }
         } else {
-            _content = new ByteArrayOutputStream();
+            _content = new MessageOutputStream();
             try {
                 if (bytes != null)
                     _content.write(bytes);

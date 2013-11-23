@@ -102,8 +102,10 @@ public class ConnectionHandler implements Runnable {
         _captureData = captureData;
         _useFakeCerts = useFakeCerts;
         _storeSslAsPcap = storeSslAsPcap;
-        if (connectionDescriptor != null){
+        if (connectionDescriptor != null && connectionDescriptor.getId() > -1){
             clientId = connectionDescriptor.getNamespace() + " <" + connectionDescriptor.getId() + ">";
+        }else{
+            clientId = "<" + _sock.getInetAddress().getHostAddress() + ":" + _sock.getPort() + ">";
         }
         try {
             _sock.setTcpNoDelay(true);
@@ -141,13 +143,15 @@ public class ConnectionHandler implements Runnable {
                     request = new Request(_transparent, _transparentSecure);
                     request.read(_clientIn);
                     HttpUrl requestUrl = request.getURL();
-                    String host = requestUrl.getHost();
-                    String reverseHost = DNSProxy.getHostNameFromIp(host);
-                    if (reverseHost != null){
-                        host = reverseHost != null ? reverseHost : host;
-                        requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + host +":" +  requestUrl.getPort() + requestUrl.getPath());
-                        request.setURL(requestUrl);
-                        request.setHeader("Host", host);
+                    if (requestUrl != null){
+                        String host = requestUrl.getHost();
+                        String reverseHost = DNSProxy.getHostNameFromIp(host);
+                        if (reverseHost != null){
+                            host = reverseHost != null ? reverseHost : host;
+                            requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + host +":" +  requestUrl.getPort() + requestUrl.getPath());
+                            request.setURL(requestUrl);
+                            request.setHeader("Host", host);
+                        }
                     }
                 } catch (IOException ioe) {
                     _logger.severe("Error reading the initial request" + ioe);
@@ -489,7 +493,7 @@ public class ConnectionHandler implements Runnable {
                             .severe("Error writing back to the " + clientId + " : "
                                     + ioe);
                 } finally {
-                    if (!switchProtocol){
+                    if (switchProtocol){
                         response.flushContentStream(); // this simply flushes the
                         // content from the server
                     }

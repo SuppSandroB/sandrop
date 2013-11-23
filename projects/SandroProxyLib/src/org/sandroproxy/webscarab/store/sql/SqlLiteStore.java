@@ -1282,7 +1282,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 request.setContentFileName(fileName);
                 return request;
             }
-            
+        }catch (Exception ex){
+            ex.printStackTrace();
         } finally{
             if (cs != null) cs.close();
         }
@@ -1320,6 +1321,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 response.setContentFileName(fileName);
                 return response;
             }
+        }catch (Exception ex){
+            ex.printStackTrace();
         } finally{
             if (csConversation != null) csConversation.close();
             if (cs != null) cs.close();
@@ -1343,6 +1346,8 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 response.setContentFileName(fileName);
                 return response;
             }
+        }catch (Exception ex){
+            ex.printStackTrace();
         } finally{
             if (cs != null) cs.close();
         }
