@@ -128,9 +128,11 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
             if (LOGD) Log.d(TAG, "Memory content. Deleting temp file:"  + file.getAbsoluteFile());
             file.delete();
         }else{
-            addRemoveActiveContentSum(size(), true);
-            memoryStream.close();
-            memoryStream = null;
+            if (memoryStream != null){
+                addRemoveActiveContentSum(size(), true);
+                memoryStream.close();
+                memoryStream = null;
+            }
         }
     }
 }
