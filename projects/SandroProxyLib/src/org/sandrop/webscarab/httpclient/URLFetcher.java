@@ -190,6 +190,7 @@ public class URLFetcher implements HTTPClient {
     public Response fetchResponse(Request request) throws IOException {
         if (_response != null) {
             _response.flushContentStream(); // flush the content stream, just in case it wasn't read
+            _response.clean();
             _response = null;
         }
         if (request == null) {

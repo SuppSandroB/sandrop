@@ -512,6 +512,7 @@ public class ConnectionHandler implements Runnable {
                 version = response.getVersion();
 
                 request = null;
+                response = null;
 
                 _logger.fine("Version: " + version + " keepAlive: " + keepAlive + " reuseCount:" + reuseCount);
                 reuseCount++;

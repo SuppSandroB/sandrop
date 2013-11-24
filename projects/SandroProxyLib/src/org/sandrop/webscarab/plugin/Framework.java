@@ -479,15 +479,12 @@ public class Framework {
     
     
     public void cleanConversation(Request request, Response response){
-        // Do we have whitelisting? If so, check if it matches
-        if (!canStore(request)){
-            // clean is needed because there can be some temp files for request/response big content
-            if (request != null){
-                request.clean();
-            }
-            if (response != null){
-               response.clean();
-            }
+        // clean is needed because there can be some temp files for request/response big content
+        if (request != null){
+            request.clean();
+        }
+        if (response != null){
+           response.clean();
         }
     }
     

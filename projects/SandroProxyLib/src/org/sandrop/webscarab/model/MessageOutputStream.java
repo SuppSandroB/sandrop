@@ -100,8 +100,10 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
     public int size(){
         int result = 0;
         if (!useFileStream){
-            result = memoryStream.size();
-        }else{
+            if (memoryStream != null){
+                result = memoryStream.size();
+            }
+       }else{
             try {
                 if (fileStream != null){
                     result = (int)fileStream.getChannel().size();

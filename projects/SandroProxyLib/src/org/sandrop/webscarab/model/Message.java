@@ -73,11 +73,11 @@ public class Message {
     private static boolean LOGD = true;
     private static String TAG = Message.class.getName();
     
-    InputStream _contentStream = null;
-    MessageOutputStream _content = null;
-    boolean _chunked = false;
-    boolean _gzipped = false;
-    int _length = -1;
+    private InputStream _contentStream = null;
+    private MessageOutputStream _content = null;
+    private boolean _chunked = false;
+    private boolean _gzipped = false;
+    private int _length = -1;
     protected Logger _logger = Logger.getLogger(this.getClass().getName());
     
     /** Message is a class that is used to represent the bulk of an HTTP message, namely
