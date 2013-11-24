@@ -17,6 +17,7 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
     private ByteArrayOutputStream memoryStream;
     private FileOutputStream fileStream;
     private boolean useFileStream = false;
+    private boolean deleteOnClean = true;
     private File file;
     
     private static boolean LOGD = true;
@@ -43,14 +44,33 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
     }
     
     public MessageOutputStream(String fileName) throws FileNotFoundException{
-        useFileStream = true;
         file = new File(fileName);
+        useFileStream = true;
+        deleteOnClean = false;
     }
     
     public String getFileName(){
         String result = null;
         if (useFileStream){
             result = file.getAbsolutePath();
+        }else{
+            if (memoryStream != null){
+                int size = memoryStream.size();
+                useFileStream = true;
+                try {
+                    file = File.createTempFile("SandroProxy", ".tmp");
+                    if (LOGD) Log.d(TAG, "Memory content. Creating temp file:"  + file.getAbsoluteFile());
+                    fileStream = new FileOutputStream(file);
+                    byte[] data = memoryStream.toByteArray();
+                    fileStream.write(data, 0, data.length);
+                    fileStream.flush();
+                    memoryStream = null;
+                    addRemoveActiveContentSum(size, true);
+                    result = file.getAbsolutePath();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
         return result;
     }
@@ -121,12 +141,15 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
     
     @Override
     public void close() throws IOException {
-        // TODO Auto-generated method stub
-        if (useFileStream){
-            fileStream.close();
-            fileStream = null;
-            if (LOGD) Log.d(TAG, "Memory content. Deleting temp file:"  + file.getAbsoluteFile());
-            file.delete();
+        if (useFileStream && deleteOnClean){
+            if (fileStream != null){
+                fileStream.close();
+                fileStream = null;
+            }
+            if (file != null && file.exists()){
+                if (LOGD) Log.d(TAG, "Memory content. Deleting temp file:"  + file.getAbsoluteFile());
+                file.delete();
+            }
         }else{
             if (memoryStream != null){
                 addRemoveActiveContentSum(size(), true);
