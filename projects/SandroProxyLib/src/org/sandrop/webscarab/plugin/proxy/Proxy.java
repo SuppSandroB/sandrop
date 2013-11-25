@@ -57,6 +57,7 @@ import org.sandrop.webscarab.model.ConnectionDescriptor;
 import org.sandrop.webscarab.model.ConversationID;
 import org.sandrop.webscarab.model.FrameworkModel;
 import org.sandrop.webscarab.model.HttpUrl;
+import org.sandrop.webscarab.model.MessageOutputStream;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
@@ -144,7 +145,8 @@ public class Proxy implements Plugin {
         _captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, false);
         _useFakeCerts = Preferences.getPreferenceBoolean(PreferenceUtils.proxyFakeCerts, false);
         _storeSslAsPcap = Preferences.getPreferenceBoolean(PreferenceUtils.proxyStoreSslAsPcap, false);
-        
+
+        MessageOutputStream.resetActiveMemorySize();
         parseListenerConfig();
         _certGenerator = null;
         try {

@@ -26,6 +26,10 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
     public static int LARGE_CONTENT_SIZE = 1024 * 1024;
     private static long SUM_MEMORY_CONTENT_ALL = 0;
     
+    public static void resetActiveMemorySize(){
+        SUM_MEMORY_CONTENT_ALL = 0;
+    }
+    
     public static synchronized void addRemoveActiveContentSum(int dataSize, boolean remove){
         String action = "";
         if (!remove){
