@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.Iterator;
 import java.util.logging.Level;
@@ -68,6 +69,8 @@ import org.sandrop.webscarab.plugin.Plugin;
 import org.sandrop.websockets.ExtensionWebSocket;
 import org.sandroproxy.constants.Constants;
 import org.sandroproxy.utils.PreferenceUtils;
+import org.sandroproxy.utils.preference.CheckOptionApp;
+import org.sandroproxy.utils.preference.CheckOptionAppList;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -91,6 +94,7 @@ public class Proxy implements Plugin {
     private boolean _captureData = false;
     private boolean _useFakeCerts = false;
     private boolean _storeSslAsPcap = false;
+    private Map<Integer, CheckOptionApp> _appOptions = null;
     
     private File storageDir = null;
     private File pcapStorageDir = null;
@@ -145,7 +149,7 @@ public class Proxy implements Plugin {
         _captureData = Preferences.getPreferenceBoolean(PreferenceUtils.proxyCaptureData, false);
         _useFakeCerts = Preferences.getPreferenceBoolean(PreferenceUtils.proxyFakeCerts, false);
         _storeSslAsPcap = Preferences.getPreferenceBoolean(PreferenceUtils.proxyStoreSslAsPcap, false);
-
+        _appOptions = CheckOptionAppList.CreateActiveObjectListFromPreferences(_framework.getAndroidContext());
         MessageOutputStream.resetActiveMemorySize();
         parseListenerConfig();
         _certGenerator = null;
@@ -160,13 +164,15 @@ public class Proxy implements Plugin {
             }
             _logger.fine("Using " + dataStorageDir.getAbsolutePath() + " for data storage");
             storageDir = dataStorageDir;
-            if (storageDir.exists() && !_captureData && _storeSslAsPcap){
+            if (storageDir.exists()){
                 File pcapStorage = new File(dataStorageDir.getAbsoluteFile() + "/pcap");
                 if (!pcapStorage.exists()){
                     pcapStorage.mkdir();
                 }
                 pcapStorageDir = pcapStorage;
-                PcapWriter.init(pcapStorage.getAbsolutePath() + "/capture_" + System.currentTimeMillis() + ".pcap");
+                if (!_captureData && _storeSslAsPcap){
+                    PcapWriter.init(pcapStorage.getAbsolutePath() + "/capture_" + System.currentTimeMillis() + ".pcap");
+                }
             }
             String keystoreCAFullPath = PreferenceUtils.getCAFilePath(_framework.getAndroidContext());
             String keystoreCertFullPath = PreferenceUtils.getCertFilePath(_framework.getAndroidContext());
@@ -194,6 +200,10 @@ public class Proxy implements Plugin {
         }
     }
     
+    
+    public Map<Integer, CheckOptionApp> getAppOptions(){
+        return _appOptions;
+    }
     
     public File getStorageDir(){
         return storageDir;

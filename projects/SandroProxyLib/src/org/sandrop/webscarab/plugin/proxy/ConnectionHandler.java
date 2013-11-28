@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -56,6 +57,7 @@ import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 import org.sandrop.webscarab.util.HtmlEncoder;
 import org.sandroproxy.utils.DNSProxy;
+import org.sandroproxy.utils.preference.CheckOptionApp;
 
 import android.util.Log;
 
@@ -103,7 +105,30 @@ public class ConnectionHandler implements Runnable {
         _useFakeCerts = useFakeCerts;
         _storeSslAsPcap = storeSslAsPcap;
         if (connectionDescriptor != null && connectionDescriptor.getId() > -1){
+            int uid = connectionDescriptor.getId();
+            int port = connectionDescriptor.getRemotePort();
             clientId = connectionDescriptor.getNamespace() + " <" + connectionDescriptor.getId() + ">";
+            Map<Integer, CheckOptionApp> appOptions =  _proxy.getAppOptions();
+            if (!_captureData){
+                if (appOptions != null){
+                    if(appOptions.containsKey(CheckOptionApp.ALL_UID)){
+                        CheckOptionApp appOpt = appOptions.get(CheckOptionApp.ALL_UID);
+                        if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
+                            if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).SF){
+                                _storeSslAsPcap = true;
+                            }
+                        }
+                    }
+                    if(appOptions.containsKey(uid)){
+                        CheckOptionApp appOpt = appOptions.get(uid);
+                        if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
+                            if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).SF){
+                                _storeSslAsPcap = true;
+                            }
+                        }
+                    }
+                }
+            }
         }else{
             clientId = "<" + _sock.getInetAddress().getHostAddress() + ":" + _sock.getPort() + ">";
         }

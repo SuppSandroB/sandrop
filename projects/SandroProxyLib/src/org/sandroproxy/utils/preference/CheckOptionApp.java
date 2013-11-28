@@ -3,6 +3,9 @@ package org.sandroproxy.utils.preference;
 import java.util.Map;
 
 public class CheckOptionApp {
+    
+    public static int ALL_UID = -2;
+    public static int ALL_5228_PORT = -3;
     /*
      * Watch http 
      */
