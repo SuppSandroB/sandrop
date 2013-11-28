@@ -48,7 +48,7 @@ public class DNSProxy implements Runnable {
     
   private static Logger _logger = Logger.getLogger(DNSProxy.class.getName());
   
-  private static boolean LOGD = true;
+  private static boolean LOGD = false;
   
   public static String getHostNameFromIp(String ip){
       String hostName = null;

@@ -72,6 +72,7 @@ public class SocketForwarder extends Thread {
             SocketForwarder serverClient = new SocketForwarder(name + "_serverClient", serverSocket.getInputStream(), clientSocket.getOutputStream(), pcapWriter, true);
                 clientServer.start();
                 serverClient.start();
+                
                 while (clientServer.isAlive()) {
                         try {
                             clientServer.join();
