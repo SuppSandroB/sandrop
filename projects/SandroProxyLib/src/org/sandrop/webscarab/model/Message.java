@@ -234,22 +234,10 @@ public class Message {
     }
     
     public boolean moveContentToFile(File file) throws Exception{
-        InputStream is =  getContentInputStream();
-        if (is != null){
-            FileOutputStream fs = new FileOutputStream(file);
-            byte[] buffer = new byte[1024]; // Adjust if you want
-            int bytesRead;
-            while ((bytesRead = is.read(buffer)) != -1)
-            {
-                fs.write(buffer, 0, bytesRead);
-            }
-            if (LOGD) Log.d(TAG, " byte buffer storing content to file " + file.getAbsolutePath());
-            fs.flush();
-            fs.close();
-            return true;
-        }else{
-            return false;
+        if (_content != null){
+            return _content.moveContentToFile(file);
         }
+        return false;
     }
     
     /**

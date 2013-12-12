@@ -53,6 +53,38 @@ public class MessageOutputStream extends OutputStream implements java.io.Closeab
         deleteOnClean = false;
     }
     
+    public boolean moveContentToFile(File newFile) throws Exception{
+        try{
+            if (useFileStream){
+                String newAbsolutePath = newFile.getAbsolutePath();
+                String oldAbsolutePath = file.getAbsolutePath();
+                if (newAbsolutePath.equalsIgnoreCase(oldAbsolutePath)){
+                    return false;
+                }
+                if (LOGD) Log.d(TAG, " start rename file storing content to file " + newAbsolutePath);
+                file.renameTo(newFile);
+                return true;
+            }else{
+                FileOutputStream fs = new FileOutputStream(newFile);
+                byte[] buffer = new byte[4096]; // Adjust if you want
+                int bytesRead;
+                InputStream is = getInputStream();
+                while ((bytesRead = is.read(buffer)) != -1)
+                {
+                    fs.write(buffer, 0, bytesRead);
+                }
+                if (LOGD) Log.d(TAG, " byte buffer storing content to file " + newFile.getAbsolutePath());
+                fs.flush();
+                fs.close();
+                return true;
+            }
+        }catch(Exception ex){
+            ex.printStackTrace();
+            throw ex;
+        }
+        
+    }
+    
     public String getFileName(){
         String result = null;
         if (useFileStream){
