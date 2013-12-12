@@ -16,7 +16,7 @@ import org.sandrop.webscarab.plugin.proxy.Proxy;
 import org.sandrop.webscarab.plugin.proxy.ProxyPlugin;
 import org.sandroproxy.logger.Logger;
 import org.sandroproxy.plugin.R;
-import org.sandroproxy.proxy.plugin.CustomPlugin;
+import org.sandroproxy.proxy.plugin.CustomPluginChangeRequest;
 import org.sandroproxy.utils.NetworkHostNameResolver;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
@@ -67,6 +67,8 @@ public class MainActivity extends Activity {
     private static String EXTRA_CERTIFICATE = "CERT";
     
     private static java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainActivity.class.getName());
+    
+    private static boolean iptableRulesActions = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -87,7 +89,7 @@ public class MainActivity extends Activity {
                         @Override
                         public void run() {
                             Preferences.init(getApplicationContext());
-                            if (isDeviceRooted()){
+                            if (iptableRulesActions && isDeviceRooted()){
                                 ipTablesForTransparentProxy(true);
                             }
                             framework = new Framework(getApplicationContext());
@@ -96,8 +98,8 @@ public class MainActivity extends Activity {
                             Proxy proxy = new Proxy(framework, networkHostNameResolver, null);
                             framework.addPlugin(proxy);
                             if (true){
-                                ProxyPlugin plugin = new CustomPlugin();
-                                proxy.addPlugin(plugin);
+                                ProxyPlugin pluginCustomChangeRequest = new CustomPluginChangeRequest();
+                                proxy.addPlugin(pluginCustomChangeRequest);
                             }
                             proxy.run();
                             proxyStarted = true;
@@ -111,7 +113,7 @@ public class MainActivity extends Activity {
                     {
                         @Override
                         public void run() {
-                            if (isDeviceRooted()){
+                            if (iptableRulesActions && isDeviceRooted()){
                                 ipTablesForTransparentProxy(false);
                             }
                             if (framework != null){
@@ -199,7 +201,7 @@ public class MainActivity extends Activity {
             });
         }
         // clear iptables
-        if (isDeviceRooted()){
+        if (iptableRulesActions && isDeviceRooted()){
             MenuItem itemIpTablesClear = menu.add("Clear iptables");
             itemIpTablesClear.setIcon(R.drawable.ic_menu_compass);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB){
@@ -477,13 +479,13 @@ public class MainActivity extends Activity {
             pref.edit().putBoolean(PreferenceUtils.proxyListenNonLocal, true).commit();
         }
         
-        // we listen also for transparent flow 
+        // we NOT listen also for transparent flow 
         boolean transparentProxy = pref.getBoolean(PreferenceUtils.proxyTransparentKey, false);
-        if (!transparentProxy){
+        if (transparentProxy){
             pref.edit().putBoolean(PreferenceUtils.proxyTransparentKey, true).commit();
         }
         
-        // capture data to database
+        // capture data to database is ON
         boolean proxyCaptureData = pref.getBoolean(PreferenceUtils.proxyCaptureData, false);
         if (!proxyCaptureData){
             pref.edit().putBoolean(PreferenceUtils.proxyCaptureData, true).commit();
