@@ -449,6 +449,8 @@ public class Framework {
     
     public long gotRequest(long conversationId, Date when, Request request){
         if (!canStore(request)) return -1;
+        // to be sure that all data is read from request before making store
+        request.flushContentStream();
         return _model.updateGotRequestConversation(conversationId, when, request);
     }
     
