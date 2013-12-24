@@ -28,7 +28,7 @@
  */
 
 /**
- * @param {Array.<number>} rgba
+ * @param {!Array.<number>} rgba
  * @param {string=} format
  * @param {string=} originalText
  * @constructor
@@ -133,8 +133,8 @@ WebInspector.Color.parse = function(text)
 }
 
 /**
- * @param {Array.<number>} rgba
- * @return {WebInspector.Color}
+ * @param {!Array.<number>} rgba
+ * @return {!WebInspector.Color}
  */
 WebInspector.Color.fromRGBA = function(rgba)
 {
@@ -142,8 +142,8 @@ WebInspector.Color.fromRGBA = function(rgba)
 }
 
 /**
- * @param {Array.<number>} hsva
- * @return {WebInspector.Color}
+ * @param {!Array.<number>} hsva
+ * @return {!WebInspector.Color}
  */
 WebInspector.Color.fromHSVA = function(hsva)
 {
@@ -171,7 +171,7 @@ WebInspector.Color.prototype = {
     },
 
     /**
-     * @return {Array.<number>} HSLA with components within [0..1]
+     * @return {!Array.<number>} HSLA with components within [0..1]
      */
     hsla: function()
     {
@@ -210,7 +210,7 @@ WebInspector.Color.prototype = {
     },
 
     /**
-     * @return {Array.<number>} HSVA with components within [0..1]
+     * @return {!Array.<number>} HSVA with components within [0..1]
      */
     hsva: function()
     {
@@ -315,7 +315,7 @@ WebInspector.Color.prototype = {
     },
 
     /**
-     * @return {Array.<number>}
+     * @return {!Array.<number>}
      */
     _canonicalRGBA: function()
     {
@@ -344,7 +344,7 @@ WebInspector.Color.prototype = {
     },
 
     /**
-     * @return {DOMAgent.RGBA}
+     * @return {!DOMAgent.RGBA}
      */
     toProtocolRGBA: function()
     {
@@ -353,7 +353,31 @@ WebInspector.Color.prototype = {
         if (rgba[3] !== 1)
             result.a = rgba[3];
         return result;
-    }
+    },
+
+    /**
+     * @return {!WebInspector.Color}
+     */
+    invert: function()
+    {
+        var rgba = [];
+        rgba[0] = 1 - this._rgba[0];
+        rgba[1] = 1 - this._rgba[1];
+        rgba[2] = 1 - this._rgba[2];
+        rgba[3] = this._rgba[3];
+        return new WebInspector.Color(rgba);
+    },
+
+    /**
+     * @param {number} alpha
+     * @return {!WebInspector.Color}
+     */
+     setAlpha: function(alpha)
+     {
+         var rgba = this._rgba.slice();
+         rgba[3] = alpha;
+         return new WebInspector.Color(rgba);
+     }
 }
 
 /**
@@ -398,8 +422,8 @@ WebInspector.Color._parseAlphaNumeric = function(value)
 }
 
 /**
- * @param {Array.<number>} hsl
- * @return {Array.<number>}
+ * @param {!Array.<number>} hsl
+ * @return {!Array.<number>}
  */
 WebInspector.Color._hsl2rgb = function(hsl)
 {

@@ -32,7 +32,7 @@
 
 /**
  * @constructor
- * @param {Array.<CSSAgent.CSSPropertyInfo|string>} properties
+ * @param {!Array.<!CSSAgent.CSSPropertyInfo|string>} properties
  */
 WebInspector.CSSMetadata = function(properties)
 {
@@ -456,7 +456,7 @@ WebInspector.CSSMetadata._propertyDataMap = {
         "hide", "show"
     ] },
     "pointer-events": { values: [
-        "none", "all", "auto", "visible", "visiblepainted", "visiblefill", "visiblestroke", "painted", "fill", "stroke"
+        "none", "all", "auto", "visible", "visiblepainted", "visiblefill", "visiblestroke", "painted", "fill", "stroke", "bounding-box"
     ] },
     "letter-spacing": { values: [
         "normal"
@@ -705,7 +705,7 @@ WebInspector.CSSMetadata.keywordsForProperty = function(propertyName)
 
 /**
  * @param {string} propertyName
- * @return {Object}
+ * @return {?Object}
  */
 WebInspector.CSSMetadata.descriptor = function(propertyName)
 {
@@ -873,7 +873,7 @@ WebInspector.CSSMetadata.prototype = {
     },
 
     /**
-     * @param {Array.<string>} properties
+     * @param {!Array.<string>} properties
      * @return {number}
      */
     mostUsedOf: function(properties)

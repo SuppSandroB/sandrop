@@ -31,35 +31,33 @@
 /**
  * @constructor
  * @extends {WebInspector.MemoryStatistics}
- * @param {WebInspector.TimelinePanel} timelinePanel
- * @param {WebInspector.TimelineModel} model
- * @param {number} sidebarWidth
+ * @param {!WebInspector.TimelinePanel} timelinePanel
+ * @param {!WebInspector.TimelineModel} model
  */
-WebInspector.DOMCountersGraph = function(timelinePanel, model, sidebarWidth)
+WebInspector.DOMCountersGraph = function(timelinePanel, model)
 {
-    WebInspector.MemoryStatistics.call(this, timelinePanel, model, sidebarWidth);
+    WebInspector.MemoryStatistics.call(this, timelinePanel, model);
 }
 
 /**
  * @constructor
  * @extends {WebInspector.CounterUIBase}
- * @param {WebInspector.DOMCountersGraph} memoryCountersPane
+ * @param {!WebInspector.DOMCountersGraph} memoryCountersPane
  * @param {string} title
  * @param {string} currentValueLabel
- * @param {Array.<number>} rgb
- * @param {function(WebInspector.DOMCountersGraph.Counter):number} valueGetter
+ * @param {!string} color
+ * @param {function(!WebInspector.DOMCountersGraph.Counter):number} valueGetter
  */
-WebInspector.DOMCounterUI = function(memoryCountersPane, title, currentValueLabel, rgb, valueGetter)
+WebInspector.DOMCounterUI = function(memoryCountersPane, title, currentValueLabel, color, valueGetter)
 {
-    var swatchColor = "rgb(" + rgb.join(",") + ")";
-    WebInspector.CounterUIBase.call(this, memoryCountersPane, title, swatchColor, valueGetter)
+    WebInspector.CounterUIBase.call(this, memoryCountersPane, title, color, valueGetter)
     this._range = this._swatch.element.createChild("span");
 
     this._value = memoryCountersPane._currentValuesBar.createChild("span", "memory-counter-value");
-    this._value.style.color = swatchColor;
+    this._value.style.color = color;
     this._currentValueLabel = currentValueLabel;
 
-    this.graphColor = "rgba(" + rgb.join(",") + ",0.8)";
+    this.graphColor = color;
     this.graphYValues = [];
 }
 
@@ -71,12 +69,13 @@ WebInspector.DOMCounterUI = function(memoryCountersPane, title, currentValueLabe
  * @param {number} nodeCount
  * @param {number} listenerCount
  */
-WebInspector.DOMCountersGraph.Counter = function(time, documentCount, nodeCount, listenerCount)
+WebInspector.DOMCountersGraph.Counter = function(time, documentCount, nodeCount, listenerCount, usedGPUMemoryKBytes)
 {
     WebInspector.MemoryStatistics.Counter.call(this, time);
     this.documentCount = documentCount;
     this.nodeCount = nodeCount;
     this.listenerCount = listenerCount;
+    this.usedGPUMemoryKBytes = usedGPUMemoryKBytes;
 }
 
 WebInspector.DOMCounterUI.prototype = {
@@ -86,12 +85,12 @@ WebInspector.DOMCounterUI.prototype = {
      */
     setRange: function(minValue, maxValue)
     {
-        this._range.textContent = WebInspector.UIString("[ %d - %d ]", minValue, maxValue);
+        this._range.textContent = WebInspector.UIString("[%d:%d]", minValue, maxValue);
     },
 
     updateCurrentValue: function(countersEntry)
     {
-        this._value.textContent =  WebInspector.UIString(this._currentValueLabel, this.valueGetter(countersEntry));
+        this._value.textContent = WebInspector.UIString(this._currentValueLabel, this.valueGetter(countersEntry));
     },
 
     clearCurrentValueAndMarker: function(ctx)
@@ -101,7 +100,7 @@ WebInspector.DOMCounterUI.prototype = {
     },
 
     /**
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {!CanvasRenderingContext2D} ctx
      * @param {number} x
      * @param {number} y
      * @param {number} radius
@@ -118,7 +117,7 @@ WebInspector.DOMCounterUI.prototype = {
     },
 
     /**
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {!CanvasRenderingContext2D} ctx
      */
     restoreImageUnderMarker: function(ctx)
     {
@@ -143,11 +142,19 @@ WebInspector.DOMCountersGraph.prototype = {
     {
         this._currentValuesBar = this._canvasContainer.createChild("div");
         this._currentValuesBar.id = "counter-values-bar";
-        this._canvasContainer.addStyleClass("dom-counters");
+        this._canvasContainer.classList.add("dom-counters");
     },
 
     /**
-     * @return {Array.<WebInspector.DOMCounterUI>}
+     * @return {!Element}
+     */
+    resizeElement: function()
+    {
+        return this._currentValuesBar;
+    },
+
+    /**
+     * @return {!Array.<!WebInspector.DOMCounterUI>}
      */
     _createCounterUIList: function()
     {
@@ -163,47 +170,104 @@ WebInspector.DOMCountersGraph.prototype = {
         {
             return entry.listenerCount;
         }
-        return [
-            new WebInspector.DOMCounterUI(this, "Document Count", "Documents: %d", [100, 0, 0], getDocumentCount),
-            new WebInspector.DOMCounterUI(this, "DOM Node Count", "Nodes: %d", [0, 100, 0], getNodeCount),
-            new WebInspector.DOMCounterUI(this, "Event Listener Count", "Listeners: %d", [0, 0, 100], getListenerCount)
+        function getUsedGPUMemoryKBytes(entry)
+        {
+            return entry.usedGPUMemoryKBytes;
+        }
+        var counterUIs = [
+            new WebInspector.DOMCounterUI(this, "Documents", "Documents: %d", "#d00", getDocumentCount),
+            new WebInspector.DOMCounterUI(this, "Nodes", "Nodes: %d", "#0a0", getNodeCount),
+            new WebInspector.DOMCounterUI(this, "Listeners", "Listeners: %d", "#00d", getListenerCount)
         ];
-    },
-
-    _canvasHeight: function()
-    {
-        return this._canvasContainer.offsetHeight - this._currentValuesBar.offsetHeight;
+        if (WebInspector.experimentsSettings.gpuTimeline.isEnabled())
+            counterUIs.push(new WebInspector.DOMCounterUI(this, "GPU Memory", "GPU Memory [KB]: %d", "#c0c", getUsedGPUMemoryKBytes));
+        return counterUIs;
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _onRecordAdded: function(event)
     {
+        /**
+         * @param {!Array.<!T>} array
+         * @param {!S} item
+         * @param {!function(!T,!S):!number} comparator
+         * @return {!number}
+         * @template T,S
+         */
+        function findInsertionLocation(array, item, comparator)
+        {
+            var index = array.length;
+            while (index > 0 && comparator(array[index - 1], item) > 0)
+                --index;
+            return index;
+        }
+
+        /**
+         * @this {WebInspector.DOMCountersGraph}
+         */
         function addStatistics(record)
         {
             var counters = record["counters"];
+            var isGPURecord = record.data && typeof record.data["usedGPUMemoryBytes"] !== "undefined";
+            if (isGPURecord) {
+                counters = counters || {
+                    "startTime": record.startTime,
+                    "endTime": record.endTime
+                };
+                counters["usedGPUMemoryKBytes"] = Math.round(record.data["usedGPUMemoryBytes"] / 1024);
+            }
             if (!counters)
                 return;
-            this._counters.push(new WebInspector.DOMCountersGraph.Counter(
-                record.endTime || record.startTime,
+
+            var time = record.endTime || record.startTime;
+            var counter = new WebInspector.DOMCountersGraph.Counter(
+                time,
                 counters["documents"],
                 counters["nodes"],
-                counters["jsEventListeners"]
-            ));
+                counters["jsEventListeners"],
+                counters["usedGPUMemoryKBytes"]
+            );
+
+            function compare(record, time)
+            {
+                return record.time - time;
+            }
+            var index = findInsertionLocation(this._counters, time, compare);
+            this._counters.splice(index, 0, counter);
+            if (isGPURecord) {
+                // Populate missing values from preceeding records.
+                // FIXME: Refactor the code to make each WebInspector.DOMCountersGraph.Counter
+                // be responsible for a single graph to avoid such synchronizations.
+                for (var i = index - 1; i >= 0 && typeof this._counters[i].usedGPUMemoryKBytes === "undefined"; --i) { }
+                var usedGPUMemoryKBytes = this._counters[i >= 0 ? i : index].usedGPUMemoryKBytes;
+                for (i = Math.max(i, 0); i < index; ++i)
+                    this._counters[i].usedGPUMemoryKBytes = usedGPUMemoryKBytes;
+                var copyFrom = index > 0 ? index - 1 : index + 1;
+                if (copyFrom < this._counters.length) {
+                    this._counters[index].documentCount = this._counters[copyFrom].documentCount;
+                    this._counters[index].nodeCount = this._counters[copyFrom].nodeCount;
+                    this._counters[index].listenerCount = this._counters[copyFrom].listenerCount;
+                } else {
+                    this._counters[index].documentCount =  0;
+                    this._counters[index].nodeCount = 0;
+                    this._counters[index].listenerCount = 0;
+                }
+            }
         }
         WebInspector.TimelinePresentationModel.forAllRecords([event.data], null, addStatistics.bind(this));
     },
 
-    _draw: function()
+    draw: function()
     {
-        WebInspector.MemoryStatistics.prototype._draw.call(this);
+        WebInspector.MemoryStatistics.prototype.draw.call(this);
         for (var i = 0; i < this._counterUI.length; i++)
             this._drawGraph(this._counterUI[i]);
     },
 
     /**
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {!CanvasRenderingContext2D} ctx
      */
     _restoreImageUnderMarker: function(ctx)
     {
@@ -216,7 +280,7 @@ WebInspector.DOMCountersGraph.prototype = {
     },
 
     /**
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {!CanvasRenderingContext2D} ctx
      * @param {number} x
      * @param {number} index
      */
@@ -233,7 +297,7 @@ WebInspector.DOMCountersGraph.prototype = {
     },
 
     /**
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {!CanvasRenderingContext2D} ctx
      * @param {number} x
      * @param {number} index
      */
@@ -247,7 +311,7 @@ WebInspector.DOMCountersGraph.prototype = {
                 continue;
             var y = counterUI.graphYValues[index];
             ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2, true);
+            ctx.arc(x + 0.5, y + 0.5, radius, 0, Math.PI * 2, true);
             ctx.lineWidth = 1;
             ctx.fillStyle = counterUI.graphColor;
             ctx.strokeStyle = counterUI.graphColor;
@@ -258,7 +322,7 @@ WebInspector.DOMCountersGraph.prototype = {
     },
 
     /**
-     * @param {WebInspector.CounterUIBase} counterUI
+     * @param {!WebInspector.CounterUIBase} counterUI
      */
     _drawGraph: function(counterUI)
     {
@@ -281,6 +345,8 @@ WebInspector.DOMCountersGraph.prototype = {
             if (maxValue === undefined || value > maxValue)
                 maxValue = value;
         }
+        minValue = minValue || 0;
+        maxValue = maxValue || 1;
 
         counterUI.setRange(minValue, maxValue);
 
@@ -293,15 +359,20 @@ WebInspector.DOMCountersGraph.prototype = {
         var maxYRange = maxValue - minValue;
         var yFactor = maxYRange ? height / (maxYRange) : 1;
 
+        ctx.save();
+        ctx.translate(0.5, 0.5);
         ctx.beginPath();
-        var currentY = originY + (height - (valueGetter(this._counters[this._minimumIndex]) - minValue) * yFactor);
+        var value = valueGetter(this._counters[this._minimumIndex]) || 0;
+        var currentY = Math.round(originY + height - (value - minValue) * yFactor);
         ctx.moveTo(0, currentY);
         for (var i = this._minimumIndex; i <= this._maximumIndex; i++) {
-             var x = this._counters[i].x;
+             var x = Math.round(this._counters[i].x);
              ctx.lineTo(x, currentY);
-             currentY = originY + (height - (valueGetter(this._counters[i]) - minValue) * yFactor);
+             var currentValue = valueGetter(this._counters[i]);
+             if (typeof currentValue !== "undefined")
+                value = currentValue;
+             currentY = Math.round(originY + height - (value - minValue) * yFactor);
              ctx.lineTo(x, currentY);
-
              yValues[i] = currentY;
         }
         ctx.lineTo(width, currentY);
@@ -309,6 +380,7 @@ WebInspector.DOMCountersGraph.prototype = {
         ctx.strokeStyle = counterUI.graphColor;
         ctx.stroke();
         ctx.closePath();
+        ctx.restore();
     },
 
     _discardImageUnderMarker: function()

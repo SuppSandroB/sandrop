@@ -30,7 +30,7 @@
 
 /**
  * @constructor
- * @param {WebInspector.View} view
+ * @param {!WebInspector.View} view
  * @param {string} widthSettingName
  * @param {number} minimalWidth
  */
@@ -54,12 +54,12 @@ WebInspector.SidebarOverlay = function(view, widthSettingName, minimalWidth)
 
 WebInspector.SidebarOverlay.prototype = {
     /**
-     * @param {Element} relativeToElement
+     * @param {!Element} relativeToElement
      */
     show: function(relativeToElement)
     {
         relativeToElement.appendChild(this.element);
-        relativeToElement.addStyleClass("sidebar-overlay-shown");
+        relativeToElement.classList.add("sidebar-overlay-shown");
         this._view.show(this.element);
         this.element.appendChild(this._resizerElement);
         if (this._resizerWidgetElement)
@@ -68,7 +68,7 @@ WebInspector.SidebarOverlay.prototype = {
     },
 
     /**
-     * @param {Element} relativeToElement
+     * @param {!Element} relativeToElement
      */
     position: function(relativeToElement)
     {
@@ -89,7 +89,7 @@ WebInspector.SidebarOverlay.prototype = {
 
         this._view.detach();
         element.removeChild(this.element);
-        element.removeStyleClass("sidebar-overlay-shown");
+        element.classList.remove("sidebar-overlay-shown");
         this.element.removeChild(this._resizerElement);
         if (this._resizerWidgetElement)
             this.element.removeChild(this._resizerWidgetElement);
@@ -133,7 +133,7 @@ WebInspector.SidebarOverlay.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {!Event} event
      * @return {boolean}
      */
     _startResizerDragging: function(event)
@@ -144,7 +144,7 @@ WebInspector.SidebarOverlay.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {!Event} event
      */
     _resizerDragging: function(event)
     {
@@ -154,7 +154,7 @@ WebInspector.SidebarOverlay.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {!Event} event
      */
     _endResizerDragging: function(event)
     {
@@ -162,7 +162,7 @@ WebInspector.SidebarOverlay.prototype = {
     },
 
     /**
-     * @param {Element} resizerElement
+     * @param {!Element} resizerElement
      */
     _installResizer: function(resizerElement)
     {
@@ -170,7 +170,7 @@ WebInspector.SidebarOverlay.prototype = {
     },
 
     /**
-     * @type {Element}
+     * @param {!Element} resizerWidgetElement
      */
     set resizerWidgetElement(resizerWidgetElement)
     {

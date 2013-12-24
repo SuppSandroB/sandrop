@@ -30,7 +30,7 @@
 
 /**
  * @constructor
- * @param {WebInspector.AuditController} auditController
+ * @param {!WebInspector.AuditController} auditController
  * @extends {WebInspector.View}
  */
 WebInspector.AuditLauncherView = function(auditController)
@@ -42,8 +42,8 @@ WebInspector.AuditLauncherView = function(auditController)
     this._categoryIdPrefix = "audit-category-item-";
     this._auditRunning = false;
 
-    this.element.addStyleClass("audit-launcher-view");
-    this.element.addStyleClass("panel-enabler-view");
+    this.element.classList.add("audit-launcher-view");
+    this.element.classList.add("panel-enabler-view");
 
     this._contentElement = document.createElement("div");
     this._contentElement.className = "audit-launcher-view-content";
@@ -78,7 +78,7 @@ WebInspector.AuditLauncherView.prototype = {
 
     _onRequestStarted: function(event)
     {
-        var request = /** @type {WebInspector.NetworkRequest} */ (event.data);
+        var request = /** @type {!WebInspector.NetworkRequest} */ (event.data);
         // Ignore long-living WebSockets for the sake of progress indicator, as we won't be waiting them anyway.
         if (request.type === WebInspector.resourceTypes.WebSocket)
             return;
@@ -88,7 +88,7 @@ WebInspector.AuditLauncherView.prototype = {
 
     _onRequestFinished: function(event)
     {
-        var request = /** @type {WebInspector.NetworkRequest} */ (event.data);
+        var request = /** @type {!WebInspector.NetworkRequest} */ (event.data);
         // See resorceStarted for details.
         if (request.type === WebInspector.resourceTypes.WebSocket)
             return;
@@ -158,6 +158,9 @@ WebInspector.AuditLauncherView.prototype = {
         this._buttonContainerElement.appendChild(this._progressIndicator.element);
         this._displayResourceLoadingProgress = true;
 
+        /**
+         * @this {WebInspector.AuditLauncherView}
+         */
         function onAuditStarted()
         {
             this._displayResourceLoadingProgress = false;
@@ -244,6 +247,10 @@ WebInspector.AuditLauncherView.prototype = {
 
         this._contentElement.appendChild(this._headerElement);
 
+        /**
+         * @param {?Event} event
+         * @this {WebInspector.AuditLauncherView}
+         */
         function handleSelectAllClick(event)
         {
             this._selectAllClicked(event.target.checked, true);

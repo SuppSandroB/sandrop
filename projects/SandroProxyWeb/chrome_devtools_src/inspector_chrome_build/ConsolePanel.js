@@ -29,19 +29,39 @@
 /**
  * @constructor
  * @extends {WebInspector.Panel}
+ * @implements {WebInspector.ViewFactory}
  */
 WebInspector.ConsolePanel = function()
 {
     WebInspector.Panel.call(this, "console");
-
     this._view = WebInspector.consoleView;
 }
 
 WebInspector.ConsolePanel.prototype = {
+    /**
+     * @param {string=} id
+     * @return {?WebInspector.View}
+     */
+    createView: function(id)
+    {
+        if (!this._consoleViewWrapper) {
+            this._consoleViewWrapper = new WebInspector.View();
+            this._consoleViewWrapper.element.classList.add("fill", "console-view-wrapper");
+            if (WebInspector.inspectorView.currentPanel() !== this)
+                this._view.show(this._consoleViewWrapper.element);
+        }
+        return this._consoleViewWrapper;
+    },
+
+    defaultFocusedElement: function()
+    {
+        return this._view.defaultFocusedElement();
+    },
+
     wasShown: function()
     {
         WebInspector.Panel.prototype.wasShown.call(this);
-        if (WebInspector.inspectorView.drawer().visible()) {
+        if (WebInspector.inspectorView.drawer().visible() && WebInspector.inspectorView.selectedViewInDrawer() === "console") {
             WebInspector.inspectorView.drawer().hide(true);
             this._drawerWasVisible = true;
         }
@@ -54,31 +74,10 @@ WebInspector.ConsolePanel.prototype = {
             WebInspector.inspectorView.drawer().show(true);
             delete this._drawerWasVisible;
         }
+
         WebInspector.Panel.prototype.willHide.call(this);
-    },
-
-    searchCanceled: function()
-    {
-        this._view.searchCanceled();
-    },
-
-    /**
-     * @param {string} query
-     * @param {boolean} shouldJump
-     */
-    performSearch: function(query, shouldJump)
-    {
-        this._view.performSearch(query, shouldJump, this);
-    },
-
-    jumpToNextSearchResult: function()
-    {
-        this._view.jumpToNextSearchResult(this);
-    },
-
-    jumpToPreviousSearchResult: function()
-    {
-        this._view.jumpToPreviousSearchResult(this);
+        if (this._consoleViewWrapper)
+            this._view.show(this._consoleViewWrapper.element);
     },
 
     __proto__: WebInspector.Panel.prototype

@@ -33,7 +33,8 @@
  */
 WebInspector.ShortcutsScreen = function()
 {
-    this._sections = /** @type {Object.<string, !WebInspector.ShortcutsSection>} */ ({});
+    /** @type {!Object.<string, !WebInspector.ShortcutsSection>} */
+    this._sections = {};
 }
 
 WebInspector.ShortcutsScreen.prototype = {
@@ -85,9 +86,9 @@ WebInspector.ShortcutsScreen.prototype = {
 
 /**
  * We cannot initialize it here as localized strings are not loaded yet.
- * @type {?WebInspector.ShortcutsScreen}
+ * @type {!WebInspector.ShortcutsScreen}
  */
-WebInspector.shortcutsScreen = null;
+WebInspector.shortcutsScreen;
 
 /**
  * @constructor

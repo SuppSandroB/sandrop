@@ -33,8 +33,8 @@
  * @extends {TreeOutline}
  * @param {boolean=} omitRootDOMNode
  * @param {boolean=} selectEnabled
- * @param {function(WebInspector.ContextMenu, WebInspector.DOMNode)=} contextMenuCallback
- * @param {function(DOMAgent.NodeId, string, boolean)=} setPseudoClassCallback
+ * @param {function(!WebInspector.ContextMenu, !WebInspector.DOMNode)=} contextMenuCallback
+ * @param {function(!DOMAgent.NodeId, string, boolean)=} setPseudoClassCallback
  */
 WebInspector.ElementsTreeOutline = function(omitRootDOMNode, selectEnabled, contextMenuCallback, setPseudoClassCallback)
 {
@@ -54,9 +54,9 @@ WebInspector.ElementsTreeOutline = function(omitRootDOMNode, selectEnabled, cont
 
     this._includeRootDOMNode = !omitRootDOMNode;
     this._selectEnabled = selectEnabled;
-    /** @type {WebInspector.DOMNode} */
+    /** @type {?WebInspector.DOMNode} */
     this._rootDOMNode = null;
-    /** @type {WebInspector.DOMNode} */
+    /** @type {?WebInspector.DOMNode} */
     this._selectedDOMNode = null;
     this._eventSupport = new WebInspector.Object();
 
@@ -167,7 +167,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @return {WebInspector.DOMNode}
+     * @return {?WebInspector.DOMNode}
      */
     selectedDOMNode: function()
     {
@@ -175,7 +175,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @param {WebInspector.DOMNode} node
+     * @param {?WebInspector.DOMNode} node
      * @param {boolean=} focus
      */
     selectDOMNode: function(node, focus)
@@ -276,7 +276,7 @@ WebInspector.ElementsTreeOutline.prototype = {
 
     /**
      * @param {!WebInspector.DOMNode} node
-     * @return {TreeElement}
+     * @return {?TreeElement}
      */
     findTreeElement: function(node)
     {
@@ -301,7 +301,7 @@ WebInspector.ElementsTreeOutline.prototype = {
 
     /**
      * @param {!WebInspector.DOMNode} node
-     * @return {TreeElement}
+     * @return {?TreeElement}
      */
     createTreeElementFor: function(node)
     {
@@ -323,7 +323,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @param {WebInspector.DOMNode} node
+     * @param {?WebInspector.DOMNode} node
      * @param {boolean} omitFocus
      */
     _revealAndSelectNode: function(node, omitFocus)
@@ -343,7 +343,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @return {TreeElement}
+     * @return {?TreeElement}
      */
     _treeElementFromEvent: function(event)
     {
@@ -457,7 +457,7 @@ WebInspector.ElementsTreeOutline.prototype = {
         }
 
         treeElement.updateSelection();
-        treeElement.listItemElement.addStyleClass("elements-drag-over");
+        treeElement.listItemElement.classList.add("elements-drag-over");
         this._dragOverTreeElement = treeElement;
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
@@ -472,7 +472,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @param {TreeElement} treeElement
+     * @param {?TreeElement} treeElement
      * @return {boolean}
      */
     _isValidDragSourceOrTarget: function(treeElement)
@@ -499,7 +499,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @param {TreeElement} treeElement
+     * @param {!TreeElement} treeElement
      */
     _doMove: function(treeElement)
     {
@@ -535,18 +535,19 @@ WebInspector.ElementsTreeOutline.prototype = {
     {
         if (this._dragOverTreeElement) {
             this._dragOverTreeElement.updateSelection();
-            this._dragOverTreeElement.listItemElement.removeStyleClass("elements-drag-over");
+            this._dragOverTreeElement.listItemElement.classList.remove("elements-drag-over");
             delete this._dragOverTreeElement;
         }
     },
 
     /**
-     * @param {Event} event
+     * @param {?Event} event
      */
     _onkeydown: function(event)
     {
-        var keyboardEvent = /** @type {KeyboardEvent} */ (event);
-        var node = this.selectedDOMNode();
+        var keyboardEvent = /** @type {!KeyboardEvent} */ (event);
+        var node = /** @type {!WebInspector.DOMNode} */ (this.selectedDOMNode());
+        console.assert(node);
         var treeElement = this.getCachedTreeElement(node);
         if (!treeElement)
             return;
@@ -578,7 +579,7 @@ WebInspector.ElementsTreeOutline.prototype = {
         var isPseudoElement = !!treeElement._node.pseudoType();
         var isTag = treeElement._node.nodeType() === Node.ELEMENT_NODE && !isPseudoElement;
         var textNode = event.target.enclosingNodeOrSelfWithClass("webkit-html-text-node");
-        if (textNode && textNode.hasStyleClass("bogus"))
+        if (textNode && textNode.classList.contains("bogus"))
             textNode = null;
         var commentNode = event.target.enclosingNodeOrSelfWithClass("webkit-html-comment");
         contextMenu.appendApplicableItems(event.target);
@@ -636,7 +637,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     },
 
     /**
-     * @param {WebInspector.DOMNode} node
+     * @param {!WebInspector.DOMNode} node
      */
     _toggleEditAsHTML: function(node)
     {
@@ -653,7 +654,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     /**
      * @param {boolean} wasExpanded
      * @param {?Protocol.Error} error
-     * @param {DOMAgent.NodeId=} nodeId
+     * @param {!DOMAgent.NodeId=} nodeId
      */
     _selectNodeAfterEdit: function(wasExpanded, error, nodeId)
     {
@@ -683,22 +684,33 @@ WebInspector.ElementsTreeOutline.prototype = {
      * containing a rule to set "visibility: hidden" on the class and all it's
      * ancestors.
      *
-     * @param {WebInspector.DOMNode} node
+     * @param {!WebInspector.DOMNode} node
      * @param {function(?WebInspector.RemoteObject, boolean=)=} userCallback
      */
     _toggleHideShortcut: function(node, userCallback)
     {
+        var pseudoType = node.pseudoType();
+        var effectiveNode = pseudoType ? node.parentNode : node;
+        if (!effectiveNode)
+            return;
+
         function resolvedNode(object)
         {
             if (!object)
                 return;
 
-            function toggleClassAndInjectStyleRule()
+            /**
+             * @param {?string} pseudoType
+             * @this {!Element}
+             */
+            function toggleClassAndInjectStyleRule(pseudoType)
             {
-                const className = "__web-inspector-hide-shortcut__";
+                const classNamePrefix = "__web-inspector-hide";
+                const classNameSuffix = "-shortcut__";
                 const styleTagId = "__web-inspector-hide-shortcut-style__";
-                const styleRule = ".__web-inspector-hide-shortcut__, .__web-inspector-hide-shortcut__ * { visibility: hidden !important; }";
+                const styleRules = ".__web-inspector-hide-shortcut__, .__web-inspector-hide-shortcut__ * { visibility: hidden !important; } .__web-inspector-hidebefore-shortcut__::before { visibility: hidden !important; } .__web-inspector-hideafter-shortcut__::after { visibility: hidden !important; }";
 
+                var className = classNamePrefix + (pseudoType || "") + classNameSuffix;
                 this.classList.toggle(className);
 
                 var style = document.head.querySelector("style#" + styleTagId);
@@ -708,15 +720,15 @@ WebInspector.ElementsTreeOutline.prototype = {
                 style = document.createElement("style");
                 style.id = styleTagId;
                 style.type = "text/css";
-                style.innerHTML = styleRule;
+                style.textContent = styleRules;
                 document.head.appendChild(style);
             }
 
-            object.callFunction(toggleClassAndInjectStyleRule, undefined, userCallback);
+            object.callFunction(toggleClassAndInjectStyleRule, [{ value: pseudoType }], userCallback);
             object.release();
         }
 
-        WebInspector.RemoteObject.resolveNode(node, "", resolvedNode);
+        WebInspector.RemoteObject.resolveNode(effectiveNode, "", resolvedNode);
     },
 
     __proto__: TreeOutline.prototype
@@ -737,14 +749,16 @@ WebInspector.ElementsTreeOutline.ElementDecorator = function()
 
 WebInspector.ElementsTreeOutline.ElementDecorator.prototype = {
     /**
-     * @param {WebInspector.DOMNode} node
+     * @param {!WebInspector.DOMNode} node
+     * @return {?string}
      */
     decorate: function(node)
     {
     },
 
     /**
-     * @param {WebInspector.DOMNode} node
+     * @param {!WebInspector.DOMNode} node
+     * @return {?string}
      */
     decorateAncestor: function(node)
     {
@@ -897,9 +911,9 @@ WebInspector.ElementsTreeElement.prototype = {
         if (this.listItemElement) {
             if (x) {
                 this.updateSelection();
-                this.listItemElement.addStyleClass("hovered");
+                this.listItemElement.classList.add("hovered");
             } else {
-                this.listItemElement.removeStyleClass("hovered");
+                this.listItemElement.classList.remove("hovered");
             }
         }
     },
@@ -930,7 +944,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {WebInspector.DOMNode} child
+     * @param {!WebInspector.DOMNode} child
      * @return {?WebInspector.ElementsTreeElement}
      */
     _showChild: function(child)
@@ -980,7 +994,7 @@ WebInspector.ElementsTreeElement.prototype = {
     {
         if (this._hovered) {
             this.updateSelection();
-            this.listItemElement.addStyleClass("hovered");
+            this.listItemElement.classList.add("hovered");
         }
 
         this.updateTitle();
@@ -1060,6 +1074,9 @@ WebInspector.ElementsTreeElement.prototype = {
         var treeChildIndex = 0;
         var elementToSelect;
 
+        /**
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function updateChildrenOfNode()
         {
             var treeOutline = treeElement.treeOutline;
@@ -1174,6 +1191,9 @@ WebInspector.ElementsTreeElement.prototype = {
 
     expandRecursively: function()
     {
+        /**
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function callback()
         {
             TreeElement.prototype.expandRecursively.call(this, Number.MAX_VALUE);
@@ -1182,6 +1202,9 @@ WebInspector.ElementsTreeElement.prototype = {
         this._node.getSubtree(-1, callback.bind(this));
     },
 
+    /**
+     * @override
+     */
     onexpand: function()
     {
         if (this._elementCloseTag)
@@ -1200,6 +1223,9 @@ WebInspector.ElementsTreeElement.prototype = {
         this.treeOutline.updateSelection();
     },
 
+    /**
+     * @override
+     */
     onreveal: function()
     {
         if (this.listItemElement) {
@@ -1211,6 +1237,9 @@ WebInspector.ElementsTreeElement.prototype = {
         }
     },
 
+    /**
+     * @override
+     */
     onselect: function(selectedByUser)
     {
         this.treeOutline.suppressRevealAndSelect = true;
@@ -1222,6 +1251,9 @@ WebInspector.ElementsTreeElement.prototype = {
         return true;
     },
 
+    /**
+     * @override
+     */
     ondelete: function()
     {
         var startTagTreeElement = this.treeOutline.findTreeElement(this._node);
@@ -1229,6 +1261,9 @@ WebInspector.ElementsTreeElement.prototype = {
         return true;
     },
 
+    /**
+     * @override
+     */
     onenter: function()
     {
         // On Enter or Return start editing the first attribute
@@ -1259,16 +1294,20 @@ WebInspector.ElementsTreeElement.prototype = {
             event.preventDefault();
     },
 
+    /**
+     * @override
+     */
     ondblclick: function(event)
     {
         if (this._editing || this._elementCloseTag)
-            return;
+            return false;
 
         if (this._startEditingTarget(event.target))
-            return;
+            return false;
 
         if (this.hasChildren && !this.expanded)
             this.expand();
+        return false;
     },
 
     _insertInLastAttributePosition: function(tag, node)
@@ -1314,8 +1353,8 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {WebInspector.ContextMenu} contextMenu
-     * @param {Event} event
+     * @param {!WebInspector.ContextMenu} contextMenu
+     * @param {?Event} event
      */
     _populateTagContextMenu: function(contextMenu, event)
     {
@@ -1333,14 +1372,13 @@ WebInspector.ElementsTreeElement.prototype = {
             this._populateForcedPseudoStateItems(pseudoSubMenu);
             contextMenu.appendSeparator();
         }
-
         this._populateNodeContextMenu(contextMenu);
         this.treeOutline._populateContextMenu(contextMenu, this._node);
         this._populateScrollIntoView(contextMenu);
     },
 
     /**
-     * @param {WebInspector.ContextMenu} contextMenu
+     * @param {!WebInspector.ContextMenu} contextMenu
      */
     _populateScrollIntoView: function(contextMenu)
     {
@@ -1371,6 +1409,10 @@ WebInspector.ElementsTreeElement.prototype = {
         var openTagElement = this.treeOutline.getCachedTreeElement(this.representedObject) || this;
         contextMenu.appendItem(WebInspector.UIString("Edit as HTML"), openTagElement._editAsHTML.bind(openTagElement));
         contextMenu.appendItem(WebInspector.UIString("Copy as HTML"), this._copyHTML.bind(this));
+
+        // Place it here so that all "Copy"-ing items stick together.
+        if (this.representedObject.nodeType() === Node.ELEMENT_NODE)
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy CSS path" : "Copy CSS Path"), this._copyCSSPath.bind(this));
         contextMenu.appendItem(WebInspector.UIString("Copy XPath"), this._copyXPath.bind(this));
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Delete node" : "Delete Node"), this.remove.bind(this));
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Inspect DOM properties" : "Inspect DOM Properties"), this._inspectDOMProperties.bind(this));
@@ -1424,7 +1466,7 @@ WebInspector.ElementsTreeElement.prototype = {
                     if (elem.nodeType !== Node.ELEMENT_NODE)
                         continue;
 
-                    if (elem.hasStyleClass("webkit-html-attribute-value"))
+                    if (elem.classList.contains("webkit-html-attribute-value"))
                         return this._startEditingAttribute(elem.parentNode, elem);
                 }
             }
@@ -1497,7 +1539,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {Element} textNodeElement
+     * @param {!Element} textNodeElement
      */
     _startEditingTextNode: function(textNodeElement)
     {
@@ -1521,7 +1563,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {Element=} tagNameElement
+     * @param {!Element=} tagNameElement
      */
     _startEditingTagName: function(tagNameElement)
     {
@@ -1540,18 +1582,30 @@ WebInspector.ElementsTreeElement.prototype = {
 
         var closingTagElement = this._distinctClosingTagElement();
 
+        /**
+         * @param {?Event} event
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function keyupListener(event)
         {
             if (closingTagElement)
                 closingTagElement.textContent = "</" + tagNameElement.textContent + ">";
         }
 
+        /**
+         * @param {!Element} element
+         * @param {string} newTagName
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function editingComitted(element, newTagName)
         {
             tagNameElement.removeEventListener('keyup', keyupListener, false);
             this._tagNameEditingCommitted.apply(this, arguments);
         }
 
+        /**
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function editingCancelled()
         {
             tagNameElement.removeEventListener('keyup', keyupListener, false);
@@ -1579,7 +1633,7 @@ WebInspector.ElementsTreeElement.prototype = {
                 event.consume(true);
         }
 
-        initialValue = this._convertWhitespaceToEntities(initialValue);
+        initialValue = this._convertWhitespaceToEntities(initialValue).text;
 
         this._htmlEditElement = document.createElement("div");
         this._htmlEditElement.className = "source-code elements-tree-editor";
@@ -1600,8 +1654,9 @@ WebInspector.ElementsTreeElement.prototype = {
         this.updateSelection();
 
         /**
-         * @param {Element} element
+         * @param {!Element} element
          * @param {string} newValue
+         * @this {WebInspector.ElementsTreeElement}
          */
         function commit(element, newValue)
         {
@@ -1609,6 +1664,9 @@ WebInspector.ElementsTreeElement.prototype = {
             dispose.call(this);
         }
 
+        /**
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function dispose()
         {
             delete this._editing;
@@ -1644,8 +1702,10 @@ WebInspector.ElementsTreeElement.prototype = {
         delete this._editing;
 
         var treeOutline = this.treeOutline;
+
         /**
-         * @param {Protocol.Error=} error
+         * @param {?Protocol.Error=} error
+         * @this {WebInspector.ElementsTreeElement}
          */
         function moveToNextAttributeIfNeeded(error)
         {
@@ -1726,6 +1786,9 @@ WebInspector.ElementsTreeElement.prototype = {
             moveToNextAttributeIfNeeded.call(self);
         }
 
+        /**
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function moveToNextAttributeIfNeeded()
         {
             if (moveDirection !== "forward") {
@@ -1763,14 +1826,17 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {WebInspector.DOMNode} textNode
-     * @param {Element} element
+     * @param {!WebInspector.DOMNode} textNode
+     * @param {!Element} element
      * @param {string} newText
      */
     _textNodeEditingCommitted: function(textNode, element, newText)
     {
         delete this._editing;
 
+        /**
+         * @this {WebInspector.ElementsTreeElement}
+         */
         function callback()
         {
             this.updateTitle();
@@ -1779,7 +1845,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {Element} element
+     * @param {!Element} element
      * @param {*} context
      */
     _editingCancelled: function(element, context)
@@ -1791,7 +1857,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @return {Element}
+     * @return {!Element}
      */
     _distinctClosingTagElement: function()
     {
@@ -1825,9 +1891,12 @@ WebInspector.ElementsTreeElement.prototype = {
             if (this._highlightResult)
                 this._updateSearchHighlight(false);
         } else {
+            var nodeInfo = this._nodeTitleInfo(WebInspector.linkifyURLAsNode);
+            if (nodeInfo.shadowRoot)
+                this.listItemElement.classList.add("shadow-root");
             var highlightElement = document.createElement("span");
             highlightElement.className = "highlight";
-            highlightElement.appendChild(this._nodeTitleInfo(WebInspector.linkifyURLAsNode).titleDOM);
+            highlightElement.appendChild(nodeInfo.titleDOM);
             this.title = highlightElement;
             this._updateDecorations();
             delete this._highlightResult;
@@ -1841,7 +1910,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @return {Element}
+     * @return {?Element}
      */
     _createDecoratorElement: function()
     {
@@ -1867,9 +1936,9 @@ WebInspector.ElementsTreeElement.prototype = {
             return null;
 
         var decoratorElement = document.createElement("div");
-        decoratorElement.addStyleClass("elements-gutter-decoration");
+        decoratorElement.classList.add("elements-gutter-decoration");
         if (!decoratorMessages.length)
-            decoratorElement.addStyleClass("elements-has-decorated-children");
+            decoratorElement.classList.add("elements-has-decorated-children");
         decoratorElement.title = decoratorMessages.concat(parentDecoratorMessages).join("\n");
         return decoratorElement;
     },
@@ -1884,10 +1953,10 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {Node} parentElement
+     * @param {!Node} parentElement
      * @param {string} name
      * @param {string} value
-     * @param {WebInspector.DOMNode=} node
+     * @param {!WebInspector.DOMNode=} node
      * @param {function(string, string, string, boolean=, string=)=} linkify
      */
     _buildAttributeDOM: function(parentElement, name, value, node, linkify)
@@ -1922,7 +1991,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {Node} parentElement
+     * @param {!Node} parentElement
      * @param {string} pseudoElementName
      */
     _buildPseudoElementDOM: function(parentElement, pseudoElementName)
@@ -1933,7 +2002,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @param {Node} parentElement
+     * @param {!Node} parentElement
      * @param {string} tagName
      * @param {boolean} isClosingTag
      * @param {boolean} isDistinctTreeElement
@@ -1945,8 +2014,6 @@ WebInspector.ElementsTreeElement.prototype = {
         var classes = [ "webkit-html-tag" ];
         if (isClosingTag && isDistinctTreeElement)
             classes.push("close");
-        if (node.isInShadowTree())
-            classes.push("shadow");
         var tagElement = parentElement.createChild("span", classes.join(" "));
         tagElement.appendChild(document.createTextNode("<"));
         var tagNameElement = tagElement.createChild("span", isClosingTag ? "" : "webkit-html-tag-name");
@@ -1965,25 +2032,28 @@ WebInspector.ElementsTreeElement.prototype = {
 
     /**
      * @param {string} text
-     * @return {string}
+     * @return {!{text: string, entityRanges: !Array.<!WebInspector.SourceRange>}}
      */
     _convertWhitespaceToEntities: function(text)
     {
         var result = "";
+        var resultLength = 0;
         var lastIndexAfterEntity = 0;
+        var entityRanges = [];
         var charToEntity = WebInspector.ElementsTreeOutline.MappedCharToEntity;
         for (var i = 0, size = text.length; i < size; ++i) {
             var char = text.charAt(i);
             if (charToEntity[char]) {
-                result += text.substring(lastIndexAfterEntity, i) + "&" + charToEntity[char] + ";";
+                result += text.substring(lastIndexAfterEntity, i);
+                var entityValue = "&" + charToEntity[char] + ";";
+                entityRanges.push({offset: result.length, length: entityValue.length});
+                result += entityValue;
                 lastIndexAfterEntity = i + 1;
             }
         }
-        if (result) {
+        if (result)
             result += text.substring(lastIndexAfterEntity);
-            return result;
-        }
-        return text;
+        return {text: result || text, entityRanges: entityRanges};
     },
 
     /**
@@ -2031,7 +2101,9 @@ WebInspector.ElementsTreeElement.prototype = {
                 // create a subtree for them
                 if (showInlineText) {
                     var textNodeElement = info.titleDOM.createChild("span", "webkit-html-text-node");
-                    textNodeElement.textContent = this._convertWhitespaceToEntities(node.firstChild.nodeValue());
+                    var result = this._convertWhitespaceToEntities(node.firstChild.nodeValue());
+                    textNodeElement.textContent = result.text;
+                    WebInspector.highlightRangesWithStyleClass(textNodeElement, result.entityRanges, "webkit-html-entity-value");
                     info.titleDOM.appendChild(document.createTextNode("\u200B"));
                     this._buildTagDOM(info.titleDOM, tagName, true, false);
                     info.hasChildren = false;
@@ -2054,7 +2126,9 @@ WebInspector.ElementsTreeElement.prototype = {
                 } else {
                     info.titleDOM.appendChild(document.createTextNode("\""));
                     var textNodeElement = info.titleDOM.createChild("span", "webkit-html-text-node");
-                    textNodeElement.textContent = this._convertWhitespaceToEntities(node.nodeValue());
+                    var result = this._convertWhitespaceToEntities(node.nodeValue());
+                    textNodeElement.textContent = result.text;
+                    WebInspector.highlightRangesWithStyleClass(textNodeElement, result.entityRanges, "webkit-html-entity-value");
                     info.titleDOM.appendChild(document.createTextNode("\""));
                 }
                 break;
@@ -2086,9 +2160,20 @@ WebInspector.ElementsTreeElement.prototype = {
                 break;
             case Node.DOCUMENT_FRAGMENT_NODE:
                 var fragmentElement = info.titleDOM.createChild("span", "webkit-html-fragment");
-                fragmentElement.textContent = node.nodeNameInCorrectCase().collapseWhitespace();
-                if (node.isInShadowTree())
-                    fragmentElement.addStyleClass("shadow");
+                var nodeTitle;
+                if (node.isInShadowTree()) {
+                    var shadowRootType = node.shadowRootType();
+                    if (shadowRootType) {
+                        info.shadowRoot = true;
+                        fragmentElement.classList.add("shadow-root");
+                        nodeTitle = "#shadow-root";
+                        if (shadowRootType === WebInspector.DOMNode.ShadowRootTypes.UserAgent)
+                            nodeTitle += " (" + shadowRootType + ")";
+                    }
+                }
+                if (!nodeTitle)
+                    nodeTitle = node.nodeNameInCorrectCase().collapseWhitespace();
+                fragmentElement.textContent = nodeTitle;
                 break;
             default:
                 info.titleDOM.appendChild(document.createTextNode(node.nodeNameInCorrectCase().collapseWhitespace()));
@@ -2184,9 +2269,14 @@ WebInspector.ElementsTreeElement.prototype = {
         this._node.copyNode();
     },
 
+    _copyCSSPath: function()
+    {
+        InspectorFrontendHost.copyText(WebInspector.DOMPresentationUtils.cssPath(this._node, true));
+    },
+
     _copyXPath: function()
     {
-        this._node.copyXPath(true);
+        InspectorFrontendHost.copyText(WebInspector.DOMPresentationUtils.xPath(this._node, true));
     },
 
     _inspectDOMProperties: function()
@@ -2194,7 +2284,7 @@ WebInspector.ElementsTreeElement.prototype = {
         WebInspector.RemoteObject.resolveNode(this._node, "console", callback);
 
         /**
-         * @param {WebInspector.RemoteObject} nodeObject
+         * @param {?WebInspector.RemoteObject} nodeObject
          */
         function callback(nodeObject)
         {
@@ -2223,13 +2313,13 @@ WebInspector.ElementsTreeElement.prototype = {
         var match = regexObject.exec(text);
         var matchRanges = [];
         while (match) {
-            matchRanges.push({ offset: match.index, length: match[0].length });
+            matchRanges.push(new WebInspector.SourceRange(match.index, match[0].length));
             match = regexObject.exec(text);
         }
 
         // Fall back for XPath, etc. matches.
         if (!matchRanges.length)
-            matchRanges.push({ offset: 0, length: text.length });
+            matchRanges.push(new WebInspector.SourceRange(0, text.length));
 
         this._highlightResult = [];
         WebInspector.highlightSearchResults(this.listItemElement, matchRanges, this._highlightResult);
@@ -2239,6 +2329,9 @@ WebInspector.ElementsTreeElement.prototype = {
     {
         function scrollIntoViewCallback(object)
         {
+            /**
+             * @this {!Element}
+             */
             function scrollIntoView()
             {
                 this.scrollIntoViewIfNeeded(true);
@@ -2252,7 +2345,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @return {Array.<WebInspector.DOMNode>} visibleChildren
+     * @return {!Array.<!WebInspector.DOMNode>} visibleChildren
      */
     _visibleChildren: function()
     {
@@ -2270,7 +2363,7 @@ WebInspector.ElementsTreeElement.prototype = {
     },
 
     /**
-     * @return {Array.<WebInspector.DOMNode>} visibleChildren
+     * @return {number}
      */
     _visibleChildCount: function()
     {
@@ -2315,7 +2408,7 @@ WebInspector.ElementsTreeUpdater.prototype = {
     /**
      * @param {!WebInspector.DOMNode} node
      * @param {boolean} isUpdated
-     * @param {WebInspector.DOMNode=} parentNode
+     * @param {!WebInspector.DOMNode=} parentNode
      */
     _nodeModified: function(node, isUpdated, parentNode)
     {
@@ -2392,8 +2485,8 @@ WebInspector.ElementsTreeUpdater.prototype = {
         var hidePanelWhileUpdating = this._recentlyModifiedNodes.size() > 10;
         if (hidePanelWhileUpdating) {
             var treeOutlineContainerElement = this._treeOutline.element.parentNode;
-            this._treeOutline.element.addStyleClass("hidden");
             var originalScrollTop = treeOutlineContainerElement ? treeOutlineContainerElement.scrollTop : 0;
+            this._treeOutline.element.classList.add("hidden");
         }
 
         var nodes = this._recentlyModifiedNodes.keys();
@@ -2405,7 +2498,7 @@ WebInspector.ElementsTreeUpdater.prototype = {
             if (parent === this._treeOutline._rootDOMNode) {
                 // Document's children have changed, perform total update.
                 this._treeOutline.update();
-                this._treeOutline.element.removeStyleClass("hidden");
+                this._treeOutline.element.classList.remove("hidden");
                 return;
             }
 
@@ -2427,7 +2520,7 @@ WebInspector.ElementsTreeUpdater.prototype = {
             delete updatedParentTreeElements[i].alreadyUpdatedChildren;
 
         if (hidePanelWhileUpdating) {
-            this._treeOutline.element.removeStyleClass("hidden");
+            this._treeOutline.element.classList.remove("hidden");
             if (originalScrollTop)
                 treeOutlineContainerElement.scrollTop = originalScrollTop;
             this._treeOutline.updateSelection();
@@ -2449,7 +2542,7 @@ WebInspector.ElementsTreeUpdater.prototype = {
 /**
  * @constructor
  * @param {boolean} isUpdated
- * @param {WebInspector.DOMNode=} parent
+ * @param {!WebInspector.DOMNode=} parent
  */
 WebInspector.ElementsTreeUpdater.UpdateEntry = function(isUpdated, parent)
 {

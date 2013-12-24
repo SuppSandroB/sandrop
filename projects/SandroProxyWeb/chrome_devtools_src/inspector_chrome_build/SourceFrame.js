@@ -31,13 +31,13 @@
 /**
  * @extends {WebInspector.View}
  * @constructor
- * @param {WebInspector.ContentProvider} contentProvider
+ * @param {!WebInspector.ContentProvider} contentProvider
  */
 WebInspector.SourceFrame = function(contentProvider)
 {
     WebInspector.View.call(this);
-    this.element.addStyleClass("script-view");
-    this.element.addStyleClass("fill");
+    this.element.classList.add("script-view");
+    this.element.classList.add("fill");
 
     this._url = contentProvider.contentURL();
     this._contentProvider = contentProvider;
@@ -138,7 +138,7 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
-     * @return {Array.<Element>}
+     * @return {!Array.<!Element>}
      */
     statusBarItems: function()
     {
@@ -285,7 +285,7 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
-     * @param {WebInspector.TextRange} textRange
+     * @param {!WebInspector.TextRange} textRange
      */
     setSelection: function(textRange)
     {
@@ -316,8 +316,8 @@ WebInspector.SourceFrame.prototype = {
 
     onTextChanged: function(oldRange, newRange)
     {
-        if (!this._isReplacing)
-            WebInspector.searchController.cancelSearch();
+        if (this._searchResultsChangedCallback && !this._isReplacing)
+            this._searchResultsChangedCallback();
         this.clearMessages();
     },
 
@@ -404,11 +404,16 @@ WebInspector.SourceFrame.prototype = {
     /**
      * @param {string} query
      * @param {boolean} shouldJump
-     * @param {function(WebInspector.View, number)} callback
-     * @param {function(number)=} currentMatchChangedCallback
+     * @param {function(!WebInspector.View, number)} callback
+     * @param {function(number)} currentMatchChangedCallback
+     * @param {function()} searchResultsChangedCallback
      */
-    performSearch: function(query, shouldJump, callback, currentMatchChangedCallback)
+    performSearch: function(query, shouldJump, callback, currentMatchChangedCallback, searchResultsChangedCallback)
     {
+        /**
+         * @param {string} query
+         * @this {WebInspector.SourceFrame}
+         */
         function doFindSearchMatches(query)
         {
             this._currentSearchResultIndex = -1;
@@ -428,6 +433,7 @@ WebInspector.SourceFrame.prototype = {
 
         this._resetSearch();
         this._currentSearchMatchChangedCallback = currentMatchChangedCallback;
+        this._searchResultsChangedCallback = searchResultsChangedCallback;
         if (this.loaded)
             doFindSearchMatches.call(this, query);
         else
@@ -461,6 +467,7 @@ WebInspector.SourceFrame.prototype = {
     {
         delete this._delayedFindSearchMatches;
         delete this._currentSearchMatchChangedCallback;
+        delete this._searchResultsChangedCallback;
         this._currentSearchResultIndex = -1;
         this._searchResults = [];
         delete this._searchRegex;
@@ -596,7 +603,7 @@ WebInspector.SourceFrame.prototype = {
 
     /**
      * @param {number} lineNumber
-     * @param {WebInspector.ConsoleMessage} msg
+     * @param {!WebInspector.ConsoleMessage} msg
      */
     addMessageToSource: function(lineNumber, msg)
     {
@@ -634,11 +641,11 @@ WebInspector.SourceFrame.prototype = {
         var imageElement = document.createElement("div");
         switch (msg.level) {
             case WebInspector.ConsoleMessage.MessageLevel.Error:
-                messageBubbleElement.addStyleClass("webkit-html-error-message");
+                messageBubbleElement.classList.add("webkit-html-error-message");
                 imageElement.className = "error-icon-small";
                 break;
             case WebInspector.ConsoleMessage.MessageLevel.Warning:
-                messageBubbleElement.addStyleClass("webkit-html-warning-message");
+                messageBubbleElement.classList.add("webkit-html-warning-message");
                 imageElement.className = "warning-icon-small";
                 break;
         }
@@ -673,7 +680,7 @@ WebInspector.SourceFrame.prototype = {
 
     /**
      * @param {number} lineNumber
-     * @param {WebInspector.ConsoleMessage} msg
+     * @param {!WebInspector.ConsoleMessage} msg
      */
     removeMessageFromSource: function(lineNumber, msg)
     {
@@ -731,7 +738,7 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
-     * @param {WebInspector.TextRange} textRange
+     * @param {!WebInspector.TextRange} textRange
      */
     selectionChanged: function(textRange)
     {
@@ -741,7 +748,7 @@ WebInspector.SourceFrame.prototype = {
     },
 
     /**
-     * @param {WebInspector.TextRange} textRange
+     * @param {!WebInspector.TextRange} textRange
      */
     _updateSourcePosition: function(textRange)
     {
@@ -807,7 +814,7 @@ WebInspector.TextEditorDelegateForSourceFrame.prototype = {
     },
 
     /**
-     * @param {WebInspector.TextRange} textRange
+     * @param {!WebInspector.TextRange} textRange
      */
     selectionChanged: function(textRange)
     {
@@ -840,7 +847,7 @@ WebInspector.TextEditorDelegateForSourceFrame.prototype = {
     /**
      * @param {string} hrefValue
      * @param {boolean} isExternal
-     * @return {Element}
+     * @return {!Element}
      */
     createLink: function(hrefValue, isExternal)
     {

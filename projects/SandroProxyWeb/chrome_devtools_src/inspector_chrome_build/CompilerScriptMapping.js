@@ -31,35 +31,35 @@
 /**
  * @constructor
  * @implements {WebInspector.ScriptSourceMapping}
- * @param {WebInspector.Workspace} workspace
- * @param {WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
+ * @param {!WebInspector.Workspace} workspace
+ * @param {!WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
  */
 WebInspector.CompilerScriptMapping = function(workspace, networkWorkspaceProvider)
 {
     this._workspace = workspace;
     this._workspace.addEventListener(WebInspector.Workspace.Events.UISourceCodeAdded, this._uiSourceCodeAddedToWorkspace, this);
     this._networkWorkspaceProvider = networkWorkspaceProvider;
-    /** @type {!Object.<string, WebInspector.SourceMap>} */
+    /** @type {!Object.<string, !WebInspector.SourceMap>} */
     this._sourceMapForSourceMapURL = {};
-    /** @type {!Object.<string, Array.<function(?WebInspector.SourceMap)>>} */
+    /** @type {!Object.<string, !Array.<function(?WebInspector.SourceMap)>>} */
     this._pendingSourceMapLoadingCallbacks = {};
-    /** @type {!Object.<string, WebInspector.SourceMap>} */
+    /** @type {!Object.<string, !WebInspector.SourceMap>} */
     this._sourceMapForScriptId = {};
-    /** @type {!Map.<WebInspector.SourceMap, WebInspector.Script>} */
+    /** @type {!Map.<!WebInspector.SourceMap, !WebInspector.Script>} */
     this._scriptForSourceMap = new Map();
-    /** @type {!StringMap.<WebInspector.SourceMap>} */
+    /** @type {!StringMap.<!WebInspector.SourceMap>} */
     this._sourceMapForURL = new StringMap();
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this._debuggerReset, this);
 }
 
 WebInspector.CompilerScriptMapping.prototype = {
     /**
-     * @param {WebInspector.RawLocation} rawLocation
-     * @return {WebInspector.UILocation}
+     * @param {!WebInspector.RawLocation} rawLocation
+     * @return {?WebInspector.UILocation}
      */
     rawLocationToUILocation: function(rawLocation)
     {
-        var debuggerModelLocation = /** @type {WebInspector.DebuggerModel.Location} */ (rawLocation);
+        var debuggerModelLocation = /** @type {!WebInspector.DebuggerModel.Location} */ (rawLocation);
         var sourceMap = this._sourceMapForScriptId[debuggerModelLocation.scriptId];
         if (!sourceMap)
             return null;
@@ -68,18 +68,18 @@ WebInspector.CompilerScriptMapping.prototype = {
         var entry = sourceMap.findEntry(lineNumber, columnNumber);
         if (!entry || entry.length === 2)
             return null;
-        var url = entry[2];
+        var url = /** @type {string} */ (entry[2]);
         var uiSourceCode = this._workspace.uiSourceCodeForURL(url);
         if (!uiSourceCode)
             return null;
-        return new WebInspector.UILocation(uiSourceCode, entry[3], entry[4]);
+        return new WebInspector.UILocation(uiSourceCode, /** @type {number} */ (entry[3]), /** @type {number} */ (entry[4]));
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      * @param {number} lineNumber
      * @param {number} columnNumber
-     * @return {WebInspector.DebuggerModel.Location}
+     * @return {?WebInspector.DebuggerModel.Location}
      */
     uiLocationToRawLocation: function(uiSourceCode, lineNumber, columnNumber)
     {
@@ -88,12 +88,14 @@ WebInspector.CompilerScriptMapping.prototype = {
         var sourceMap = this._sourceMapForURL.get(uiSourceCode.url);
         if (!sourceMap)
             return null;
+        var script = /** @type {!WebInspector.Script} */ (this._scriptForSourceMap.get(sourceMap));
+        console.assert(script);
         var entry = sourceMap.findEntryReversed(uiSourceCode.url, lineNumber);
-        return WebInspector.debuggerModel.createRawLocation(this._scriptForSourceMap.get(sourceMap) || null, entry[0], entry[1]);
+        return WebInspector.debuggerModel.createRawLocation(script, entry[0], entry[1]);
     },
 
     /**
-     * @param {WebInspector.Script} script
+     * @param {!WebInspector.Script} script
      */
     addScript: function(script)
     {
@@ -102,6 +104,7 @@ WebInspector.CompilerScriptMapping.prototype = {
 
         /**
          * @param {?WebInspector.SourceMap} sourceMap
+         * @this {WebInspector.CompilerScriptMapping}
          */
         function sourceMapLoaded(sourceMap)
         {
@@ -140,7 +143,7 @@ WebInspector.CompilerScriptMapping.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _bindUISourceCode: function(uiSourceCode)
     {
@@ -148,7 +151,7 @@ WebInspector.CompilerScriptMapping.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _unbindUISourceCode: function(uiSourceCode)
     {
@@ -156,18 +159,18 @@ WebInspector.CompilerScriptMapping.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _uiSourceCodeAddedToWorkspace: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.data);
         if (!uiSourceCode.url || !this._sourceMapForURL.get(uiSourceCode.url))
             return;
         this._bindUISourceCode(uiSourceCode);
     },
 
     /**
-     * @param {WebInspector.Script} script
+     * @param {!WebInspector.Script} script
      * @param {function(?WebInspector.SourceMap)} callback
      */
     loadSourceMapForScript: function(script, callback)
@@ -208,15 +211,17 @@ WebInspector.CompilerScriptMapping.prototype = {
 
         /**
          * @param {?WebInspector.SourceMap} sourceMap
+         * @this {WebInspector.CompilerScriptMapping}
          */
         function sourceMapLoaded(sourceMap)
         {
-            var callbacks = this._pendingSourceMapLoadingCallbacks[sourceMapURL];
-            delete this._pendingSourceMapLoadingCallbacks[sourceMapURL];
+            var url = /** @type {string} */ (sourceMapURL);
+            var callbacks = this._pendingSourceMapLoadingCallbacks[url];
+            delete this._pendingSourceMapLoadingCallbacks[url];
             if (!callbacks)
                 return;
             if (sourceMap)
-                this._sourceMapForSourceMapURL[sourceMapURL] = sourceMap;
+                this._sourceMapForSourceMapURL[url] = sourceMap;
             for (var i = 0; i < callbacks.length; ++i)
                 callbacks[i](sourceMap);
         }
@@ -224,6 +229,10 @@ WebInspector.CompilerScriptMapping.prototype = {
 
     _debuggerReset: function()
     {
+        /**
+         * @param {!WebInspector.SourceMap} sourceMap
+         * @this {WebInspector.CompilerScriptMapping}
+         */
         function unbindUISourceCodesForSourceMap(sourceMap)
         {
             var sourceURLs = sourceMap.sources();

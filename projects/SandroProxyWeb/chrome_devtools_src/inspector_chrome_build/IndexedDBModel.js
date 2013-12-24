@@ -106,7 +106,7 @@ WebInspector.IndexedDBModel.keyRangeFromIDBKeyRange = function(idbKeyRange)
 }
 
 /**
- * @param {IndexedDBAgent.KeyPath} keyPath
+ * @param {!IndexedDBAgent.KeyPath} keyPath
  */
 WebInspector.IndexedDBModel.idbKeyPathFromKeyPath = function(keyPath)
 {
@@ -157,7 +157,7 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      */
     refreshDatabase: function(databaseId)
     {
@@ -165,7 +165,7 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      * @param {string} objectStoreName
      * @param {function()} callback
      */
@@ -175,7 +175,7 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _securityOriginAdded: function(event)
     {
@@ -184,7 +184,7 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _securityOriginRemoved: function(event)
     {
@@ -215,7 +215,7 @@ WebInspector.IndexedDBModel.prototype = {
 
     /**
      * @param {string} securityOrigin
-     * @param {Array.<string>} databaseNames
+     * @param {!Array.<string>} databaseNames
      */
     _updateOriginDatabaseNames: function(securityOrigin, databaseNames)
     {
@@ -265,7 +265,8 @@ WebInspector.IndexedDBModel.prototype = {
     {
         /**
          * @param {?Protocol.Error} error
-         * @param {Array.<string>} databaseNames
+         * @param {!Array.<string>} databaseNames
+         * @this {WebInspector.IndexedDBModel}
          */
         function callback(error, databaseNames)
         {
@@ -283,13 +284,14 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      */
     _loadDatabase: function(databaseId)
     {
         /**
          * @param {?Protocol.Error} error
-         * @param {IndexedDBAgent.DatabaseWithObjectStores} databaseWithObjectStores
+         * @param {!IndexedDBAgent.DatabaseWithObjectStores} databaseWithObjectStores
+         * @this {WebInspector.IndexedDBModel}
          */
         function callback(error, databaseWithObjectStores)
         {
@@ -322,12 +324,12 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      * @param {string} objectStoreName
      * @param {webkitIDBKeyRange} idbKeyRange
      * @param {number} skipCount
      * @param {number} pageSize
-     * @param {function(Array.<WebInspector.IndexedDBModel.Entry>, boolean)} callback
+     * @param {function(!Array.<!WebInspector.IndexedDBModel.Entry>, boolean)} callback
      */
     loadObjectStoreData: function(databaseId, objectStoreName, idbKeyRange, skipCount, pageSize, callback)
     {
@@ -335,13 +337,13 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      * @param {string} objectStoreName
      * @param {string} indexName
      * @param {webkitIDBKeyRange} idbKeyRange
      * @param {number} skipCount
      * @param {number} pageSize
-     * @param {function(Array.<WebInspector.IndexedDBModel.Entry>, boolean)} callback
+     * @param {function(!Array.<!WebInspector.IndexedDBModel.Entry>, boolean)} callback
      */
     loadIndexData: function(databaseId, objectStoreName, indexName, idbKeyRange, skipCount, pageSize, callback)
     {
@@ -349,21 +351,22 @@ WebInspector.IndexedDBModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      * @param {string} databaseName
      * @param {string} objectStoreName
      * @param {string} indexName
      * @param {webkitIDBKeyRange} idbKeyRange
      * @param {number} skipCount
      * @param {number} pageSize
-     * @param {function(Array.<WebInspector.IndexedDBModel.Entry>, boolean)} callback
+     * @param {function(!Array.<!WebInspector.IndexedDBModel.Entry>, boolean)} callback
      */
     _requestData: function(databaseId, databaseName, objectStoreName, indexName, idbKeyRange, skipCount, pageSize, callback)
     {
         /**
          * @param {?Protocol.Error} error
-         * @param {Array.<IndexedDBAgent.DataEntry>} dataEntries
+         * @param {!Array.<!IndexedDBAgent.DataEntry>} dataEntries
          * @param {boolean} hasMore
+         * @this {WebInspector.IndexedDBModel}
          */
         function innerCallback(error, dataEntries, hasMore)
         {
@@ -393,9 +396,9 @@ WebInspector.IndexedDBModel.prototype = {
 
 /**
  * @constructor
- * @param {WebInspector.RemoteObject} key
- * @param {WebInspector.RemoteObject} primaryKey
- * @param {WebInspector.RemoteObject} value
+ * @param {!WebInspector.RemoteObject} key
+ * @param {!WebInspector.RemoteObject} primaryKey
+ * @param {!WebInspector.RemoteObject} value
  */
 WebInspector.IndexedDBModel.Entry = function(key, primaryKey, value)
 {
@@ -417,7 +420,7 @@ WebInspector.IndexedDBModel.DatabaseId = function(securityOrigin, name)
 
 WebInspector.IndexedDBModel.DatabaseId.prototype = {
     /**
-     * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
      */
     equals: function(databaseId)
     {
@@ -426,7 +429,7 @@ WebInspector.IndexedDBModel.DatabaseId.prototype = {
 }
 /**
  * @constructor
- * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
+ * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
  * @param {string} version
  */
 WebInspector.IndexedDBModel.Database = function(databaseId, version, intVersion)

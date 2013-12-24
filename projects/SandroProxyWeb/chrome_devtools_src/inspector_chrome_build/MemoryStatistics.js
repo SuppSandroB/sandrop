@@ -29,22 +29,23 @@
  */
 
 /**
- * @param {WebInspector.TimelinePanel} timelinePanel
- * @param {WebInspector.TimelineModel} model
- * @param {number} sidebarWidth
+ * @param {!WebInspector.TimelinePanel} timelinePanel
+ * @param {!WebInspector.TimelineModel} model
  * @constructor
+ * @extends {WebInspector.View}
  */
-WebInspector.MemoryStatistics = function(timelinePanel, model, sidebarWidth)
+WebInspector.MemoryStatistics = function(timelinePanel, model)
 {
+    WebInspector.View.call(this);
     this._timelinePanel = timelinePanel;
+
+    this.element.classList.add("fill");
     this._counters = [];
 
     model.addEventListener(WebInspector.TimelineModel.Events.RecordAdded, this._onRecordAdded, this);
     model.addEventListener(WebInspector.TimelineModel.Events.RecordsCleared, this._onRecordsCleared, this);
 
-    this._containerAnchor = timelinePanel.element.lastChild;
-    this._memorySidebarView = new WebInspector.SidebarView(WebInspector.SidebarView.SidebarPosition.Start, undefined, sidebarWidth);
-    this._memorySidebarView.sidebarElement.addStyleClass("sidebar");
+    this._memorySidebarView = new WebInspector.SidebarView(WebInspector.SidebarView.SidebarPosition.Start, undefined);
     this._memorySidebarView.element.id = "memory-graphs-container";
 
     this._memorySidebarView.addEventListener(WebInspector.SidebarView.EventTypes.Resized, this._sidebarResized.bind(this));
@@ -52,7 +53,7 @@ WebInspector.MemoryStatistics = function(timelinePanel, model, sidebarWidth)
     this._canvasContainer = this._memorySidebarView.mainElement;
     this._canvasContainer.id = "memory-graphs-canvas-container";
     this._createCurrentValuesBar();
-    this._canvas = this._canvasContainer.createChild("canvas");
+    this._canvas = this._canvasContainer.createChild("canvas", "fill");
     this._canvas.id = "memory-counters-graph";
     this._lastMarkerXPosition = 0;
 
@@ -67,6 +68,7 @@ WebInspector.MemoryStatistics = function(timelinePanel, model, sidebarWidth)
     // Populate sidebar
     this._memorySidebarView.sidebarElement.createChild("div", "sidebar-tree sidebar-tree-section").textContent = WebInspector.UIString("COUNTERS");
     this._counterUI = this._createCounterUIList();
+    this._memorySidebarView.show(this.element);
 }
 
 /**
@@ -144,9 +146,9 @@ WebInspector.CounterUIBase.prototype = {
     _toggleCounterGraph: function(event)
     {
         if (this._swatch.checked)
-            this._value.removeStyleClass("hidden");
+            this._value.classList.remove("hidden");
         else
-            this._value.addStyleClass("hidden");
+            this._value.classList.add("hidden");
         this._memoryCountersPane.refresh();
     },
 
@@ -183,7 +185,7 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {WebInspector.TimelineGrid} timelineGrid
+     * @param {!WebInspector.TimelineGrid} timelineGrid
      */
     setMainTimelineGrid: function(timelineGrid)
     {
@@ -199,15 +201,6 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {number} height
-     */
-    setHeight: function(height)
-    {
-        this._memorySidebarView.element.style.flexBasis = height + "px";
-        this._updateSize();
-    },
-
-    /**
      * @param {number} width
      */
     setSidebarWidth: function(width)
@@ -220,14 +213,14 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _sidebarResized: function(event)
     {
         if (this._ignoreSidebarResize)
             return;
         this._ignoreSidebarResize = true;
-        this._timelinePanel.splitView.setSidebarWidth(event.data);
+        this._timelinePanel.setSidebarWidth(/** @type {number} */(event.data));
         this._ignoreSidebarResize = false;
     },
 
@@ -236,25 +229,28 @@ WebInspector.MemoryStatistics.prototype = {
         throw new Error("Not implemented");
     },
 
-    _updateSize: function()
+    onResize: function()
     {
         var width = this._mainTimelineGrid.dividersElement.offsetWidth + 1;
-        this._canvasContainer.style.width = width + "px";
 
-        var height = this._canvasHeight();
+        this._canvas.style.width = width + "px";
+        this._timelineGrid.dividersElement.style.width = width + "px";
+        var parentElement = this._canvas.parentElement;
+
         this._canvas.width = width;
-        this._canvas.height = height;
+        this._canvas.height = parentElement.clientHeight - 15;
+        this.draw();
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _onRecordAdded: function(event)
     {
         throw new Error("Not implemented");
     },
 
-    _draw: function()
+    draw: function()
     {
         this._calculateVisibleIndexes();
         this._calculateXValues();
@@ -285,7 +281,7 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {MouseEvent} event
+     * @param {!MouseEvent} event
      */
      _onClick: function(event)
     {
@@ -297,7 +293,7 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {MouseEvent} event
+     * @param {!MouseEvent} event
      */
      _onMouseOut: function(event)
     {
@@ -308,7 +304,7 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {!CanvasRenderingContext2D} ctx
      */
     _clearCurrentValueAndMarker: function(ctx)
     {
@@ -317,7 +313,7 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {MouseEvent} event
+     * @param {!MouseEvent} event
      */
      _onMouseOver: function(event)
     {
@@ -325,7 +321,7 @@ WebInspector.MemoryStatistics.prototype = {
     },
 
     /**
-     * @param {MouseEvent} event
+     * @param {!MouseEvent} event
      */
      _onMouseMove: function(event)
     {
@@ -384,36 +380,11 @@ WebInspector.MemoryStatistics.prototype = {
         throw new Error("Not implemented");
     },
 
-    visible: function()
-    {
-        return this._memorySidebarView.isShowing();
-    },
-
-    show: function()
-    {
-        var anchor = /** @type {Element|null} */ (this._containerAnchor.nextSibling);
-        var savedSidebarSize = this._timelinePanel.splitView.sidebarWidth();
-        this._memorySidebarView.show(this._timelinePanel.element, anchor);
-        if (savedSidebarSize > 0) {
-            this.setSidebarWidth(savedSidebarSize);
-            this._timelinePanel.splitView.setSidebarWidth(savedSidebarSize);
-        }
-        this._updateSize();
-        this._refreshDividers();
-        setTimeout(this._draw.bind(this), 0);
-    },
-
     refresh: function()
     {
-        this._updateSize();
         this._refreshDividers();
-        this._draw();
+        this.draw();
         this._refreshCurrentValues();
-    },
-
-    hide: function()
-    {
-        this._memorySidebarView.detach();
     },
 
     _refreshDividers: function()
@@ -441,7 +412,8 @@ WebInspector.MemoryStatistics.prototype = {
         this._counters[this._maximumIndex].x = width;
     },
 
-    _clear: function() {
+    _clear: function()
+    {
         var ctx = this._canvas.getContext("2d");
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         this._discardImageUnderMarker();
@@ -450,6 +422,7 @@ WebInspector.MemoryStatistics.prototype = {
     _discardImageUnderMarker: function()
     {
         throw new Error("Not implemented");
-    }
-}
+    },
 
+    __proto__: WebInspector.View.prototype
+}

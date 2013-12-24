@@ -37,16 +37,16 @@ WebInspector.SourceMapping = function()
 
 WebInspector.SourceMapping.prototype = {
     /**
-     * @param {WebInspector.RawLocation} rawLocation
-     * @return {WebInspector.UILocation}
+     * @param {!WebInspector.RawLocation} rawLocation
+     * @return {?WebInspector.UILocation}
      */
     rawLocationToUILocation: function(rawLocation) { },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      * @param {number} lineNumber
      * @param {number} columnNumber
-     * @return {WebInspector.RawLocation}
+     * @return {?WebInspector.RawLocation}
      */
     uiLocationToRawLocation: function(uiSourceCode, lineNumber, columnNumber) { }
 }
@@ -61,7 +61,7 @@ WebInspector.ScriptSourceMapping = function()
 
 WebInspector.ScriptSourceMapping.prototype = {
     /**
-     * @param {WebInspector.Script} script
+     * @param {!WebInspector.Script} script
      */
     addScript: function(script) { }
 }

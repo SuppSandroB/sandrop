@@ -33,9 +33,9 @@ WebInspector.DatabaseQueryView = function(database)
 
     this.database = database;
 
-    this.element.addStyleClass("storage-view");
-    this.element.addStyleClass("query");
-    this.element.addStyleClass("monospace");
+    this.element.classList.add("storage-view");
+    this.element.classList.add("query");
+    this.element.classList.add("monospace");
     this.element.addEventListener("selectstart", this._selectStart.bind(this), false);
 
     this._promptElement = document.createElement("div");
@@ -62,8 +62,8 @@ WebInspector.DatabaseQueryView.prototype = {
     },
     
     /**
-     * @param {Element} proxyElement
-     * @param {Range} wordRange
+     * @param {!Element} proxyElement
+     * @param {!Range} wordRange
      * @param {boolean} force
      * @param {function(!Array.<string>, number=)} completionsReadyCallback
      */
@@ -103,6 +103,9 @@ WebInspector.DatabaseQueryView.prototype = {
 
         this.prompt.clearAutoComplete();
 
+        /**
+         * @this {WebInspector.DatabaseQueryView}
+         */
         function moveBackIfOutside()
         {
             delete this._selectionTimeout;
@@ -160,7 +163,7 @@ WebInspector.DatabaseQueryView.prototype = {
 
     /**
      * @param {string} query
-     * @param {WebInspector.View} view
+     * @param {!WebInspector.View} view
      */
     _appendViewQueryResult: function(query, view)
     {
@@ -177,7 +180,7 @@ WebInspector.DatabaseQueryView.prototype = {
     _appendErrorQueryResult: function(query, errorText)
     {
         var resultElement = this._appendQueryResult(query);
-        resultElement.addStyleClass("error")
+        resultElement.classList.add("error")
         resultElement.textContent = errorText;
 
         this._promptElement.scrollIntoView(false);

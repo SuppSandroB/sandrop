@@ -30,8 +30,8 @@
 
 /**
  * @constructor
- * @param {WebInspector.Workspace} workspace
- * @param {WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
+ * @param {!WebInspector.Workspace} workspace
+ * @param {!WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
  */
 WebInspector.DebuggerScriptMapping = function(workspace, networkWorkspaceProvider)
 {
@@ -46,11 +46,11 @@ WebInspector.DebuggerScriptMapping = function(workspace, networkWorkspaceProvide
 
 WebInspector.DebuggerScriptMapping.prototype = {
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _parsedScriptSource: function(event)
     {
-        var script = /** @type {WebInspector.Script} */ (event.data);
+        var script = /** @type {!WebInspector.Script} */ (event.data);
         this._defaultMapping.addScript(script);
 
         if (script.isSnippet()) {

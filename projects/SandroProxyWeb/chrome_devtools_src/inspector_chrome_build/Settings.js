@@ -31,7 +31,7 @@
 
 var Preferences = {
     maxInlineTextChildLength: 80,
-    minConsoleHeight: 75,
+    minConsoleHeight: 25,
     minSidebarWidth: 100,
     minSidebarHeight: 75,
     minElementsSidebarWidth: 200,
@@ -58,7 +58,6 @@ WebInspector.Settings = function()
     this.consoleHistory = this.createSetting("consoleHistory", []);
     this.domWordWrap = this.createSetting("domWordWrap", true);
     this.eventListenersFilter = this.createSetting("eventListenersFilter", "all");
-    this.lastActivePanel = this.createSetting("lastActivePanel", "elements");
     this.lastViewedScriptFile = this.createSetting("lastViewedScriptFile", "application");
     this.monitoringXHREnabled = this.createSetting("monitoringXHREnabled", false);
     this.preserveConsoleLog = this.createSetting("preserveConsoleLog", false);
@@ -79,7 +78,8 @@ WebInspector.Settings = function()
     this.userAgent = this.createSetting("userAgent", "");
     this.overrideDeviceMetrics = this.createSetting("overrideDeviceMetrics", false);
     this.deviceMetrics = this.createSetting("deviceMetrics", "");
-    this.deviceFitWindow = this.createSetting("deviceFitWindow", false);
+    this.deviceFitWindow = this.createSetting("deviceFitWindow", true);
+    this.emulateViewport = this.createSetting("emulateViewport", false);
     this.emulateTouchEvents = this.createSetting("emulateTouchEvents", false);
     this.showShadowDOM = this.createSetting("showShadowDOM", false);
     this.zoomLevel = this.createSetting("zoomLevel", 0);
@@ -98,16 +98,14 @@ WebInspector.Settings = function()
     this.textEditorBracketMatching = this.createSetting("textEditorBracketMatching", true);
     this.lastDockState = this.createSetting("lastDockState", "");
     this.cssReloadEnabled = this.createSetting("cssReloadEnabled", false);
-    this.showCpuOnTimelineRuler = this.createSetting("showCpuOnTimelineRuler", false);
-    this.timelineStackFramesToCapture = this.createSetting("timelineStackFramesToCapture", 30);
-    this.timelineLimitStackFramesFlag = this.createSetting("timelineLimitStackFramesFlag", false);
+    this.timelineCaptureStacks = this.createSetting("timelineCaptureStacks", true);
     this.showMetricsRulers = this.createSetting("showMetricsRulers", false);
     this.overrideCSSMedia = this.createSetting("overrideCSSMedia", false);
     this.emulatedCSSMedia = this.createSetting("emulatedCSSMedia", "print");
     this.workerInspectorWidth = this.createSetting("workerInspectorWidth", 600);
     this.workerInspectorHeight = this.createSetting("workerInspectorHeight", 600);
     this.messageURLFilters = this.createSetting("messageURLFilters", {});
-    this.hideCSSErrorsInConsole = this.createSetting("hideCSSErrorsInConsole", true);
+    this.networkHideDataURL = this.createSetting("networkHideDataURL", false);
     this.messageLevelFilters = this.createSetting("messageLevelFilters", {});
     this.splitVerticallyWhenDockedToRight = this.createSetting("splitVerticallyWhenDockedToRight", true);
     this.visiblePanels = this.createSetting("visiblePanels", {});
@@ -117,6 +115,9 @@ WebInspector.Settings = function()
     this.skipStackFramesPattern = this.createSetting("skipStackFramesPattern", "");
     this.screencastEnabled = this.createSetting("screencastEnabled", false);
     this.screencastSidebarWidth = this.createSetting("screencastSidebarWidth", 300);
+    this.showEmulationViewInDrawer = this.createSetting("showEmulationViewInDrawer", true);
+    this.showRenderingViewInDrawer = this.createSetting("showRenderingViewInDrawer", true);
+    this.enableAsyncStackTraces = this.createSetting("enableAsyncStackTraces", false);
 }
 
 WebInspector.Settings.prototype = {
@@ -163,8 +164,8 @@ WebInspector.Setting = function(name, defaultValue, eventSupport, storage)
 
 WebInspector.Setting.prototype = {
     /**
-     * @param {function(WebInspector.Event)} listener
-     * @param {Object=} thisObject
+     * @param {function(!WebInspector.Event)} listener
+     * @param {!Object=} thisObject
      */
     addChangeListener: function(listener, thisObject)
     {
@@ -172,8 +173,8 @@ WebInspector.Setting.prototype = {
     },
 
     /**
-     * @param {function(WebInspector.Event)} listener
-     * @param {Object=} thisObject
+     * @param {function(!WebInspector.Event)} listener
+     * @param {!Object=} thisObject
      */
     removeChangeListener: function(listener, thisObject)
     {
@@ -229,15 +230,17 @@ WebInspector.BackendSetting = function(name, defaultValue, eventSupport, storage
     WebInspector.Setting.call(this, name, defaultValue, eventSupport, storage);
     this._setterCallback = setterCallback;
     var currentValue = this.get();
-    if (currentValue !== defaultValue) {
-        this._value = defaultValue; // Make sure we're in sync with backend, in case setting fails.
+    if (currentValue !== defaultValue)
         this.set(currentValue);
-    }
 }
 
 WebInspector.BackendSetting.prototype = {
     set: function(value)
     {
+        /**
+         * @param {?Protocol.Error} error
+         * @this {WebInspector.BackendSetting}
+         */
         function callback(error)
         {
             if (error) {
@@ -266,18 +269,20 @@ WebInspector.ExperimentsSettings = function()
     this.fileSystemInspection = this._createExperiment("fileSystemInspection", "FileSystem inspection");
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
     this.cssRegions = this._createExperiment("cssRegions", "CSS Regions Support");
-    this.showOverridesInDrawer = this._createExperiment("showOverridesInDrawer", "Show Overrides in drawer");
     this.frameworksDebuggingSupport = this._createExperiment("frameworksDebuggingSupport", "Enable frameworks debugging support");
     this.layersPanel = this._createExperiment("layersPanel", "Show Layers panel");
     this.stepIntoSelection = this._createExperiment("stepIntoSelection", "Show step-in candidates while debugging.");
-    this.openConsoleWithCtrlTilde = this._createExperiment("openConsoleWithCtrlTilde", "Open console with Ctrl/Cmd+Tilde, not Esc");
+    this.doNotOpenDrawerOnEsc = this._createExperiment("doNotOpenDrawerWithEsc", "Do not open drawer on Esc");
+    this.showEditorInDrawer = this._createExperiment("showEditorInDrawer", "Show editor in drawer");
+    this.gpuTimeline = this._createExperiment("gpuTimeline", "Show GPU data on timeline");
+    this.applyCustomStylesheet = this._createExperiment("applyCustomStylesheet", "Allow custom UI themes");
 
     this._cleanUpSetting();
 }
 
 WebInspector.ExperimentsSettings.prototype = {
     /**
-     * @return {Array.<WebInspector.Experiment>}
+     * @return {!Array.<!WebInspector.Experiment>}
      */
     get experiments()
     {
@@ -295,7 +300,7 @@ WebInspector.ExperimentsSettings.prototype = {
     /**
      * @param {string} experimentName
      * @param {string} experimentTitle
-     * @return {WebInspector.Experiment}
+     * @return {!WebInspector.Experiment}
      */
     _createExperiment: function(experimentName, experimentTitle)
     {
@@ -354,7 +359,7 @@ WebInspector.ExperimentsSettings.prototype = {
 
 /**
  * @constructor
- * @param {WebInspector.ExperimentsSettings} experimentsSettings
+ * @param {!WebInspector.ExperimentsSettings} experimentsSettings
  * @param {string} name
  * @param {string} title
  */
@@ -463,7 +468,7 @@ WebInspector.VersionController.prototype = {
     },
 
     /**
-     * @param {WebInspector.Setting} breakpointsSetting
+     * @param {!WebInspector.Setting} breakpointsSetting
      * @param {number} maxBreakpointsCount
      */
     _clearBreakpointsWhenTooMany: function(breakpointsSetting, maxBreakpointsCount)

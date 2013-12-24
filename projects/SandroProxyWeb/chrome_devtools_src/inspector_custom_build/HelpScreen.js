@@ -53,7 +53,7 @@ WebInspector.HelpScreen = function(title)
 }
 
 /**
- * @type {WebInspector.HelpScreen}
+ * @type {?WebInspector.HelpScreen}
  */
 WebInspector.HelpScreen._visibleScreen = null;
 
@@ -88,7 +88,7 @@ WebInspector.HelpScreen.prototype = {
         if (visibleHelpScreen)
             visibleHelpScreen.hide();
         WebInspector.HelpScreen._visibleScreen = this;
-        this.show(document.body);
+        this.show(WebInspector.inspectorView.devtoolsElement());
         this.focus();
     },
 
@@ -137,7 +137,7 @@ WebInspector.HelpScreenUntilReload = function(title, message)
 {
     WebInspector.HelpScreen.call(this, title);
     var p = this.contentElement.createChild("p");
-    p.addStyleClass("help-section");
+    p.classList.add("help-section");
     p.textContent = message;
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this.hide, this);
 }

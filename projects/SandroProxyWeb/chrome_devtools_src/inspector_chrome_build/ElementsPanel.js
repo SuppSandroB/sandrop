@@ -32,14 +32,17 @@ importScript("CSSNamedFlowCollectionsView.js");
 importScript("CSSNamedFlowView.js");
 importScript("EventListenersSidebarPane.js");
 importScript("MetricsSidebarPane.js");
+importScript("OverridesView.js");
 importScript("PlatformFontsSidebarPane.js");
 importScript("PropertiesSidebarPane.js");
+importScript("RenderingOptionsView.js");
 importScript("StylesSidebarPane.js");
 
 /**
  * @constructor
- * @extends {WebInspector.Panel}
  * @implements {WebInspector.ViewFactory}
+ * @implements {WebInspector.Searchable}
+ * @extends {WebInspector.Panel}
  */
 WebInspector.ElementsPanel = function()
 {
@@ -54,17 +57,20 @@ WebInspector.ElementsPanel = function()
     const initialSidebarHeight = 325;
     const minimumContentHeightPercent = 0.34;
     this.createSidebarView(this.element, WebInspector.SidebarView.SidebarPosition.End, initialSidebarWidth, initialSidebarHeight);
-    this.splitView.sidebarElement.addStyleClass("vbox");
+    this.splitView.sidebarElement.classList.add("vbox");
     this.splitView.setSidebarElementConstraints(Preferences.minElementsSidebarWidth, Preferences.minElementsSidebarHeight);
     this.splitView.setMainElementConstraints(minimumContentWidthPercent, minimumContentHeightPercent);
     this.splitView.addEventListener(WebInspector.SidebarView.EventTypes.Resized, this._updateTreeOutlineVisibleWidth.bind(this));
 
-    var stackElement = this.splitView.mainElement;
-    stackElement.addStyleClass("vbox");
+    this._searchableView = new WebInspector.SearchableView(this);
+    this.splitView.mainElement.classList.add("vbox");
+    this._searchableView.show(this.splitView.mainElement);
+    var stackElement = this._searchableView.element;
+
     this.contentElement = stackElement.createChild("div");
     this.contentElement.id = "elements-content";
-    this.contentElement.addStyleClass("outline-disclosure");
-    this.contentElement.addStyleClass("source-code");
+    this.contentElement.classList.add("outline-disclosure");
+    this.contentElement.classList.add("source-code");
     if (!WebInspector.settings.domWordWrap.get())
         this.contentElement.classList.add("nowrap");
     WebInspector.settings.domWordWrap.addChangeListener(this._domWordWrapSettingChanged.bind(this));
@@ -138,6 +144,14 @@ WebInspector.ElementsPanel.prototype = {
         return this.treeOutline.element;
     },
 
+    /**
+     * @return {!WebInspector.SearchableView}
+     */
+    searchableView: function()
+    {
+        return this._searchableView;
+    },
+
     statusBarResized: function()
     {
         this.updateBreadcrumbSizes();
@@ -179,17 +193,25 @@ WebInspector.ElementsPanel.prototype = {
 
     /**
      * @param {string=} id
-     * @return {WebInspector.View}
+     * @return {?WebInspector.View}
      */
     createView: function(id)
     {
-        if (!this._overridesView)
-            this._overridesView = new WebInspector.OverridesView();
-        return this._overridesView;
+        if (id === "emulation") {
+            if (!this._overridesView)
+                this._overridesView = new WebInspector.OverridesView();
+            return this._overridesView;
+        }
+        if (id === "rendering") {
+            if (!this._renderingView)
+                this._renderingView = new WebInspector.RenderingOptionsView();
+            return this._renderingView;
+        }
+        return null;
     },
 
     /**
-     * @param {DOMAgent.NodeId} nodeId
+     * @param {!DOMAgent.NodeId} nodeId
      * @param {string} pseudoClass
      * @param {boolean} enable
      */
@@ -221,7 +243,7 @@ WebInspector.ElementsPanel.prototype = {
 
         WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
             action: WebInspector.UserMetrics.UserActionNames.ForcedElementState,
-            selector: node.appropriateSelectorFor(false),
+            selector: WebInspector.DOMPresentationUtils.appropriateSelectorFor(node, false),
             enabled: enable,
             state: pseudoClass
         });
@@ -283,7 +305,7 @@ WebInspector.ElementsPanel.prototype = {
 
         /**
          * @this {WebInspector.ElementsPanel}
-         * @param {WebInspector.DOMNode=} candidateFocusNode
+         * @param {?WebInspector.DOMNode} candidateFocusNode
          */
         function selectNode(candidateFocusNode)
         {
@@ -300,6 +322,7 @@ WebInspector.ElementsPanel.prototype = {
 
         /**
          * @param {?DOMAgent.NodeId} nodeId
+         * @this {WebInspector.ElementsPanel}
          */
         function selectLastSelectedNode(nodeId)
         {
@@ -314,7 +337,7 @@ WebInspector.ElementsPanel.prototype = {
         if (this._selectedPathOnReset)
             WebInspector.domAgent.pushNodeByPathToFrontend(this._selectedPathOnReset, selectLastSelectedNode.bind(this));
         else
-            selectNode.call(this);
+            selectNode.call(this, null);
         delete this._selectedPathOnReset;
     },
 
@@ -323,7 +346,7 @@ WebInspector.ElementsPanel.prototype = {
         delete this._searchQuery;
         this._hideSearchHighlights();
 
-        WebInspector.searchController.updateSearchMatchesCount(0, this);
+        this._searchableView.updateSearchMatchesCount(0);
 
         delete this._currentSearchResultIndex;
         delete this._searchResults;
@@ -347,10 +370,11 @@ WebInspector.ElementsPanel.prototype = {
 
         /**
          * @param {number} resultCount
+         * @this {WebInspector.ElementsPanel}
          */
         function resultCountCallback(resultCount)
         {
-            WebInspector.searchController.updateSearchMatchesCount(resultCount, this);
+            this._searchableView.updateSearchMatchesCount(resultCount);
             if (!resultCount)
                 return;
 
@@ -393,9 +417,9 @@ WebInspector.ElementsPanel.prototype = {
     _domWordWrapSettingChanged: function(event)
     {
         if (event.data)
-            this.contentElement.removeStyleClass("nowrap");
+            this.contentElement.classList.remove("nowrap");
         else
-            this.contentElement.addStyleClass("nowrap");
+            this.contentElement.classList.add("nowrap");
 
         var selectedNode = this.selectedDOMNode();
         if (!selectedNode)
@@ -409,7 +433,7 @@ WebInspector.ElementsPanel.prototype = {
     switchToAndFocus: function(node)
     {
         // Reset search restore.
-        WebInspector.searchController.cancelSearch();
+        this._searchableView.cancelSearch();
         WebInspector.inspectorView.setCurrentPanel(this);
         this.selectDOMNode(node, true);
     },
@@ -446,7 +470,7 @@ WebInspector.ElementsPanel.prototype = {
             return;
         }
         
-        var node = /** @type {WebInspector.DOMNode} */ (treeElement.representedObject);
+        var node = /** @type {!WebInspector.DOMNode} */ (treeElement.representedObject);
 
         if (!node.nodeName() || node.nodeName().toLowerCase() !== "img") {
             callback();
@@ -465,6 +489,10 @@ WebInspector.ElementsPanel.prototype = {
             object.callFunctionJSON(dimensions, undefined, callback);
             object.release();
 
+            /**
+             * @return {{ offsetWidth: number, offsetHeight: number, naturalWidth: number, naturalHeight: number }}
+             * @this {!Element}
+             */
             function dimensions()
             {
                 return { offsetWidth: this.offsetWidth, offsetHeight: this.offsetHeight, naturalWidth: this.naturalWidth, naturalHeight: this.naturalHeight };
@@ -473,8 +501,8 @@ WebInspector.ElementsPanel.prototype = {
     },
 
     /**
-     * @param {Element} anchor
-     * @param {WebInspector.Popover} popover
+     * @param {!Element} anchor
+     * @param {!WebInspector.Popover} popover
      */
     _showPopover: function(anchor, popover)
     {
@@ -485,7 +513,7 @@ WebInspector.ElementsPanel.prototype = {
             WebInspector.DOMPresentationUtils.buildImagePreviewContents(anchor.href, true, showPopover);
 
         /**
-         * @param {Element=} contents
+         * @param {!Element=} contents
          */
         function showPopover(contents)
         {
@@ -527,22 +555,27 @@ WebInspector.ElementsPanel.prototype = {
         var searchResult = searchResults[index];
 
         if (searchResult === null) {
-            WebInspector.searchController.updateCurrentMatchIndex(index, this);
+            this._searchableView.updateCurrentMatchIndex(index);
             return;
+        }
+
+        /**
+         * @param {?WebInspector.DOMNode} node
+         * @this {WebInspector.ElementsPanel}
+         */
+        function searchCallback(node)
+        {
+            searchResults[index] = node;
+            this._highlightCurrentSearchResult();
         }
 
         if (typeof searchResult === "undefined") {
             // No data for slot, request it.
-            function callback(node)
-            {
-                searchResults[index] = node || null;
-                this._highlightCurrentSearchResult();
-            }
-            WebInspector.domAgent.searchResult(index, callback.bind(this));
+            WebInspector.domAgent.searchResult(index, searchCallback.bind(this));
             return;
         }
 
-        WebInspector.searchController.updateCurrentMatchIndex(index, this);
+        this._searchableView.updateCurrentMatchIndex(index);
 
         var treeElement = this.treeOutline.findTreeElement(searchResult);
         if (treeElement) {
@@ -567,7 +600,7 @@ WebInspector.ElementsPanel.prototype = {
     },
 
     /**
-     * @return {WebInspector.DOMNode}
+     * @return {?WebInspector.DOMNode}
      */
     selectedDOMNode: function()
     {
@@ -583,7 +616,7 @@ WebInspector.ElementsPanel.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _updateBreadcrumbIfNeeded: function(event)
     {
@@ -654,10 +687,10 @@ WebInspector.ElementsPanel.prototype = {
         var crumb = crumbs.firstChild;
         while (crumb) {
             if (crumb.representedObject === this.selectedDOMNode()) {
-                crumb.addStyleClass("selected");
+                crumb.classList.add("selected");
                 handled = true;
             } else {
-                crumb.removeStyleClass("selected");
+                crumb.classList.remove("selected");
             }
 
             crumb = crumb.nextSibling;
@@ -677,15 +710,15 @@ WebInspector.ElementsPanel.prototype = {
         function selectCrumbFunction(event)
         {
             var crumb = event.currentTarget;
-            if (crumb.hasStyleClass("collapsed")) {
+            if (crumb.classList.contains("collapsed")) {
                 // Clicking a collapsed crumb will expose the hidden crumbs.
                 if (crumb === panel.crumbsElement.firstChild) {
                     // If the focused crumb is the first child, pick the farthest crumb
                     // that is still hidden. This allows the user to expose every crumb.
                     var currentCrumb = crumb;
                     while (currentCrumb) {
-                        var hidden = currentCrumb.hasStyleClass("hidden");
-                        var collapsed = currentCrumb.hasStyleClass("collapsed");
+                        var hidden = currentCrumb.classList.contains("hidden");
+                        var collapsed = currentCrumb.classList.contains("collapsed");
                         if (!hidden && !collapsed)
                             break;
                         crumb = currentCrumb;
@@ -730,6 +763,10 @@ WebInspector.ElementsPanel.prototype = {
                     crumbTitle = "<!DOCTYPE>";
                     break;
 
+                case Node.DOCUMENT_FRAGMENT_NODE:
+                  crumbTitle = current.shadowRootType() ? "#shadow-root" : current.nodeNameInCorrectCase();
+                  break;
+
                 default:
                     crumbTitle = current.nodeNameInCorrectCase();
             }
@@ -742,21 +779,21 @@ WebInspector.ElementsPanel.prototype = {
             }
 
             if (current === this.selectedDOMNode())
-                crumb.addStyleClass("selected");
+                crumb.classList.add("selected");
             if (!crumbs.childNodes.length)
-                crumb.addStyleClass("end");
+                crumb.classList.add("end");
 
             crumbs.insertBefore(crumb, crumbs.firstChild);
         }
 
         if (crumbs.hasChildNodes())
-            crumbs.lastChild.addStyleClass("start");
+            crumbs.lastChild.classList.add("start");
 
         this.updateBreadcrumbSizes();
     },
 
     /**
-     * @param {Element=} focusedCrumb
+     * @param {!Element=} focusedCrumb
      */
     updateBreadcrumbSizes: function(focusedCrumb)
     {
@@ -782,7 +819,7 @@ WebInspector.ElementsPanel.prototype = {
         var crumb = crumbs.firstChild;
         while (crumb) {
             // Find the selected crumb and index.
-            if (!selectedCrumb && crumb.hasStyleClass("selected")) {
+            if (!selectedCrumb && crumb.classList.contains("selected")) {
                 selectedCrumb = crumb;
                 selectedIndex = i;
             }
@@ -794,13 +831,13 @@ WebInspector.ElementsPanel.prototype = {
             // Remove any styles that affect size before
             // deciding to shorten any crumbs.
             if (crumb !== crumbs.lastChild)
-                crumb.removeStyleClass("start");
+                crumb.classList.remove("start");
             if (crumb !== crumbs.firstChild)
-                crumb.removeStyleClass("end");
+                crumb.classList.remove("end");
 
-            crumb.removeStyleClass("compact");
-            crumb.removeStyleClass("collapsed");
-            crumb.removeStyleClass("hidden");
+            crumb.classList.remove("compact");
+            crumb.classList.remove("collapsed");
+            crumb.classList.remove("hidden");
 
             crumb = crumb.nextSibling;
             ++i;
@@ -808,8 +845,8 @@ WebInspector.ElementsPanel.prototype = {
 
         // Restore the start and end crumb classes in case they got removed in coalesceCollapsedCrumbs().
         // The order of the crumbs in the document is opposite of the visual order.
-        crumbs.firstChild.addStyleClass("end");
-        crumbs.lastChild.addStyleClass("start");
+        crumbs.firstChild.classList.add("end");
+        crumbs.lastChild.classList.add("start");
 
         var contentElement = this.contentElement;
         function crumbsAreSmallerThanContainer()
@@ -895,21 +932,21 @@ WebInspector.ElementsPanel.prototype = {
             var newStartNeeded = false;
             var newEndNeeded = false;
             while (crumb) {
-                var hidden = crumb.hasStyleClass("hidden");
+                var hidden = crumb.classList.contains("hidden");
                 if (!hidden) {
-                    var collapsed = crumb.hasStyleClass("collapsed");
+                    var collapsed = crumb.classList.contains("collapsed");
                     if (collapsedRun && collapsed) {
-                        crumb.addStyleClass("hidden");
-                        crumb.removeStyleClass("compact");
-                        crumb.removeStyleClass("collapsed");
+                        crumb.classList.add("hidden");
+                        crumb.classList.remove("compact");
+                        crumb.classList.remove("collapsed");
 
-                        if (crumb.hasStyleClass("start")) {
-                            crumb.removeStyleClass("start");
+                        if (crumb.classList.contains("start")) {
+                            crumb.classList.remove("start");
                             newStartNeeded = true;
                         }
 
-                        if (crumb.hasStyleClass("end")) {
-                            crumb.removeStyleClass("end");
+                        if (crumb.classList.contains("end")) {
+                            crumb.classList.remove("end");
                             newEndNeeded = true;
                         }
 
@@ -920,7 +957,7 @@ WebInspector.ElementsPanel.prototype = {
 
                     if (newEndNeeded) {
                         newEndNeeded = false;
-                        crumb.addStyleClass("end");
+                        crumb.classList.add("end");
                     }
                 } else
                     collapsedRun = true;
@@ -930,8 +967,8 @@ WebInspector.ElementsPanel.prototype = {
             if (newStartNeeded) {
                 crumb = crumbs.lastChild;
                 while (crumb) {
-                    if (!crumb.hasStyleClass("hidden")) {
-                        crumb.addStyleClass("start");
+                    if (!crumb.classList.contains("hidden")) {
+                        crumb.classList.add("start");
                         break;
                     }
                     crumb = crumb.previousSibling;
@@ -941,17 +978,17 @@ WebInspector.ElementsPanel.prototype = {
 
         function compact(crumb)
         {
-            if (crumb.hasStyleClass("hidden"))
+            if (crumb.classList.contains("hidden"))
                 return;
-            crumb.addStyleClass("compact");
+            crumb.classList.add("compact");
         }
 
         function collapse(crumb, dontCoalesce)
         {
-            if (crumb.hasStyleClass("hidden"))
+            if (crumb.classList.contains("hidden"))
                 return;
-            crumb.addStyleClass("collapsed");
-            crumb.removeStyleClass("compact");
+            crumb.classList.add("collapsed");
+            crumb.classList.remove("compact");
             if (!dontCoalesce)
                 coalesceCollapsedCrumbs();
         }
@@ -1049,8 +1086,14 @@ WebInspector.ElementsPanel.prototype = {
         eventListenersSidebarPane.needsUpdate = false;
     },
 
+    /**
+     * @param {!KeyboardEvent} event
+     */
     handleShortcut: function(event)
     {
+        /**
+         * @this {WebInspector.ElementsPanel}
+         */
         function handleUndoRedo()
         {
             if (WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event) && !event.shiftKey && event.keyIdentifier === "U+005A") { // Z key
@@ -1111,8 +1154,8 @@ WebInspector.ElementsPanel.prototype = {
     },
 
     /** 
-     * @param {WebInspector.ContextMenu} contextMenu
-     * @param {Object} target
+     * @param {!WebInspector.ContextMenu} contextMenu
+     * @param {!Object} target
      */
     appendApplicableItems: function(event, contextMenu, target)
     {
@@ -1126,7 +1169,7 @@ WebInspector.ElementsPanel.prototype = {
         }
 
         /**
-         * @param {WebInspector.RemoteObject} remoteObject
+         * @param {!WebInspector.RemoteObject} remoteObject
          */
         function revealElement(remoteObject)
         {
@@ -1135,11 +1178,11 @@ WebInspector.ElementsPanel.prototype = {
 
         var commandCallback;
         if (target instanceof WebInspector.RemoteObject) {
-            var remoteObject = /** @type {WebInspector.RemoteObject} */ (target);
+            var remoteObject = /** @type {!WebInspector.RemoteObject} */ (target);
             if (remoteObject.subtype === "node")
                 commandCallback = revealElement.bind(this, remoteObject);
         } else if (target instanceof WebInspector.DOMNode) {
-            var domNode = /** @type {WebInspector.DOMNode} */ (target);
+            var domNode = /** @type {!WebInspector.DOMNode} */ (target);
             if (domNode.id)
                 commandCallback = WebInspector.domAgent.inspectElement.bind(WebInspector.domAgent, domNode.id);
         }
@@ -1177,32 +1220,58 @@ WebInspector.ElementsPanel.prototype = {
         if (this.sidebarPaneView && vertically === !this.splitView.isVertical())
             return;
 
-        if (this.sidebarPaneView)
+        if (this.sidebarPaneView) {
             this.sidebarPaneView.detach();
+            this.splitView.uninstallResizer(this.sidebarPaneView.headerElement());
+        }
 
         this.splitView.setVertical(!vertically);
 
         var computedPane = new WebInspector.SidebarPane(WebInspector.UIString("Computed"));
-        computedPane.element.addStyleClass("composite");
-        computedPane.element.addStyleClass("fill");
+        computedPane.element.classList.add("composite");
+        computedPane.element.classList.add("fill");
         var expandComputed = computedPane.expand.bind(computedPane);
 
         computedPane.bodyElement.appendChild(this.sidebarPanes.computedStyle.titleElement);
-        computedPane.bodyElement.addStyleClass("metrics-and-computed");
+        computedPane.bodyElement.classList.add("metrics-and-computed");
         this.sidebarPanes.computedStyle.show(computedPane.bodyElement);
         this.sidebarPanes.computedStyle.setExpandCallback(expandComputed);
 
         this.sidebarPanes.platformFonts.show(computedPane.bodyElement);
 
+        /**
+         * @param {!WebInspector.SidebarPane} pane
+         * @param {!Element=} beforeElement
+         * @this {WebInspector.ElementsPanel}
+         */
+        function showMetrics(pane, beforeElement)
+        {
+            this.sidebarPanes.metrics.show(pane.bodyElement, beforeElement);
+        }
+
+        /**
+         * @param {!WebInspector.Event} event
+         * @this {WebInspector.ElementsPanel}
+         */
+        function tabSelected(event)
+        {
+            var tabId = /** @type {string} */ (event.data.tabId);
+            if (tabId === computedPane.title())
+                showMetrics.call(this, computedPane, this.sidebarPanes.computedStyle.element);
+            if (tabId === stylesPane.title())
+                showMetrics.call(this, stylesPane);
+        }
+
+        this.sidebarPaneView = new WebInspector.SidebarTabbedPane();
+
         if (vertically) {
+            this.splitView.installResizer(this.sidebarPaneView.headerElement());
             this.sidebarPanes.metrics.show(computedPane.bodyElement, this.sidebarPanes.computedStyle.element);
             this.sidebarPanes.metrics.setExpandCallback(expandComputed);
 
-            this.sidebarPaneView = new WebInspector.SidebarTabbedPane();
-
             var compositePane = new WebInspector.SidebarPane(this.sidebarPanes.styles.title());
-            compositePane.element.addStyleClass("composite");
-            compositePane.element.addStyleClass("fill");
+            compositePane.element.classList.add("composite");
+            compositePane.element.classList.add("fill");
             var expandComposite = compositePane.expand.bind(compositePane);
 
             var splitView = new WebInspector.SplitView(true, "StylesPaneSplitRatio", 0.5);
@@ -1216,55 +1285,29 @@ WebInspector.ElementsPanel.prototype = {
             computedPane.setExpandCallback(expandComposite);
 
             this.sidebarPaneView.addPane(compositePane);
-            this.sidebarPaneView.addPane(this.sidebarPanes.properties);
-            this.sidebarPaneView.addPane(this.sidebarPanes.domBreakpoints);
-            this.sidebarPaneView.addPane(this.sidebarPanes.eventListeners);
-            this._extensionSidebarPanesContainer = this.sidebarPaneView;
         } else {
-            this.sidebarPaneView = new WebInspector.SidebarTabbedPane();
-
             var stylesPane = new WebInspector.SidebarPane(this.sidebarPanes.styles.title());
-            stylesPane.element.addStyleClass("composite");
-            stylesPane.element.addStyleClass("fill");
+            stylesPane.element.classList.add("composite");
+            stylesPane.element.classList.add("fill");
             var expandStyles = stylesPane.expand.bind(stylesPane);
-            stylesPane.bodyElement.addStyleClass("metrics-and-styles");
+            stylesPane.bodyElement.classList.add("metrics-and-styles");
             this.sidebarPanes.styles.show(stylesPane.bodyElement);
             this.sidebarPanes.styles.setExpandCallback(expandStyles);
             this.sidebarPanes.metrics.setExpandCallback(expandStyles);
             stylesPane.bodyElement.appendChild(this.sidebarPanes.styles.titleElement);
-
-            /**
-             * @param {WebInspector.SidebarPane} pane
-             * @param {Element=} beforeElement
-             */
-            function showMetrics(pane, beforeElement)
-            {
-                this.sidebarPanes.metrics.show(pane.bodyElement, beforeElement);
-            }
-
-            /**
-             * @param {WebInspector.Event} event
-             */
-            function tabSelected(event)
-            {
-                var tabId = /** @type {string} */ (event.data.tabId);
-                if (tabId === computedPane.title())
-                    showMetrics.call(this, computedPane, this.sidebarPanes.computedStyle.element);
-                if (tabId === stylesPane.title())
-                    showMetrics.call(this, stylesPane);
-            }
 
             this.sidebarPaneView.addEventListener(WebInspector.TabbedPane.EventTypes.TabSelected, tabSelected, this);
 
             showMetrics.call(this, stylesPane);
             this.sidebarPaneView.addPane(stylesPane);
             this.sidebarPaneView.addPane(computedPane);
-
-            this.sidebarPaneView.addPane(this.sidebarPanes.eventListeners);
-            this.sidebarPaneView.addPane(this.sidebarPanes.domBreakpoints);
-            this.sidebarPaneView.addPane(this.sidebarPanes.properties);
-            this._extensionSidebarPanesContainer = this.sidebarPaneView;
         }
+
+        this.sidebarPaneView.addPane(this.sidebarPanes.eventListeners);
+        this.sidebarPaneView.addPane(this.sidebarPanes.domBreakpoints);
+        this.sidebarPaneView.addPane(this.sidebarPanes.properties);
+        this._extensionSidebarPanesContainer = this.sidebarPaneView;
+
         for (var i = 0; i < this._extensionSidebarPanes.length; ++i)
             this._extensionSidebarPanesContainer.addPane(this._extensionSidebarPanes[i]);
 
@@ -1274,7 +1317,7 @@ WebInspector.ElementsPanel.prototype = {
 
     /**
      * @param {string} id
-     * @param {WebInspector.SidebarPane} pane
+     * @param {!WebInspector.SidebarPane} pane
      */
     addExtensionSidebarPane: function(id, pane)
     {

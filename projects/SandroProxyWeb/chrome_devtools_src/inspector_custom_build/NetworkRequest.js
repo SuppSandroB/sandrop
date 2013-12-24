@@ -32,11 +32,11 @@
  * @constructor
  * @extends {WebInspector.Object}
  * @implements {WebInspector.ContentProvider}
- * @param {NetworkAgent.RequestId} requestId
+ * @param {!NetworkAgent.RequestId} requestId
  * @param {string} url
  * @param {string} documentURL
- * @param {PageAgent.FrameId} frameId
- * @param {NetworkAgent.LoaderId} loaderId
+ * @param {!PageAgent.FrameId} frameId
+ * @param {!NetworkAgent.LoaderId} loaderId
  */
 WebInspector.NetworkRequest = function(requestId, url, documentURL, frameId, loaderId)
 {
@@ -76,12 +76,12 @@ WebInspector.NetworkRequest.InitiatorType = {
     Script: "script"
 }
 
-/** @typedef {{name: string, value: string}} */
+/** @typedef {!{name: string, value: string}} */
 WebInspector.NetworkRequest.NameValue;
 
 WebInspector.NetworkRequest.prototype = {
     /**
-     * @return {NetworkAgent.RequestId}
+     * @return {!NetworkAgent.RequestId}
      */
     get requestId()
     {
@@ -108,6 +108,7 @@ WebInspector.NetworkRequest.prototype = {
 
         this._url = x;
         this._parsedURL = new WebInspector.ParsedURL(x);
+        delete this._queryString;
         delete this._parsedQueryParameters;
         delete this._name;
         delete this._path;
@@ -127,7 +128,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {PageAgent.FrameId}
+     * @return {!PageAgent.FrameId}
      */
     get frameId()
     {
@@ -135,7 +136,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {NetworkAgent.LoaderId}
+     * @return {!NetworkAgent.LoaderId}
      */
     get loaderId()
     {
@@ -319,7 +320,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {NetworkAgent.ResourceTiming|undefined}
+     * @return {!NetworkAgent.ResourceTiming|undefined}
      */
     get timing()
     {
@@ -413,7 +414,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {WebInspector.ResourceType}
+     * @return {!WebInspector.ResourceType}
      */
     get type()
     {
@@ -504,7 +505,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {Array.<WebInspector.Cookie>}
+     * @return {!Array.<!WebInspector.Cookie>}
      */
     get requestCookies()
     {
@@ -614,7 +615,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {Array.<WebInspector.Cookie>}
+     * @return {!Array.<!WebInspector.Cookie>}
      */
     get responseCookies()
     {
@@ -628,12 +629,19 @@ WebInspector.NetworkRequest.prototype = {
      */
     queryString: function()
     {
-        if (this._queryString)
+        if (this._queryString !== undefined)
             return this._queryString;
-        var queryString = this.url.split("?", 2)[1];
-        if (!queryString)
-            return null;
-        this._queryString = queryString.split("#", 2)[0];
+
+        var queryString = null;
+        var url = this.url;
+        var questionMarkPosition = url.indexOf("?");
+        if (questionMarkPosition !== -1) {
+            queryString = url.substring(questionMarkPosition + 1);
+            var hashSignPosition = queryString.indexOf("#");
+            if (hashSignPosition !== -1)
+                queryString = queryString.substring(0, hashSignPosition);
+        }
+        this._queryString = queryString;
         return this._queryString;
     },
 
@@ -737,7 +745,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {WebInspector.ResourceType}
+     * @return {!WebInspector.ResourceType}
      */
     contentType: function()
     {
@@ -769,7 +777,7 @@ WebInspector.NetworkRequest.prototype = {
      * @param {string} query
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
-     * @param {function(Array.<WebInspector.ContentProvider.SearchMatch>)} callback
+     * @param {function(!Array.<!WebInspector.ContentProvider.SearchMatch>)} callback
      */
     searchInContent: function(query, caseSensitive, isRegex, callback)
     {
@@ -809,7 +817,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @param {Element} image
+     * @param {!Element} image
      */
     populateImageSource: function(image)
     {
@@ -846,6 +854,7 @@ WebInspector.NetworkRequest.prototype = {
          * @param {?Protocol.Error} error
          * @param {string} content
          * @param {boolean} contentEncoded
+         * @this {WebInspector.NetworkRequest}
          */
         function onResourceContent(error, content, contentEncoded)
         {
@@ -861,7 +870,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {{type: WebInspector.NetworkRequest.InitiatorType, url: string, source: string, lineNumber: number, columnNumber: number}}
+     * @return {!{type: !WebInspector.NetworkRequest.InitiatorType, url: string, source: string, lineNumber: number, columnNumber: number}}
      */
     initiatorInfo: function()
     {
@@ -906,7 +915,7 @@ WebInspector.NetworkRequest.prototype = {
 
     /**
      * @param {number} position
-     * @return {Object|undefined}
+     * @return {!Object|undefined}
      */
     frame: function(position)
     {

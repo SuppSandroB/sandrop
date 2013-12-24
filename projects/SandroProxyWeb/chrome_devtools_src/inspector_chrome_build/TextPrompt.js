@@ -31,19 +31,18 @@
  * @constructor
  * @extends WebInspector.Object
  * @implements {WebInspector.SuggestBoxDelegate}
- * @param {function(Element, Range, boolean, function(!Array.<string>, number=))} completions
+ * @param {function(!Element, !Range, boolean, function(!Array.<string>, number=))} completions
  * @param {string=} stopCharacters
  */
 WebInspector.TextPrompt = function(completions, stopCharacters)
 {
     /**
-     * @type {Element|undefined}
+     * @type {!Element|undefined}
      */
     this._proxyElement;
     this._proxyElementDisplay = "inline-block";
     this._loadCompletions = completions;
     this._completionStopCharacters = stopCharacters || " =:[({;,!+-*/&|^<>.";
-    this._suggestForceable = true;
 }
 
 WebInspector.TextPrompt.Events = {
@@ -55,22 +54,6 @@ WebInspector.TextPrompt.prototype = {
     get proxyElement()
     {
         return this._proxyElement;
-    },
-
-    /**
-     * @param {boolean} x
-     */
-    setSuggestForceable: function(x)
-    {
-        this._suggestForceable = x;
-    },
-
-    /**
-     * @param {boolean} x
-     */
-    setShowSuggestForEmptyInput: function(x)
-    {
-        this._showSuggestForEmptyInput = x;
     },
 
     /**
@@ -90,7 +73,7 @@ WebInspector.TextPrompt.prototype = {
      * Clients should never attach any event listeners to the |element|. Instead,
      * they should use the result of this method to attach listeners for bubbling events.
      *
-     * @param {Element} element
+     * @param {!Element} element
      */
     attach: function(element)
     {
@@ -103,8 +86,8 @@ WebInspector.TextPrompt.prototype = {
      * or the |blurListener| parameter to register a "blur" event listener on the |element|
      * (since the "blur" event does not bubble.)
      *
-     * @param {Element} element
-     * @param {function(Event)} blurListener
+     * @param {!Element} element
+     * @param {function(!Event)} blurListener
      */
     attachAndStartEditing: function(element, blurListener)
     {
@@ -114,7 +97,7 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {Element} element
+     * @param {!Element} element
      */
     _attachInternal: function(element)
     {
@@ -129,7 +112,7 @@ WebInspector.TextPrompt.prototype = {
         this._proxyElement.style.display = this._proxyElementDisplay;
         element.parentElement.insertBefore(this.proxyElement, element);
         this.proxyElement.appendChild(element);
-        this._element.addStyleClass("text-prompt");
+        this._element.classList.add("text-prompt");
         this._element.addEventListener("keydown", this._boundOnKeyDown, false);
         this._element.addEventListener("mousewheel", this._boundOnMouseWheel, false);
         this._element.addEventListener("selectstart", this._boundSelectStart, false);
@@ -146,7 +129,7 @@ WebInspector.TextPrompt.prototype = {
         this.proxyElement.parentElement.insertBefore(this._element, this.proxyElement);
         this.proxyElement.remove();
         delete this._proxyElement;
-        this._element.removeStyleClass("text-prompt");
+        this._element.classList.remove("text-prompt");
         this._element.removeEventListener("keydown", this._boundOnKeyDown, false);
         this._element.removeEventListener("mousewheel", this._boundOnMouseWheel, false);
         this._element.removeEventListener("selectstart", this._boundSelectStart, false);
@@ -154,7 +137,7 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @return string
+     * @type {string}
      */
     get text()
     {
@@ -190,12 +173,12 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {function(Event)=} blurListener
+     * @param {function(!Event)=} blurListener
      */
     _startEditing: function(blurListener)
     {
         this._isEditing = true;
-        this._element.addStyleClass("editing");
+        this._element.classList.add("editing");
         if (blurListener) {
             this._blurListener = blurListener;
             this._element.addEventListener("blur", this._blurListener, false);
@@ -213,7 +196,7 @@ WebInspector.TextPrompt.prototype = {
         this._element.tabIndex = this._oldTabIndex;
         if (this._blurListener)
             this._element.removeEventListener("blur", this._blurListener, false);
-        this._element.removeStyleClass("editing");
+        this._element.classList.remove("editing");
         delete this._isEditing;
     },
 
@@ -230,6 +213,9 @@ WebInspector.TextPrompt.prototype = {
 
         this._removeSuggestionAids();
 
+        /**
+         * @this {WebInspector.TextPrompt}
+         */
         function moveBackIfOutside()
         {
             delete this._selectionTimeout;
@@ -262,7 +248,7 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {?Event} event
      */
     onMouseWheel: function(event)
     {
@@ -270,7 +256,7 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {?Event} event
      */
     onKeyDown: function(event)
     {
@@ -301,7 +287,7 @@ WebInspector.TextPrompt.prototype = {
             }
             break;
         case "U+0020": // Space
-            if (this._suggestForceable && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+            if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
                 this.defaultKeyHandler(event, true);
                 handled = true;
             }
@@ -335,7 +321,7 @@ WebInspector.TextPrompt.prototype = {
         if (this.isSuggestBoxVisible())
             result = this._suggestBox.acceptSuggestion();
         if (!result)
-            result = this.acceptSuggestion();
+            result = this._acceptSuggestionInternal();
 
         return result;
     },
@@ -421,9 +407,14 @@ WebInspector.TextPrompt.prototype = {
         this._loadCompletions(this.proxyElement, wordPrefixRange, force, this._completionsReady.bind(this, selection, wordPrefixRange, !!reverse));
     },
 
+    disableDefaultSuggestionForEmptyInput: function()
+    {
+        this._disableDefaultSuggestionForEmptyInput = true;
+    },
+
     /**
-     * @param {Selection} selection
-     * @param {Range} textRange
+     * @param {!Selection} selection
+     * @param {!Range} textRange
      */
     _boxForAnchorAtStart: function(selection, textRange)
     {
@@ -439,7 +430,7 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {Array.<string>} completions
+     * @param {!Array.<string>} completions
      * @param {number} wordPrefixLength
      */
     _buildCommonPrefix: function(completions, wordPrefixLength)
@@ -459,8 +450,8 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {Selection} selection
-     * @param {Range} originalWordPrefixRange
+     * @param {!Selection} selection
+     * @param {!Range} originalWordPrefixRange
      * @param {boolean} reverse
      * @param {!Array.<string>} completions
      * @param {number=} selectedIndex
@@ -479,16 +470,19 @@ WebInspector.TextPrompt.prototype = {
         fullWordRange.setStart(originalWordPrefixRange.startContainer, originalWordPrefixRange.startOffset);
         fullWordRange.setEnd(selectionRange.endContainer, selectionRange.endOffset);
 
-        if (originalWordPrefixRange.toString() + selectionRange.toString() != fullWordRange.toString())
+        if (originalWordPrefixRange.toString() + selectionRange.toString() !== fullWordRange.toString())
             return;
 
-        selectedIndex = selectedIndex || 0;
+        selectedIndex = (this._disableDefaultSuggestionForEmptyInput && !this.text) ? -1 : (selectedIndex || 0);
 
         this._userEnteredRange = fullWordRange;
         this._userEnteredText = fullWordRange.toString();
 
         if (this._suggestBox)
             this._suggestBox.updateSuggestions(this._boxForAnchorAtStart(selection, fullWordRange), completions, selectedIndex, !this.isCaretAtEndOfPrompt(), this._userEnteredText);
+
+        if (selectedIndex === -1)
+            return;
 
         var wordPrefixLength = originalWordPrefixRange.toString().length;
         this._commonPrefix = this._buildCommonPrefix(completions, wordPrefixLength);
@@ -528,7 +522,7 @@ WebInspector.TextPrompt.prototype = {
         }
 
         this.autoCompleteElement.textContent = this._commonPrefix.substring(this._userEnteredText.length);
-        this.acceptSuggestion(true)
+        this._acceptSuggestionInternal(true);
     },
 
     /**
@@ -543,7 +537,7 @@ WebInspector.TextPrompt.prototype = {
     /**
      * @param {string} completionText
      * @param {boolean=} isIntermediateSuggestion
-     * @param {Range=} originalPrefixRange
+     * @param {!Range=} originalPrefixRange
      */
     _applySuggestion: function(completionText, isIntermediateSuggestion, originalPrefixRange)
     {
@@ -578,9 +572,18 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {boolean=} prefixAccepted
+     * @override
      */
-    acceptSuggestion: function(prefixAccepted)
+    acceptSuggestion: function()
+    {
+        this._acceptSuggestionInternal();
+    },
+
+    /**
+     * @param {boolean=} prefixAccepted
+     * @return {boolean}
+     */
+    _acceptSuggestionInternal: function(prefixAccepted)
     {
         if (this._isAcceptingSuggestion)
             return false;
@@ -727,7 +730,7 @@ WebInspector.TextPrompt.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {!Event} event
      * @return {boolean}
      */
     tabKeyPressed: function(event)
@@ -745,7 +748,7 @@ WebInspector.TextPrompt.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.TextPrompt}
- * @param {function(Element, Range, boolean, function(!Array.<string>, number=))} completions
+ * @param {function(!Element, !Range, boolean, function(!Array.<string>, number=))} completions
  * @param {string=} stopCharacters
  */
 WebInspector.TextPromptWithHistory = function(completions, stopCharacters)
@@ -753,7 +756,7 @@ WebInspector.TextPromptWithHistory = function(completions, stopCharacters)
     WebInspector.TextPrompt.call(this, completions, stopCharacters);
 
     /**
-     * @type {Array.<string>}
+     * @type {!Array.<string>}
      */
     this._data = [];
 
@@ -772,7 +775,7 @@ WebInspector.TextPromptWithHistory = function(completions, stopCharacters)
 
 WebInspector.TextPromptWithHistory.prototype = {
     /**
-     * @return {Array.<string>}
+     * @return {!Array.<string>}
      */
     get historyData()
     {
@@ -789,7 +792,7 @@ WebInspector.TextPromptWithHistory.prototype = {
     },
 
     /**
-     * @param {Array.<string>} data
+     * @param {!Array.<string>} data
      */
     setHistoryData: function(data)
     {

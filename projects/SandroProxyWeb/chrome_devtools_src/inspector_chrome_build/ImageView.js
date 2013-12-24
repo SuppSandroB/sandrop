@@ -34,7 +34,7 @@ WebInspector.ImageView = function(resource)
 {
     WebInspector.ResourceView.call(this, resource);
 
-    this.element.addStyleClass("image");
+    this.element.classList.add("image");
 }
 
 WebInspector.ImageView.prototype = {
@@ -58,7 +58,7 @@ WebInspector.ImageView.prototype = {
         this.element.appendChild(imageContainer);
 
         var imagePreviewElement = document.createElement("img");
-        imagePreviewElement.addStyleClass("resource-image-view");
+        imagePreviewElement.classList.add("resource-image-view");
         imageContainer.appendChild(imagePreviewElement);
         imagePreviewElement.addEventListener("contextmenu", this._contextMenu.bind(this), true);
 
@@ -76,6 +76,9 @@ WebInspector.ImageView.prototype = {
 
         this.resource.populateImageSource(imagePreviewElement);
 
+        /**
+         * @this {WebInspector.ImageView}
+         */
         function onImageLoad()
         {
             var content = this.resource.content;
@@ -110,6 +113,7 @@ WebInspector.ImageView.prototype = {
             this._container.appendChild(infoListElement);
         }
         imagePreviewElement.addEventListener("load", onImageLoad.bind(this), false);
+        this._imagePreviewElement = imagePreviewElement;
     },
 
     _base64ToSize: function(content)
@@ -128,8 +132,15 @@ WebInspector.ImageView.prototype = {
     {
         var contextMenu = new WebInspector.ContextMenu(event);
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy image URL" : "Copy Image URL"), this._copyImageURL.bind(this));
+        if (this._imagePreviewElement.src)
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy image as Data URL" : "Copy Image As Data URL"), this._copyImageAsDataURL.bind(this));
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Open image in new tab" : "Open Image in New Tab"), this._openInNewTab.bind(this));
         contextMenu.show();
+    },
+
+    _copyImageAsDataURL: function()
+    {
+        InspectorFrontendHost.copyText(this._imagePreviewElement.src);
     },
 
     _copyImageURL: function()

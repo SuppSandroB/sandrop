@@ -348,7 +348,7 @@ WebInspector.ThreeDimView.prototype = {
             threeTypeElement.typeName = typeName;
             threeTypeElement.className = typeName;
             if (selected){
-                threeTypeElement.addStyleClass("selected");
+                threeTypeElement.classList.add("selected");
             }
             threeTypeElement.appendChild(document.createTextNode(label));
             threeTypeElement.addEventListener("click", this._updateThreeVievTypeByClick.bind(this), false);
@@ -368,7 +368,7 @@ WebInspector.ThreeDimView.prototype = {
         }
         
         var dividerElement = document.createElement("div");
-        dividerElement.addStyleClass("scope-bar-divider");
+        dividerElement.classList.add("scope-bar-divider");
         threeTypeBarElement.appendChild(dividerElement);
         
         this._threeTypeBarElement = threeTypeBarElement;
@@ -437,13 +437,13 @@ WebInspector.ThreeDimView.prototype = {
                 if (!child.typeName)
                     continue;
 
-                child.removeStyleClass("selected");
+                child.classList.remove("selected");
                 this._hideCategory(child.typeName);
             }
         }
 
         if (target === this._filterAllElement) {
-            if (target.hasStyleClass("selected")) {
+            if (target.classList.contains("selected")) {
                 // We can't unselect All, so we break early here
                 return;
             }
@@ -452,8 +452,8 @@ WebInspector.ThreeDimView.prototype = {
             unselectAll.call(this);
         } else {
             // Something other than All is being selected, so we want to unselect All.
-            if (this._filterAllElement.hasStyleClass("selected")) {
-                this._filterAllElement.removeStyleClass("selected");
+            if (this._filterAllElement.classList.contains("selected")) {
+                this._filterAllElement.classList.remove("selected");
                 this._hideCategory("all");
             }
         }
@@ -463,21 +463,21 @@ WebInspector.ThreeDimView.prototype = {
             // and just select ourselves.
             unselectAll.call(this);
 
-            target.addStyleClass("selected");
+            target.classList.add("selected");
             this._showCategory(target.typeName);
             // TODO this._updateOffscreenRows();
             return;
         }
 
-        if (target.hasStyleClass("selected")) {
+        if (target.classList.contains("selected")) {
             // If selectMultiple is turned on, and we were selected, we just
             // want to unselect ourselves.
-            target.removeStyleClass("selected");
+            target.classList.remove("selected");
             this._hideCategory(target.typeName);
         } else {
             // If selectMultiple is turned on, and we weren't selected, we just
             // want to select ourselves.
-            target.addStyleClass("selected");
+            target.classList.add("selected");
             this._showCategory(target.typeName);
         }
     },
@@ -492,11 +492,11 @@ WebInspector.ThreeDimView.prototype = {
                 var child = this._threeTypeBarElement.childNodes[i];
                 if (!child.typeName)
                     continue;
-                child.removeStyleClass("selected");
+                child.classList.remove("selected");
             }
         }
         unselectAll.call(this);
-        e.target.addStyleClass("selected");
+        e.target.classList.add("selected");
         this._activateThreeTransformAll();
     },
     
@@ -632,11 +632,11 @@ WebInspector.ThreeDimView.prototype = {
         var view = new WebInspector.NetworkItemView(request);
         
         // remove generated tabbed style and add custom one 
-        view.element.removeStyleClass("tabbed-pane");
-        view.element.addStyleClass("three-view-tabbed-pane");
+        view.element.classList.remove("tabbed-pane");
+        view.element.classList.add("three-view-tabbed-pane");
         
-        view.element.removeStyleClass("network-item-view");
-        view.element.addStyleClass("three-network-item-view");
+        view.element.classList.remove("network-item-view");
+        view.element.classList.add("three-network-item-view");
 
         if (this.visibleView) {
             this.visibleView.detach();
@@ -660,15 +660,20 @@ WebInspector.SandroProxyThreeDimPanel = function(){
     WebInspector.Panel.call(this, "threeDimPanel");
     this.registerRequiredCSS("networkPanel.css");
     this.registerRequiredCSS("sandroproxy/three/threeDimPanel.css");
+    
+    this.element.classList.add("vbox");
+    this._panelStatusBarElement = this.element.createChild("div", "panel-status-bar");
+    
     this._threeDimView = new WebInspector.ThreeDimView();
     this.element.id = "threeDimPanel";
+
+    for (var i = 0; i < this._threeDimView.statusBarItems.length; ++i)
+        this._panelStatusBarElement.appendChild(this._threeDimView.statusBarItems[i]);
     this._threeDimView.show(this.element);
+    
+    
 }
 
 WebInspector.SandroProxyThreeDimPanel.prototype = {
-    get statusBarItems()
-    {
-        return this._threeDimView.statusBarItems;
-    },
     __proto__: WebInspector.Panel.prototype
 }

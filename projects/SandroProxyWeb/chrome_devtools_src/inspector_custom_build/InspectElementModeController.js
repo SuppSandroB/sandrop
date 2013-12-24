@@ -59,6 +59,7 @@ WebInspector.InspectElementModeController.prototype = {
 
         /**
          * @param {?Protocol.Error} error
+         * @this {WebInspector.InspectElementModeController}
          */
         function callback(error)
         {
@@ -69,7 +70,7 @@ WebInspector.InspectElementModeController.prototype = {
     },
 
     /**
-     * @param {KeyboardEvent} event
+     * @param {!KeyboardEvent} event
      * @return {boolean}
      */
     handleShortcut: function(event)
@@ -82,5 +83,5 @@ WebInspector.InspectElementModeController.prototype = {
     }
 }
 
-/** @type {WebInspector.InspectElementModeController} */
-WebInspector.inspectElementModeController = null;
+/** @type {!WebInspector.InspectElementModeController} */
+WebInspector.inspectElementModeController;

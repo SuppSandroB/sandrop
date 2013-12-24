@@ -60,7 +60,7 @@ WebInspector.HandlerRegistry.prototype = {
     },
 
     /**
-     * @param {Object} data
+     * @param {!Object} data
      */
     dispatch: function(data)
     {
@@ -69,7 +69,7 @@ WebInspector.HandlerRegistry.prototype = {
 
     /**
      * @param {string} name
-     * @param {Object} data
+     * @param {!Object} data
      */
     dispatchToHandler: function(name, data)
     {
@@ -91,8 +91,8 @@ WebInspector.HandlerRegistry.prototype = {
     },
 
     /** 
-     * @param {WebInspector.ContextMenu} contextMenu
-     * @param {Object} target
+     * @param {!WebInspector.ContextMenu} contextMenu
+     * @param {!Object} target
      */
     appendApplicableItems: function(event, contextMenu, target)
     {
@@ -101,14 +101,14 @@ WebInspector.HandlerRegistry.prototype = {
     },
 
     /** 
-     * @param {WebInspector.ContextMenu} contextMenu
-     * @param {Object} target
+     * @param {!WebInspector.ContextMenu} contextMenu
+     * @param {!Object} target
      */
     _appendContentProviderItems: function(contextMenu, target)
     {
         if (!(target instanceof WebInspector.UISourceCode || target instanceof WebInspector.Resource || target instanceof WebInspector.NetworkRequest))
             return;
-        var contentProvider = /** @type {WebInspector.ContentProvider} */ (target);
+        var contentProvider = /** @type {!WebInspector.ContentProvider} */ (target);
         if (!contentProvider.contentURL())
             return;
 
@@ -143,11 +143,12 @@ WebInspector.HandlerRegistry.prototype = {
 
         /**
          * @param {boolean} forceSaveAs
+         * @this {WebInspector.HandlerRegistry}
          */
         function save(forceSaveAs)
         {
             if (contentProvider instanceof WebInspector.UISourceCode) {
-                var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (contentProvider);
+                var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (contentProvider);
                 uiSourceCode.saveToFileSystem(forceSaveAs);
                 return;
             }
@@ -160,14 +161,14 @@ WebInspector.HandlerRegistry.prototype = {
     },
 
     /** 
-     * @param {WebInspector.ContextMenu} contextMenu
-     * @param {Object} target
+     * @param {!WebInspector.ContextMenu} contextMenu
+     * @param {!Object} target
      */
     _appendHrefItems: function(contextMenu, target)
     {
         if (!(target instanceof Node))
             return;
-        var targetNode = /** @type {Node} */ (target);
+        var targetNode = /** @type {!Node} */ (target);
 
         var anchorElement = targetNode.enclosingNodeOrSelfWithClass("webkit-html-resource-link") || targetNode.enclosingNodeOrSelfWithClass("webkit-html-external-link");
         if (!anchorElement)
@@ -230,6 +231,6 @@ WebInspector.HandlerSelector.prototype =
 
 
 /**
- * @type {WebInspector.HandlerRegistry}
+ * @type {!WebInspector.HandlerRegistry}
  */
-WebInspector.openAnchorLocationRegistry = null;
+WebInspector.openAnchorLocationRegistry;

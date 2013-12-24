@@ -42,9 +42,11 @@ WebInspector.SandroProxyConnectionsPanel = function()
     this.registerRequiredCSS("networkPanel.css");
     this._injectStyles();
 
-    this.element.addStyleClass("vbox");
+    this.element.classList.add("vbox");
+    this._panelStatusBarElement = this.element.createChild("div", "panel-status-bar");
+    
     this.createSidebarView();
-    this.splitView.element.removeStyleClass("fill");
+    this.splitView.element.classList.remove("fill");
     this.splitView.hideMainElement();
 
     this._sandroProxyConnectionsView = new WebInspector.ConnectionsView(WebInspector.ConnectionsView._defaultColumnsVisivility);
@@ -52,11 +54,11 @@ WebInspector.SandroProxyConnectionsPanel = function()
 
     this._viewsContainerElement = this.splitView.mainElement;
     this._viewsContainerElement.id = "network-views";
-    this._viewsContainerElement.addStyleClass("hidden");
+    this._viewsContainerElement.classList.add("hidden");
     
     this._sandroProxyConnectionsView.useLargeRows = false;
     if (!this._sandroProxyConnectionsView.useLargeRows)
-        this._viewsContainerElement.addStyleClass("small");
+        this._viewsContainerElement.classList.add("small");
 
     this._sandroProxyConnectionsView.addEventListener(WebInspector.ConnectionsView.EventTypes.ViewCleared, this._onViewCleared, this);
     this._sandroProxyConnectionsView.addEventListener(WebInspector.ConnectionsView.EventTypes.RowSizeChanged, this._onRowSizeChanged, this);
@@ -75,6 +77,9 @@ WebInspector.SandroProxyConnectionsPanel = function()
     }
     WebInspector.GoToLineDialog.install(this, viewGetter.bind(this));
     
+    for (var i = 0; i < this._sandroProxyConnectionsView.statusBarItems.length; ++i)
+        this._panelStatusBarElement.appendChild(this._sandroProxyConnectionsView.statusBarItems[i]);
+    
     
     // TODO button to stop/start snapshots 
     // NetworkAgent.sandroProxyStopSendingConnSnapshots(onStopSendingConnSnapshots.bind(this));
@@ -82,11 +87,6 @@ WebInspector.SandroProxyConnectionsPanel = function()
 
 WebInspector.SandroProxyConnectionsPanel.prototype = {
     
-    get statusBarItems()
-    {
-        return this._sandroProxyConnectionsView.statusBarItems;
-    },
-
     elementsToRestoreScrollPositionsFor: function()
     {
         return this._sandroProxyConnectionsView.elementsToRestoreScrollPositionsFor();
@@ -162,12 +162,12 @@ WebInspector.SandroProxyConnectionsPanel.prototype = {
 
     _onSearchCountUpdated: function(event)
     {
-        WebInspector.searchController.updateSearchMatchesCount(event.data, this);
+        // TODO remove WebInspector.searchController.updateSearchMatchesCount(event.data, this);
     },
 
     _onSearchIndexUpdated: function(event)
     {
-        WebInspector.searchController.updateCurrentMatchIndex(event.data, this);
+        // TODO remove WebInspector.searchController.updateCurrentMatchIndex(event.data, this);
     },
 
     _onRequestSelected: function(event)

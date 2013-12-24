@@ -57,7 +57,7 @@ WebInspector.DirectoryContentView.columnIndexes = {
 
 WebInspector.DirectoryContentView.prototype = {
     /**
-     * @param {Array.<WebInspector.FileSystemModel.Directory>} entries
+     * @param {!Array.<!WebInspector.FileSystemModel.Directory>} entries
      */
     showEntries: function(entries)
     {
@@ -79,7 +79,7 @@ WebInspector.DirectoryContentView.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.DataGridNode}
- * @param {WebInspector.FileSystemModel.Entry} entry
+ * @param {!WebInspector.FileSystemModel.Entry} entry
  */
 WebInspector.DirectoryContentView.Node = function(entry)
 {
@@ -162,7 +162,7 @@ WebInspector.DirectoryContentView.Node.comparator = function(column, reverse)
 WebInspector.DirectoryContentView.Node.prototype = {
     /**
      * @param {number} errorCode
-     * @param {FileSystemAgent.Metadata} metadata
+     * @param {!FileSystemAgent.Metadata} metadata
      */
     _metadataReceived: function(errorCode, metadata)
     {

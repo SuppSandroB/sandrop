@@ -31,7 +31,7 @@
 /**
  * @constructor
  * @extends {WebInspector.View}
- * @param {WebInspector.PopoverHelper=} popoverHelper
+ * @param {!WebInspector.PopoverHelper=} popoverHelper
  */
 WebInspector.Popover = function(popoverHelper)
 {
@@ -52,8 +52,8 @@ WebInspector.Popover = function(popoverHelper)
 
 WebInspector.Popover.prototype = {
     /**
-     * @param {Element} element
-     * @param {Element|AnchorBox} anchor
+     * @param {!Element} element
+     * @param {!Element|!AnchorBox} anchor
      * @param {?number=} preferredWidth
      * @param {?number=} preferredHeight
      * @param {?WebInspector.Popover.Orientation=} arrowDirection
@@ -64,8 +64,8 @@ WebInspector.Popover.prototype = {
     },
 
     /**
-     * @param {WebInspector.View} view
-     * @param {Element|AnchorBox} anchor
+     * @param {!WebInspector.View} view
+     * @param {!Element|!AnchorBox} anchor
      * @param {?number=} preferredWidth
      * @param {?number=} preferredHeight
      */
@@ -75,9 +75,9 @@ WebInspector.Popover.prototype = {
     },
 
     /**
-     * @param {WebInspector.View?} view
-     * @param {Element} contentElement
-     * @param {Element|AnchorBox} anchor
+     * @param {?WebInspector.View} view
+     * @param {!Element} contentElement
+     * @param {!Element|!AnchorBox} anchor
      * @param {?number=} preferredWidth
      * @param {?number=} preferredHeight
      * @param {?WebInspector.Popover.Orientation=} arrowDirection
@@ -134,11 +134,11 @@ WebInspector.Popover.prototype = {
     setCanShrink: function(canShrink)
     {
         this._hasFixedHeight = !canShrink;
-        this._contentDiv.addStyleClass("fixed-height");
+        this._contentDiv.classList.add("fixed-height");
     },
 
     /**
-     * @param {Element|AnchorBox} anchorElement
+     * @param {!Element|!AnchorBox} anchorElement
      * @param {number} preferredWidth
      * @param {number} preferredHeight
      * @param {?WebInspector.Popover.Orientation=} arrowDirection
@@ -225,9 +225,9 @@ WebInspector.Popover.prototype = {
 
 /**
  * @constructor
- * @param {Element} panelElement
- * @param {function(Element, Event):(Element|AnchorBox)|undefined} getAnchor
- * @param {function(Element, WebInspector.Popover):undefined} showPopover
+ * @param {!Element} panelElement
+ * @param {function(!Element, !Event):(!Element|!AnchorBox)|undefined} getAnchor
+ * @param {function(!Element, !WebInspector.Popover):undefined} showPopover
  * @param {function()=} onHide
  * @param {boolean=} disableOnClick
  */
@@ -251,7 +251,7 @@ WebInspector.PopoverHelper.prototype = {
     },
 
     /**
-     * @param {MouseEvent} event
+     * @param {!MouseEvent} event
      * @return {boolean}
      */
     _eventInHoverElement: function(event)
@@ -305,6 +305,9 @@ WebInspector.PopoverHelper.prototype = {
         if (!this._popover || this._hidePopoverTimer)
             return;
 
+        /**
+         * @this {WebInspector.PopoverHelper}
+         */
         function doHide()
         {
             this._hidePopover();
@@ -383,89 +386,4 @@ WebInspector.PopoverHelper.prototype = {
 WebInspector.Popover.Orientation = {
     Top: "top",
     Bottom: "bottom"
-}
-
-/**
- * @constructor
- * @param {string} title
- */
-WebInspector.PopoverContentHelper = function(title)
-{
-    this._contentTable = document.createElement("table");
-    var titleCell = this._createCell(WebInspector.UIString("%s - Details", title), "popover-details-title");
-    titleCell.colSpan = 2;
-    var titleRow = document.createElement("tr");
-    titleRow.appendChild(titleCell);
-    this._contentTable.appendChild(titleRow);
-}
-
-WebInspector.PopoverContentHelper.prototype = {
-    contentTable: function()
-    {
-        return this._contentTable;
-    },
-
-    /**
-     * @param {string=} styleName
-     */
-    _createCell: function(content, styleName)
-    {
-        var text = document.createElement("label");
-        text.appendChild(document.createTextNode(content));
-        var cell = document.createElement("td");
-        cell.className = "popover-details";
-        if (styleName)
-            cell.className += " " + styleName;
-        cell.textContent = content;
-        return cell;
-    },
-
-    appendTextRow: function(title, content)
-    {
-        var row = document.createElement("tr");
-        row.appendChild(this._createCell(title, "popover-details-row-title"));
-        row.appendChild(this._createCell(content, "popover-details-row-data"));
-        this._contentTable.appendChild(row);
-    },
-
-    /**
-     * @param {string=} titleStyle
-     */
-    appendElementRow: function(title, content, titleStyle)
-    {
-        var row = document.createElement("tr");
-        var titleCell = this._createCell(title, "popover-details-row-title");
-        if (titleStyle)
-            titleCell.addStyleClass(titleStyle);
-        row.appendChild(titleCell);
-        var cell = document.createElement("td");
-        cell.className = "details";
-        cell.appendChild(content);
-        row.appendChild(cell);
-        this._contentTable.appendChild(row);
-    },
-
-    /**
-     * @param {string} title
-     * @param {!Array.<ConsoleAgent.CallFrame>} stackTrace
-     * @param {function(ConsoleAgent.CallFrame)} callFrameLinkifier
-     */
-    appendStackTrace: function(title, stackTrace, callFrameLinkifier)
-    {
-        this.appendTextRow("", "");
-        var framesTable = document.createElement("table");
-        for (var i = 0; i < stackTrace.length; ++i) {
-            var stackFrame = stackTrace[i];
-            var row = document.createElement("tr");
-            row.className = "details";
-            row.appendChild(this._createCell(stackFrame.functionName || WebInspector.UIString("(anonymous function)"), "function-name"));
-            row.appendChild(this._createCell(" @ "));
-            var linkCell = document.createElement("td");
-            var urlElement = callFrameLinkifier(stackFrame);
-            linkCell.appendChild(urlElement);
-            row.appendChild(linkCell);
-            framesTable.appendChild(row);
-        }
-        this.appendElementRow(title, framesTable, "popover-stacktrace-title");
-    }
 }

@@ -35,15 +35,15 @@
  * @param {string} source
  * @param {string} level
  * @param {string} message
- * @param {WebInspector.Linkifier} linkifier
+ * @param {!WebInspector.Linkifier} linkifier
  * @param {string=} type
  * @param {string=} url
  * @param {number=} line
  * @param {number=} column
  * @param {number=} repeatCount
- * @param {Array.<RuntimeAgent.RemoteObject>=} parameters
- * @param {ConsoleAgent.StackTrace=} stackTrace
- * @param {NetworkAgent.RequestId=} requestId
+ * @param {!Array.<!RuntimeAgent.RemoteObject>=} parameters
+ * @param {!ConsoleAgent.StackTrace=} stackTrace
+ * @param {!NetworkAgent.RequestId=} requestId
  * @param {boolean=} isOutdated
  */
 WebInspector.ConsoleMessageImpl = function(source, level, message, linkifier, type, url, line, column, repeatCount, parameters, stackTrace, requestId, isOutdated)
@@ -59,7 +59,7 @@ WebInspector.ConsoleMessageImpl = function(source, level, message, linkifier, ty
     this._isOutdated = isOutdated;
     /** @type {!Array.<!WebInspector.DataGrid>} */
     this._dataGrids = [];
-    /** @type {!Map.<!WebInspector.DataGrid, Element>} */
+    /** @type {!Map.<!WebInspector.DataGrid, ?Element>} */
     this._dataGridParents = new Map();
 
     this._customFormatters = {
@@ -71,11 +71,6 @@ WebInspector.ConsoleMessageImpl = function(source, level, message, linkifier, ty
 }
 
 WebInspector.ConsoleMessageImpl.prototype = {
-    request: function()
-    {
-        return this._request;
-    },
-
     wasShown: function()
     {
         for (var i = 0; this._dataGrids && i < this._dataGrids.length; ++i) {
@@ -107,7 +102,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
                     break;
                 case WebInspector.ConsoleMessage.MessageType.Clear:
                     this._messageElement = document.createTextNode(WebInspector.UIString("Console was cleared"));
-                    this._formattedMessage.addStyleClass("console-info");
+                    this._formattedMessage.classList.add("console-info");
                     break;
                 case WebInspector.ConsoleMessage.MessageType.Assert:
                     var args = [WebInspector.UIString("Assertion failed:")];
@@ -121,12 +116,11 @@ WebInspector.ConsoleMessageImpl.prototype = {
                     this._messageElement = this._format(args);
                     break;
                 case WebInspector.ConsoleMessage.MessageType.Profile:
-                    var title = WebInspector.ProfilesPanelDescriptor.resolveProfileTitle(this._messageText);
-                    this._messageElement = document.createTextNode(WebInspector.UIString("Profile '%s' started.", title));
+                    this._messageElement = document.createTextNode(WebInspector.UIString("Profile '%s' started.", this._messageText));
                     break;
                 case WebInspector.ConsoleMessage.MessageType.ProfileEnd:
                     var hashIndex = this._messageText.lastIndexOf("#");
-                    var title = WebInspector.ProfilesPanelDescriptor.resolveProfileTitle(this._messageText.substring(0, hashIndex));
+                    var title = this._messageText.substring(0, hashIndex);
                     var uid = this._messageText.substring(hashIndex + 1);
                     var format = WebInspector.UIString("Profile '%s' finished.", "%_");
                     var link = WebInspector.linkifyURLAsNode("webkit-profile://CPU/" + uid, title);
@@ -214,7 +208,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @return {Element}
+     * @return {!Element}
      */
     get formattedMessage()
     {
@@ -235,7 +229,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
      * @param {string} url
      * @param {number} lineNumber
      * @param {number} columnNumber
-     * @return {Element}
+     * @return {?Element}
      */
     _linkifyLocation: function(url, lineNumber, columnNumber)
     {
@@ -253,7 +247,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
     /**
      * @param {!ConsoleAgent.CallFrame} callFrame
-     * @return {Element}
+     * @return {?Element}
      */
     _linkifyCallFrame: function(callFrame)
     {
@@ -323,7 +317,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {Object} output
+     * @param {?Object} output
      * @param {boolean=} forceObjectFormat
      * @param {boolean=} includePreview
      * @return {!Element}
@@ -356,8 +350,8 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {WebInspector.RemoteObject} obj
-     * @param {Element} elem
+     * @param {!WebInspector.RemoteObject} obj
+     * @param {!Element} elem
      * @param {boolean} includePreview
      */
     _formatParameterAsObject: function(obj, elem, includePreview)
@@ -366,9 +360,9 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {WebInspector.RemoteObject} obj
+     * @param {!WebInspector.RemoteObject} obj
      * @param {string} description
-     * @param {Element} elem
+     * @param {!Element} elem
      * @param {boolean} includePreview
      */
     _formatParameterAsArrayOrObject: function(obj, description, elem, includePreview)
@@ -377,7 +371,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
         if (description)
             titleElement.createTextChild(description);
         if (includePreview && obj.preview) {
-            titleElement.addStyleClass("console-object-preview");
+            titleElement.classList.add("console-object-preview");
             var lossless = this._appendObjectPreview(obj, description, titleElement);
             if (lossless) {
                 elem.appendChild(titleElement);
@@ -395,7 +389,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
     /**
      * @param {!WebInspector.RemoteObject} obj
      * @param {string} description
-     * @param {Element} titleElement
+     * @param {!Element} titleElement
      * @return {boolean} true iff preview captured all information.
      */
     _appendObjectPreview: function(obj, description, titleElement)
@@ -429,8 +423,8 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
     /**
      * @param {!WebInspector.RemoteObject} object
-     * @param {!Array.<RuntimeAgent.PropertyPreview>} propertyPath
-     * @return {Element}
+     * @param {!Array.<!RuntimeAgent.PropertyPreview>} propertyPath
+     * @return {!Element}
      */
     _renderPropertyPreviewOrAccessor: function(object, propertyPath)
     {
@@ -442,9 +436,9 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
     /**
      * @param {string} type
-     * @param {string} subtype
+     * @param {string=} subtype
      * @param {string=} description
-     * @return {Element}
+     * @return {!Element}
      */
     _renderPropertyPreview: function(type, subtype, description)
     {
@@ -457,13 +451,13 @@ WebInspector.ConsoleMessageImpl.prototype = {
         }
 
         if (type === "object" && subtype === "regexp") {
-            span.addStyleClass("console-formatted-string");
+            span.classList.add("console-formatted-string");
             span.textContent = description;
             return span;
         }
 
         if (type === "object" && subtype === "node" && description) {
-            span.addStyleClass("console-formatted-preview-node");
+            span.classList.add("console-formatted-preview-node");
             WebInspector.DOMPresentationUtils.createSpansForNodeTitle(span, description);
             return span;
         }
@@ -479,6 +473,10 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
     _formatParameterAsNode: function(object, elem)
     {
+        /**
+         * @param {!DOMAgent.NodeId} nodeId
+         * @this {WebInspector.ConsoleMessageImpl}
+         */
         function printNode(nodeId)
         {
             if (!nodeId) {
@@ -490,9 +488,9 @@ WebInspector.ConsoleMessageImpl.prototype = {
             var treeOutline = new WebInspector.ElementsTreeOutline(false, false);
             treeOutline.setVisible(true);
             treeOutline.rootDOMNode = WebInspector.domAgent.nodeForId(nodeId);
-            treeOutline.element.addStyleClass("outline-disclosure");
+            treeOutline.element.classList.add("outline-disclosure");
             if (!treeOutline.children[0].hasChildren)
-                treeOutline.element.addStyleClass("single-node");
+                treeOutline.element.classList.add("single-node");
             elem.appendChild(treeOutline.element);
             treeOutline.element.treeElementForTest = treeOutline.children[0];
         }
@@ -500,7 +498,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {WebInspector.RemoteObject} array
+     * @param {!WebInspector.RemoteObject} array
      * @return {boolean}
      */
     useArrayPreviewInFormatter: function(array)
@@ -509,8 +507,8 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {WebInspector.RemoteObject} array
-     * @param {Element} elem
+     * @param {!WebInspector.RemoteObject} array
+     * @param {!Element} elem
      */
     _formatParameterAsArray: function(array, elem)
     {
@@ -527,8 +525,8 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @param {Array.<WebInspector.RemoteObject>} parameters
-     * @return {Element}
+     * @param {!Array.<!WebInspector.RemoteObject>} parameters
+     * @return {!Element}
      */
     _formatParameterAsTable: function(parameters)
     {
@@ -560,7 +558,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
                 if (columnRendered) {
                     var cellElement = this._renderPropertyPreviewOrAccessor(table, [rowProperty, cellProperty]);
-                    cellElement.addStyleClass("nowrap-below");
+                    cellElement.classList.add("nowrap-below");
                     rowValue[cellProperty.name] = cellElement;
                 }
             }
@@ -593,7 +591,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
         span.appendChild(WebInspector.linkifyStringAsFragment(output.description));
 
         // Make black quotes.
-        elem.removeStyleClass("console-formatted-string");
+        elem.classList.remove("console-formatted-string");
         elem.appendChild(document.createTextNode("\""));
         elem.appendChild(span);
         elem.appendChild(document.createTextNode("\""));
@@ -601,8 +599,8 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
     /**
      * @param {!WebInspector.RemoteObject} array
-     * @param {Element} elem
-     * @param {Array.<WebInspector.RemoteObjectProperty>} properties
+     * @param {!Element} elem
+     * @param {?Array.<!WebInspector.RemoteObjectProperty>} properties
      */
     _printArray: function(array, elem, properties)
     {
@@ -676,6 +674,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
         /**
          * @param {?WebInspector.RemoteObject} result
          * @param {boolean=} wasThrown
+         * @this {WebInspector.ConsoleMessageImpl}
          */
         function onInvokeGetterClick(result, wasThrown)
         {
@@ -707,10 +706,22 @@ WebInspector.ConsoleMessageImpl.prototype = {
         return rootElement;
     },
 
+    /**
+     * @param {string} format
+     * @param {!Array.<string>} parameters
+     * @param {!Element} formattedResult
+     * @this {WebInspector.ConsoleMessageImpl}
+     */
     _formatWithSubstitutionString: function(format, parameters, formattedResult)
     {
         var formatters = {};
 
+        /**
+         * @param {boolean} force
+         * @param {!Object} obj
+         * @return {!Element}
+         * @this {WebInspector.ConsoleMessageImpl}
+         */
         function parameterFormatter(force, obj)
         {
             return this._formatParameter(obj, force, false);
@@ -833,7 +844,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
         var match = regexObject.exec(text);
         var matchRanges = [];
         while (match) {
-            matchRanges.push({ offset: match.index, length: match[0].length });
+            matchRanges.push(new WebInspector.SourceRange(match.index, match[0].length));
             match = regexObject.exec(text);
         }
         WebInspector.highlightSearchResults(element, matchRanges);
@@ -858,21 +869,24 @@ WebInspector.ConsoleMessageImpl.prototype = {
 
         switch (this.level) {
         case WebInspector.ConsoleMessage.MessageLevel.Log:
-            element.addStyleClass("console-log-level");
+            element.classList.add("console-log-level");
             break;
         case WebInspector.ConsoleMessage.MessageLevel.Debug:
-            element.addStyleClass("console-debug-level");
+            element.classList.add("console-debug-level");
             break;
         case WebInspector.ConsoleMessage.MessageLevel.Warning:
-            element.addStyleClass("console-warning-level");
+            element.classList.add("console-warning-level");
             break;
         case WebInspector.ConsoleMessage.MessageLevel.Error:
-            element.addStyleClass("console-error-level");
+            element.classList.add("console-error-level");
+            break;
+        case WebInspector.ConsoleMessage.MessageLevel.Info:
+            element.classList.add("console-info-level");
             break;
         }
 
         if (this.type === WebInspector.ConsoleMessage.MessageType.StartGroup || this.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed)
-            element.addStyleClass("console-group-title");
+            element.classList.add("console-group-title");
 
         element.appendChild(this.formattedMessage);
 
@@ -887,7 +901,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
         for (var i = 0; i < this._stackTrace.length; i++) {
             var frame = this._stackTrace[i];
 
-            var content = document.createElement("div");
+            var content = document.createElementWithClass("div", "stacktrace-entry");
             var messageTextElement = document.createElement("span");
             messageTextElement.className = "console-message-text source-code";
             var functionName = frame.functionName || WebInspector.UIString("(anonymous function)");
@@ -916,7 +930,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
             this.repeatCountElement.className = "bubble";
 
             this._element.insertBefore(this.repeatCountElement, this._element.firstChild);
-            this._element.addStyleClass("repeated-message");
+            this._element.classList.add("repeated-message");
         }
         this.repeatCountElement.textContent = this.repeatCount;
     },
@@ -1004,6 +1018,9 @@ WebInspector.ConsoleMessageImpl.prototype = {
             case WebInspector.ConsoleMessage.MessageLevel.Error:
                 levelString = "Error";
                 break;
+            case WebInspector.ConsoleMessage.MessageLevel.Info:
+                levelString = "Info";
+                break;
         }
 
         return sourceString + " " + typeString + " " + levelString + ": " + this.formattedMessage.textContent + "\n" + this.url + " line " + this.line;
@@ -1014,6 +1031,9 @@ WebInspector.ConsoleMessageImpl.prototype = {
         return this._messageText;
     },
 
+    /**
+     * @return {?WebInspector.DebuggerModel.Location}
+     */
     location: function()
     {
         // FIXME(62725): stack trace line/column numbers are one-based.
@@ -1058,7 +1078,7 @@ WebInspector.ConsoleMessageImpl.prototype = {
     },
 
     /**
-     * @return {WebInspector.ConsoleMessage}
+     * @return {!WebInspector.ConsoleMessage}
      */
     clone: function()
     {

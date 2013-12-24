@@ -25,7 +25,7 @@
 
 /**
  * @constructor
- * @param {WebInspector.SoftContextMenu=} parentMenu
+ * @param {!WebInspector.SoftContextMenu=} parentMenu
  */
 WebInspector.SoftContextMenu = function(items, parentMenu)
 {
@@ -35,9 +35,9 @@ WebInspector.SoftContextMenu = function(items, parentMenu)
 
 WebInspector.SoftContextMenu.prototype = {
     /**
-     * @param {boolean=} alignToCurrentTarget
+     * @param {!Event} event
      */
-    show: function(event, alignToCurrentTarget)
+    show: function(event)
     {
         this._x = event.x;
         this._y = event.y;
@@ -59,12 +59,6 @@ WebInspector.SoftContextMenu.prototype = {
         this._contextMenuElement = document.createElement("div");
         this._contextMenuElement.className = "soft-context-menu";
         this._contextMenuElement.tabIndex = 0;
-        if (alignToCurrentTarget) {
-            targetRect = event.currentTarget.getBoundingClientRect();
-            // Align with bottom left of currentTarget by default.
-            absoluteX = targetRect.left;
-            absoluteY = targetRect.bottom;
-        }
         this._contextMenuElement.style.top = absoluteY + "px";
         this._contextMenuElement.style.left = absoluteX + "px";
 
@@ -87,18 +81,10 @@ WebInspector.SoftContextMenu.prototype = {
             this._parentMenu._parentGlassPaneElement().appendChild(this._contextMenuElement);
 
         // Re-position menu in case it does not fit.
-        if (document.body.offsetWidth <  this._contextMenuElement.offsetLeft + this._contextMenuElement.offsetWidth) {
-            if (alignToCurrentTarget)
-                this._contextMenuElement.style.left = Math.max(0, targetRect.right - this._contextMenuElement.offsetWidth) + "px";
-            else
-                this._contextMenuElement.style.left = (absoluteX - this._contextMenuElement.offsetWidth) + "px";
-        }
-        if (document.body.offsetHeight < this._contextMenuElement.offsetTop + this._contextMenuElement.offsetHeight) {
-            if (alignToCurrentTarget)
-                this._contextMenuElement.style.top = Math.max(0, targetRect.top - this._contextMenuElement.offsetHeight) + "px";
-            else
-                this._contextMenuElement.style.top = (document.body.offsetHeight - this._contextMenuElement.offsetHeight) + "px";
-        }
+        if (document.body.offsetWidth <  this._contextMenuElement.offsetLeft + this._contextMenuElement.offsetWidth)
+            this._contextMenuElement.style.left = (absoluteX - this._contextMenuElement.offsetWidth) + "px";
+        if (document.body.offsetHeight < this._contextMenuElement.offsetTop + this._contextMenuElement.offsetHeight)
+            this._contextMenuElement.style.top = (document.body.offsetHeight - this._contextMenuElement.offsetHeight) + "px";
 
         event.consume(true);
     },
@@ -259,7 +245,7 @@ WebInspector.SoftContextMenu.prototype = {
         }
 
         var relatedTarget = event.relatedTarget;
-        if (this._contextMenuElement.isSelfOrAncestor(relatedTarget) || relatedTarget.hasStyleClass("soft-context-menu-glass-pane"))
+        if (this._contextMenuElement.isSelfOrAncestor(relatedTarget) || relatedTarget.classList.contains("soft-context-menu-glass-pane"))
             this._highlightMenuItem(null);
     },
 
@@ -270,7 +256,7 @@ WebInspector.SoftContextMenu.prototype = {
 
         this._hideSubMenu();
         if (this._highlightedMenuItemElement) {
-            this._highlightedMenuItemElement.removeStyleClass("soft-context-menu-item-mouse-over");
+            this._highlightedMenuItemElement.classList.remove("soft-context-menu-item-mouse-over");
             if (this._highlightedMenuItemElement._subItems && this._highlightedMenuItemElement._subMenuTimer) {
                 clearTimeout(this._highlightedMenuItemElement._subMenuTimer);
                 delete this._highlightedMenuItemElement._subMenuTimer;
@@ -278,7 +264,7 @@ WebInspector.SoftContextMenu.prototype = {
         }
         this._highlightedMenuItemElement = menuItemElement;
         if (this._highlightedMenuItemElement) {
-            this._highlightedMenuItemElement.addStyleClass("soft-context-menu-item-mouse-over");
+            this._highlightedMenuItemElement.classList.add("soft-context-menu-item-mouse-over");
             this._contextMenuElement.focus();
             if (this._highlightedMenuItemElement._subItems && !this._highlightedMenuItemElement._subMenuTimer)
                 this._highlightedMenuItemElement._subMenuTimer = setTimeout(this._showSubMenu.bind(this, this._highlightedMenuItemElement, this._buildMouseEventForSubMenu(this._highlightedMenuItemElement)), 150);
@@ -350,7 +336,7 @@ WebInspector.SoftContextMenu.prototype = {
 
     /**
      * @param {boolean} closeParentMenus
-     * @param {Event=} event
+     * @param {!Event=} event
      */
     _discardMenu: function(closeParentMenus, event)
     {

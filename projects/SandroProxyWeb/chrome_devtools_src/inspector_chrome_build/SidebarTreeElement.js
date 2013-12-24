@@ -54,14 +54,14 @@ WebInspector.SidebarSectionTreeElement.prototype = {
         this._smallChildren = x;
 
         if (this._smallChildren)
-            this._childrenListNode.addStyleClass("small");
+            this._childrenListNode.classList.add("small");
         else
-            this._childrenListNode.removeStyleClass("small");
+            this._childrenListNode.classList.remove("small");
     },
 
     onattach: function()
     {
-        this._listItemNode.addStyleClass("sidebar-tree-section");
+        this._listItemNode.classList.add("sidebar-tree-section");
     },
 
     onreveal: function()
@@ -76,8 +76,10 @@ WebInspector.SidebarSectionTreeElement.prototype = {
 /**
  * @constructor
  * @extends {TreeElement}
+ * @param {string} className
+ * @param {string} title
  * @param {string=} subtitle
- * @param {Object=} representedObject
+ * @param {?Object=} representedObject
  * @param {boolean=} hasChildren
  */
 WebInspector.SidebarTreeElement = function(className, title, subtitle, representedObject, hasChildren)
@@ -125,9 +127,9 @@ WebInspector.SidebarTreeElement.prototype = {
 
         if (this._listItemNode) {
             if (this._small)
-                this._listItemNode.addStyleClass("small");
+                this._listItemNode.classList.add("small");
             else
-                this._listItemNode.removeStyleClass("small");
+                this._listItemNode.classList.remove("small");
         }
     },
 
@@ -153,29 +155,12 @@ WebInspector.SidebarTreeElement.prototype = {
         this.refreshTitles();
     },
 
-    get bubbleText()
-    {
-        return this._bubbleText;
-    },
-
-    set bubbleText(x)
-    {
-        if (!this.bubbleElement) {
-            this.bubbleElement = document.createElement("div");
-            this.bubbleElement.className = "bubble";
-            this.statusElement.appendChild(this.bubbleElement);
-        }
-
-        this._bubbleText = x;
-        this.bubbleElement.textContent = x;
-    },
-
     set wait(x)
     {
         if (x)
-            this._listItemNode.addStyleClass("wait");
+            this._listItemNode.classList.add("wait");
         else
-            this._listItemNode.removeStyleClass("wait");
+            this._listItemNode.classList.remove("wait");
     },
 
     refreshTitles: function()
@@ -188,10 +173,10 @@ WebInspector.SidebarTreeElement.prototype = {
         if (subtitle) {
             if (this.subtitleElement.textContent !== subtitle)
                 this.subtitleElement.textContent = subtitle;
-            this.titlesElement.removeStyleClass("no-subtitle");
+            this.titlesElement.classList.remove("no-subtitle");
         } else {
             this.subtitleElement.textContent = "";
-            this.titlesElement.addStyleClass("no-subtitle");
+            this.titlesElement.classList.add("no-subtitle");
         }
     },
 
@@ -202,13 +187,13 @@ WebInspector.SidebarTreeElement.prototype = {
 
     onattach: function()
     {
-        this._listItemNode.addStyleClass("sidebar-tree-item");
+        this._listItemNode.classList.add("sidebar-tree-item");
 
         if (this.className)
-            this._listItemNode.addStyleClass(this.className);
+            this._listItemNode.classList.add(this.className);
 
         if (this.small)
-            this._listItemNode.addStyleClass("small");
+            this._listItemNode.classList.add("small");
 
         if (this.hasChildren && this.disclosureButton)
             this._listItemNode.appendChild(this.disclosureButton);

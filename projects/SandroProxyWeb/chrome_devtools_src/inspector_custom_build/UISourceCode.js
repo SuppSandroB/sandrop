@@ -33,11 +33,11 @@
  * @constructor
  * @extends {WebInspector.Object}
  * @implements {WebInspector.ContentProvider}
- * @param {WebInspector.Project} project
+ * @param {!WebInspector.Project} project
  * @param {string} parentPath
  * @param {string} name
  * @param {string} url
- * @param {WebInspector.ResourceType} contentType
+ * @param {!WebInspector.ResourceType} contentType
  * @param {boolean} isEditable
  */
 WebInspector.UISourceCode = function(project, parentPath, name, originURL, url, contentType, isEditable)
@@ -53,10 +53,10 @@ WebInspector.UISourceCode = function(project, parentPath, name, originURL, url, 
     this._requestContentCallbacks = [];
     /** @type {!Set.<!WebInspector.LiveLocation>} */
     this._liveLocations = new Set();
-    /** @type {!Array.<WebInspector.PresentationConsoleMessage>} */
+    /** @type {!Array.<!WebInspector.PresentationConsoleMessage>} */
     this._consoleMessages = [];
     
-    /** @type {!Array.<WebInspector.Revision>} */
+    /** @type {!Array.<!WebInspector.Revision>} */
     this.history = [];
     if (this.isEditable() && this._url)
         this._restoreRevisionHistory();
@@ -168,12 +168,13 @@ WebInspector.UISourceCode.prototype = {
          * @param {string=} newName
          * @param {string=} newURL
          * @param {string=} newOriginURL
-         * @param {WebInspector.ResourceType=} newContentType
+         * @param {!WebInspector.ResourceType=} newContentType
+         * @this {WebInspector.UISourceCode}
          */
         function innerCallback(success, newName, newURL, newOriginURL, newContentType)
         {
             if (success)
-                this._updateName(newName, newURL, newOriginURL, newContentType);
+                this._updateName(/** @type {string} */ (newName), /** @type {string} */ (newURL), /** @type {string} */ (newOriginURL), /** @type {!WebInspector.ResourceType} */ (newContentType));
             callback(success);
         }
     },
@@ -182,7 +183,7 @@ WebInspector.UISourceCode.prototype = {
      * @param {string} name
      * @param {string} url
      * @param {string} originURL
-     * @param {WebInspector.ResourceType=} contentType
+     * @param {!WebInspector.ResourceType=} contentType
      */
     _updateName: function(name, url, originURL, contentType)
     {
@@ -206,7 +207,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @return {WebInspector.ResourceType}
+     * @return {!WebInspector.ResourceType}
      */
     contentType: function()
     {
@@ -214,7 +215,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @return {WebInspector.ScriptFile}
+     * @return {?WebInspector.ScriptFile}
      */
     scriptFile: function()
     {
@@ -222,7 +223,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {WebInspector.ScriptFile} scriptFile
+     * @param {?WebInspector.ScriptFile} scriptFile
      */
     setScriptFile: function(scriptFile)
     {
@@ -230,7 +231,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @return {WebInspector.Project}
+     * @return {!WebInspector.Project}
      */
     project: function()
     {
@@ -273,6 +274,7 @@ WebInspector.UISourceCode.prototype = {
 
         /**
          * @param {?string} updatedContent
+         * @this {WebInspector.UISourceCode}
          */
         function contentLoaded(updatedContent)
         {
@@ -361,8 +363,14 @@ WebInspector.UISourceCode.prototype = {
         WebInspector.fileManager.save(this._url, content, forceSaveAs, callback.bind(this));
         WebInspector.fileManager.close(this._url);
 
-        function callback()
+        /**
+         * @param {boolean} accepted
+         * @this {WebInspector.UISourceCode}
+         */
+        function callback(accepted)
         {
+            if (!accepted)
+                return;
             this._savedWithFileManager = true;
             this.dispatchEventToListeners(WebInspector.UISourceCode.Events.SavedStateUpdated);
         }
@@ -470,7 +478,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {function(WebInspector.UISourceCode)} callback
+     * @param {function(!WebInspector.UISourceCode)} callback
      */
     revertAndClearHistory: function(callback)
     {
@@ -616,7 +624,7 @@ WebInspector.UISourceCode.prototype = {
      * @param {string} query
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
-     * @param {function(Array.<WebInspector.ContentProvider.SearchMatch>)} callback
+     * @param {function(!Array.<!WebInspector.ContentProvider.SearchMatch>)} callback
      */
     searchInContent: function(query, caseSensitive, isRegex, callback)
     {
@@ -660,7 +668,7 @@ WebInspector.UISourceCode.prototype = {
     /**
      * @param {number} lineNumber
      * @param {number} columnNumber
-     * @return {WebInspector.RawLocation}
+     * @return {?WebInspector.RawLocation}
      */
     uiLocationToRawLocation: function(lineNumber, columnNumber)
     {
@@ -694,7 +702,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {WebInspector.UILocation} uiLocation
+     * @param {!WebInspector.UILocation} uiLocation
      */
     overrideLocation: function(uiLocation)
     {
@@ -705,7 +713,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @return {Array.<WebInspector.PresentationConsoleMessage>}
+     * @return {!Array.<!WebInspector.PresentationConsoleMessage>}
      */
     consoleMessages: function()
     {
@@ -713,7 +721,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {WebInspector.PresentationConsoleMessage} message
+     * @param {!WebInspector.PresentationConsoleMessage} message
      */
     consoleMessageAdded: function(message)
     {
@@ -722,7 +730,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {WebInspector.PresentationConsoleMessage} message
+     * @param {!WebInspector.PresentationConsoleMessage} message
      */
     consoleMessageRemoved: function(message)
     {
@@ -783,7 +791,7 @@ WebInspector.UISourceCode.prototype = {
             /**
              * @this {WebInspector.UISourceCode}
              * @param {string} content
-             * @param {WebInspector.FormatterSourceMapping} formatterMapping
+             * @param {!WebInspector.FormatterSourceMapping} formatterMapping
              */
             function formattedChanged(content, formatterMapping)
             {
@@ -802,7 +810,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @return {WebInspector.Formatter} formatter
+     * @return {?WebInspector.Formatter} formatter
      */
     createFormatter: function()
     {
@@ -819,7 +827,7 @@ WebInspector.UISourceCode.prototype = {
     },
 
     /**
-     * @param {WebInspector.SourceMapping} sourceMapping
+     * @param {?WebInspector.SourceMapping} sourceMapping
      */
     setSourceMapping: function(sourceMapping)
     {
@@ -834,7 +842,7 @@ WebInspector.UISourceCode.prototype = {
 
 /**
  * @constructor
- * @param {WebInspector.UISourceCode} uiSourceCode
+ * @param {!WebInspector.UISourceCode} uiSourceCode
  * @param {number} lineNumber
  * @param {number} columnNumber
  */
@@ -847,7 +855,7 @@ WebInspector.UILocation = function(uiSourceCode, lineNumber, columnNumber)
 
 WebInspector.UILocation.prototype = {
     /**
-     * @return {WebInspector.RawLocation}
+     * @return {?WebInspector.RawLocation}
      */
     uiLocationToRawLocation: function()
     {
@@ -883,8 +891,8 @@ WebInspector.RawLocation = function()
 
 /**
  * @constructor
- * @param {WebInspector.RawLocation} rawLocation
- * @param {function(WebInspector.UILocation):(boolean|undefined)} updateDelegate
+ * @param {!WebInspector.RawLocation} rawLocation
+ * @param {function(!WebInspector.UILocation):(boolean|undefined)} updateDelegate
  */
 WebInspector.LiveLocation = function(rawLocation, updateDelegate)
 {
@@ -910,7 +918,7 @@ WebInspector.LiveLocation.prototype = {
     },
 
     /**
-     * @return {WebInspector.RawLocation}
+     * @return {!WebInspector.RawLocation}
      */
     rawLocation: function()
     {
@@ -918,7 +926,7 @@ WebInspector.LiveLocation.prototype = {
     },
 
     /**
-     * @return {WebInspector.UILocation}
+     * @return {!WebInspector.UILocation}
      */
     uiLocation: function()
     {
@@ -936,9 +944,9 @@ WebInspector.LiveLocation.prototype = {
 /**
  * @constructor
  * @implements {WebInspector.ContentProvider}
- * @param {WebInspector.UISourceCode} uiSourceCode
+ * @param {!WebInspector.UISourceCode} uiSourceCode
  * @param {?string|undefined} content
- * @param {Date} timestamp
+ * @param {!Date} timestamp
  */
 WebInspector.Revision = function(uiSourceCode, content, timestamp)
 {
@@ -995,7 +1003,7 @@ WebInspector.Revision.filterOutStaleRevisions = function()
 
 WebInspector.Revision.prototype = {
     /**
-     * @return {WebInspector.UISourceCode}
+     * @return {!WebInspector.UISourceCode}
      */
     get uiSourceCode()
     {
@@ -1003,7 +1011,7 @@ WebInspector.Revision.prototype = {
     },
 
     /**
-     * @return {Date}
+     * @return {!Date}
      */
     get timestamp()
     {
@@ -1021,7 +1029,8 @@ WebInspector.Revision.prototype = {
     revertToThis: function()
     {
         /**
-         * @param {?string} content
+         * @param {string} content
+         * @this {WebInspector.Revision}
          */
         function revert(content)
         {
@@ -1040,7 +1049,7 @@ WebInspector.Revision.prototype = {
     },
 
     /**
-     * @return {WebInspector.ResourceType}
+     * @return {!WebInspector.ResourceType}
      */
     contentType: function()
     {
@@ -1048,7 +1057,7 @@ WebInspector.Revision.prototype = {
     },
 
     /**
-     * @param {function(?string)} callback
+     * @param {function(string)} callback
      */
     requestContent: function(callback)
     {
@@ -1059,7 +1068,7 @@ WebInspector.Revision.prototype = {
      * @param {string} query
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
-     * @param {function(Array.<WebInspector.ContentProvider.SearchMatch>)} callback
+     * @param {function(!Array.<!WebInspector.ContentProvider.SearchMatch>)} callback
      */
     searchInContent: function(query, caseSensitive, isRegex, callback)
     {
@@ -1091,6 +1100,9 @@ WebInspector.Revision.prototype = {
         }
         historyItems.push({url: url, loaderId: loaderId, timestamp: timestamp, key: key});
 
+        /**
+         * @this {WebInspector.Revision}
+         */
         function persist()
         {
             window.localStorage[key] = this._content;

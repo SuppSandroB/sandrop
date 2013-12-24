@@ -30,8 +30,8 @@
 
 /**
  * @constructor
- * @param {Element} relativeToElement
- * @param {WebInspector.DialogDelegate} delegate
+ * @param {!Element} relativeToElement
+ * @param {!WebInspector.DialogDelegate} delegate
  */
 WebInspector.Dialog = function(relativeToElement, delegate)
 {
@@ -61,7 +61,7 @@ WebInspector.Dialog = function(relativeToElement, delegate)
 }
 
 /**
- * @return {WebInspector.Dialog}
+ * @return {!WebInspector.Dialog}
  */
 WebInspector.Dialog.currentInstance = function()
 {
@@ -69,8 +69,8 @@ WebInspector.Dialog.currentInstance = function()
 }
 
 /**
- * @param {Element} relativeToElement
- * @param {WebInspector.DialogDelegate} delegate
+ * @param {!Element} relativeToElement
+ * @param {!WebInspector.DialogDelegate} delegate
  */
 WebInspector.Dialog.show = function(relativeToElement, delegate)
 {
@@ -142,18 +142,18 @@ WebInspector.DialogDelegate = function()
 
 WebInspector.DialogDelegate.prototype = {
     /**
-     * @param {Element} element
+     * @param {!Element} element
      */
     show: function(element)
     {
         element.appendChild(this.element);
-        this.element.addStyleClass("dialog-contents");
-        element.addStyleClass("dialog");    
+        this.element.classList.add("dialog-contents");
+        element.classList.add("dialog");
     },
 
     /**
-     * @param {Element} element
-     * @param {Element} relativeToElement
+     * @param {!Element} element
+     * @param {!Element} relativeToElement
      */
     position: function(element, relativeToElement)
     {
@@ -167,6 +167,7 @@ WebInspector.DialogDelegate.prototype = {
 
         element.style.left = positionX + "px";
         element.style.top = positionY + "px";
+        element.style.position = "absolute";
     },
 
     focus: function() { },

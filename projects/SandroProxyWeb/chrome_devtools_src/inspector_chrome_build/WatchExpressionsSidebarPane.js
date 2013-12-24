@@ -125,7 +125,7 @@ WebInspector.WatchExpressionsSection = function()
     this.headerElement.className = "hidden";
     this.editable = true;
     this.expanded = true;
-    this.propertiesElement.addStyleClass("watch-expressions");
+    this.propertiesElement.classList.add("watch-expressions");
 
     this.element.addEventListener("mousemove", this._mouseMove.bind(this), true);
     this.element.addEventListener("mouseout", this._mouseOut.bind(this), true);
@@ -136,11 +136,21 @@ WebInspector.WatchExpressionsSection = function()
 WebInspector.WatchExpressionsSection.NewWatchExpression = "\xA0";
 
 WebInspector.WatchExpressionsSection.prototype = {
+    /**
+     * @param {?Event=} e
+     */
     update: function(e)
     {
         if (e)
             e.consume();
 
+        /***
+         * @param {string} expression
+         * @param {number} watchIndex
+         * @param {?WebInspector.RemoteObject} result
+         * @param {boolean} wasThrown
+         * @this {WebInspector.WatchExpressionsSection}
+         */
         function appendResult(expression, watchIndex, result, wasThrown)
         {
             if (!result)
@@ -285,7 +295,7 @@ WebInspector.WatchExpressionsSection.prototype = {
     _mouseOut: function()
     {
         if (this._hoveredElement) {
-            this._hoveredElement.removeStyleClass("hovered");
+            this._hoveredElement.classList.remove("hovered");
             delete this._hoveredElement;
         }
         delete this._lastMouseMovePageY;
@@ -305,9 +315,9 @@ WebInspector.WatchExpressionsSection.prototype = {
 
         if (this._hoveredElement !== candidateElement) {
             if (this._hoveredElement)
-                this._hoveredElement.removeStyleClass("hovered");
+                this._hoveredElement.classList.remove("hovered");
             if (candidateElement)
-                candidateElement.addStyleClass("hovered");
+                candidateElement.classList.add("hovered");
             this._hoveredElement = candidateElement;
         }
 
@@ -337,7 +347,7 @@ WebInspector.WatchExpressionsSection.CompareProperties = function(propertyA, pro
 /**
  * @constructor
  * @extends {WebInspector.ObjectPropertyTreeElement}
- * @param {WebInspector.RemoteObjectProperty} property
+ * @param {!WebInspector.RemoteObjectProperty} property
  */
 WebInspector.WatchExpressionTreeElement = function(property)
 {
@@ -375,22 +385,22 @@ WebInspector.WatchExpressionTreeElement.prototype = {
 
         if (this.property.wasThrown) {
             this.valueElement.textContent = WebInspector.UIString("<not available>");
-            this.listItemElement.addStyleClass("dimmed");
+            this.listItemElement.classList.add("dimmed");
         } else
-            this.listItemElement.removeStyleClass("dimmed");
+            this.listItemElement.classList.remove("dimmed");
 
         var deleteButton = document.createElement("input");
         deleteButton.type = "button";
         deleteButton.title = WebInspector.UIString("Delete watch expression.");
-        deleteButton.addStyleClass("enabled-button");
-        deleteButton.addStyleClass("delete-button");
+        deleteButton.classList.add("enabled-button");
+        deleteButton.classList.add("delete-button");
         deleteButton.addEventListener("click", this._deleteButtonClicked.bind(this), false);
         this.listItemElement.addEventListener("contextmenu", this._contextMenu.bind(this), false);
         this.listItemElement.insertBefore(deleteButton, this.listItemElement.firstChild);
     },
 
     /**
-     * @param {WebInspector.ContextMenu} contextMenu
+     * @param {!WebInspector.ContextMenu} contextMenu
      * @override
      */
     populateContextMenu: function(contextMenu)
@@ -426,7 +436,7 @@ WebInspector.WatchExpressionTreeElement.prototype = {
     },
 
     /**
-     * @param {Event=} event
+     * @param {!Event=} event
      */
     elementAndValueToEdit: function(event)
     {
@@ -459,7 +469,7 @@ WebInspector.WatchExpressionTreeElement.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.ObjectPropertyTreeElement}
- * @param {WebInspector.RemoteObjectProperty} property
+ * @param {!WebInspector.RemoteObjectProperty} property
  */
 WebInspector.WatchedPropertyTreeElement = function(property)
 {

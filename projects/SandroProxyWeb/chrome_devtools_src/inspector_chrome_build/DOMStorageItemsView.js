@@ -34,8 +34,8 @@ WebInspector.DOMStorageItemsView = function(domStorage)
 
     this.domStorage = domStorage;
 
-    this.element.addStyleClass("storage-view");
-    this.element.addStyleClass("table");
+    this.element.classList.add("storage-view");
+    this.element.classList.add("table");
 
     this.deleteButton = new WebInspector.StatusBarButton(WebInspector.UIString("Delete"), "delete-storage-status-bar-item");
     this.deleteButton.visible = false;
@@ -67,7 +67,7 @@ WebInspector.DOMStorageItemsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _domStorageItemsCleared: function(event)
     {
@@ -81,7 +81,7 @@ WebInspector.DOMStorageItemsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _domStorageItemRemoved: function(event)
     {
@@ -105,7 +105,7 @@ WebInspector.DOMStorageItemsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _domStorageItemAdded: function(event)
     {
@@ -128,7 +128,7 @@ WebInspector.DOMStorageItemsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _domStorageItemUpdated: function(event)
     {

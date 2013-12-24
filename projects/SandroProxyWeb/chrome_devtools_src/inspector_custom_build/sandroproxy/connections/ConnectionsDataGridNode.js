@@ -10,7 +10,7 @@ WebInspector.ConnectionsDataGridNode = function(parentView, connection, timestam
 WebInspector.ConnectionsDataGridNode.prototype = {
     createCells: function()
     {
-        this._element.addStyleClass("offscreen");
+        // this._element.classList.add("offscreen");
         this._protocolCell = this._createDivInTD("protocol");
         this._stateCell = this._createDivInTD("state");
         this._laddressCell = this._createDivInTD("laddress");
@@ -65,14 +65,14 @@ WebInspector.ConnectionsDataGridNode.prototype = {
         // this._refreshProcessNameCell();
         // this._refreshTimestampCell();
 
-        this._element.addStyleClass("network-item");
+        this._element.classList.add("network-item");
         this._updateElementStyleClasses(this._element);
     },
 
     _updateElementStyleClasses: function(element)
     {
         var typeClassName = "network-type-other";
-        element.addStyleClass(typeClassName);
+        element.classList.add(typeClassName);
     },
 
     

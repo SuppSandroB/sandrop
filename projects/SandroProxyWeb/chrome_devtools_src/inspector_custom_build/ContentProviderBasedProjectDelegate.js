@@ -39,7 +39,7 @@ WebInspector.ContentProviderBasedProjectDelegate = function(type)
     this._type = type;
     /** @type {!Object.<string, !WebInspector.ContentProvider>} */
     this._contentProviders = {};
-    /** @type {Object.<string, boolean>} */
+    /** @type {!Object.<string, boolean>} */
     this._isContentScriptMap = {};
 }
 
@@ -128,7 +128,7 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
     /**
      * @param {string} path
      * @param {string} newName
-     * @param {function(boolean, string=, string=, string=, WebInspector.ResourceType=)} callback
+     * @param {function(boolean, string=, string=, string=, !WebInspector.ResourceType=)} callback
      */
     rename: function(path, newName, callback)
     {
@@ -137,11 +137,12 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
         /**
          * @param {boolean} success
          * @param {string=} newName
+         * @this {WebInspector.ContentProviderBasedProjectDelegate}
          */
         function innerCallback(success, newName)
         {
             if (success)
-                this._updateName(path, newName);
+                this._updateName(path, /** @type {string} */ (newName));
             callback(success, newName);
         }
     },
@@ -210,7 +211,7 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
      * @param {string} query
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
-     * @param {function(Array.<WebInspector.ContentProvider.SearchMatch>)} callback
+     * @param {function(!Array.<!WebInspector.ContentProvider.SearchMatch>)} callback
      */
     searchInFileContent: function(path, query, caseSensitive, isRegex, callback)
     {
@@ -219,16 +220,16 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
     },
 
     /**
-     * @param {string} query
+     * @param {!Array.<string>} queries
+     * @param {!Array.<string>} fileQueries
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
-     * @param {WebInspector.Progress} progress
-     * @param {function(StringMap)} callback
+     * @param {!WebInspector.Progress} progress
+     * @param {function(!Array.<string>)} callback
      */
-    searchInContent: function(query, caseSensitive, isRegex, progress, callback)
+    findFilesMatchingSearchRequest: function(queries, fileQueries, caseSensitive, isRegex, progress, callback)
     {
-        var result = new StringMap();
-
+        var result = [];
         var paths = Object.keys(this._contentProviders);
         var totalCount = paths.length;
         if (totalCount === 0) {
@@ -237,6 +238,10 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
             return;
         }
 
+        /**
+         * @param {string} path
+         * @this {WebInspector.ContentProviderBasedProjectDelegate}
+         */
         function filterOutContentScripts(path)
         {
             return !this._isContentScriptMap[path];
@@ -245,15 +250,74 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
         if (!WebInspector.settings.searchInContentScripts.get())
             paths = paths.filter(filterOutContentScripts.bind(this));
 
+        var fileRegexes = [];
+        for (var i = 0; i < fileQueries.length; ++i)
+            fileRegexes.push(new RegExp(fileQueries[i], caseSensitive ? "" : "i"));
+
+        /**
+         * @param {!string} file
+         */
+        function filterOutNonMatchingFiles(file)
+        {
+            for (var i = 0; i < fileRegexes.length; ++i) {
+                if (!file.match(fileRegexes[i]))
+                    return false;
+            }
+            return true;
+        }
+
+        paths = paths.filter(filterOutNonMatchingFiles);
         var barrier = new CallbackBarrier();
         progress.setTotalWork(paths.length);
         for (var i = 0; i < paths.length; ++i)
-            this._contentProviders[paths[i]].searchInContent(query, caseSensitive, isRegex, barrier.createCallback(contentCallback.bind(this, i)));
+            searchInContent.call(this, paths[i], barrier.createCallback(searchInContentCallback.bind(this, paths[i])));
         barrier.callWhenDone(doneCallback);
 
-        function contentCallback(i, searchMatches)
+        /**
+         * @param {string} path
+         * @param {function(boolean)} callback
+         * @this {WebInspector.ContentProviderBasedProjectDelegate}
+         */
+        function searchInContent(path, callback)
         {
-            result.put(paths[i], searchMatches);
+            var queriesToRun = queries.slice();
+            searchNextQuery.call(this);
+
+            /**
+             * @this {WebInspector.ContentProviderBasedProjectDelegate}
+             */
+            function searchNextQuery()
+            {
+                if (!queriesToRun.length) {
+                    callback(true);
+                    return;
+                }
+                var query = queriesToRun.shift();
+                this._contentProviders[path].searchInContent(query, caseSensitive, isRegex, contentCallback.bind(this));
+            }
+
+            /**
+             * @param {!Array.<!WebInspector.ContentProvider.SearchMatch>} searchMatches
+             * @this {WebInspector.ContentProviderBasedProjectDelegate}
+             */
+            function contentCallback(searchMatches)
+            {
+                if (!searchMatches.length) {
+                    callback(false);
+                    return;
+                }
+                searchNextQuery.call(this);
+            }
+        }
+
+        /**
+         * @param {string} path
+         * @param {boolean} matches
+         */
+        function searchInContentCallback(path, matches)
+        {
+            if (matches)
+                result.push(path);
             progress.worked(1);
         }
 
@@ -265,7 +329,7 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
     },
 
     /**
-     * @param {WebInspector.Progress} progress
+     * @param {!WebInspector.Progress} progress
      * @param {function()} callback
      */
     indexContent: function(progress, callback)
@@ -283,7 +347,7 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
      * @param {string} parentPath
      * @param {string} name
      * @param {string} url
-     * @param {WebInspector.ContentProvider} contentProvider
+     * @param {!WebInspector.ContentProvider} contentProvider
      * @param {boolean} isEditable
      * @param {boolean=} isContentScript
      * @return {string}
@@ -309,7 +373,7 @@ WebInspector.ContentProviderBasedProjectDelegate.prototype = {
     },
 
     /**
-     * @return {Object.<string, WebInspector.ContentProvider>}
+     * @return {!Object.<string, !WebInspector.ContentProvider>}
      */
     contentProviders: function()
     {

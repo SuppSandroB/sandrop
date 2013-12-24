@@ -102,7 +102,7 @@ WebInspector.WorkerManager._calculateWorkerInspectorTitle = function()
     
     /**
      * @param {?Protocol.Error} error
-     * @param {RuntimeAgent.RemoteObject} result
+     * @param {!RuntimeAgent.RemoteObject} result
      * @param {boolean=} wasThrown
      */
     function evalCallback(error, result, wasThrown)
@@ -165,6 +165,7 @@ WebInspector.WorkerManager.prototype = {
         if (workerIsPaused)
             url += "&workerPaused=true";
         url = url.replace("docked=true&", "");
+        url = url.replace("can_dock=true&", "");
         url += hash;
         var width = WebInspector.settings.workerInspectorWidth.get();
         var height = WebInspector.settings.workerInspectorHeight.get();
@@ -175,8 +176,7 @@ WebInspector.WorkerManager.prototype = {
         workerInspectorWindow.addEventListener("beforeunload", this._workerInspectorClosing.bind(this, workerId), true);
 
         // Listen to beforeunload in detached state and to the InspectorClosing event in case of attached inspector.
-        window.addEventListener("beforeunload", this._pageInspectorClosing.bind(this), true);
-        WebInspector.notifications.addEventListener(WebInspector.Events.InspectorClosing, this._pageInspectorClosing, this);
+        window.addEventListener("unload", this._pageInspectorClosing.bind(this), true);
     },
 
     closeWorkerInspector: function(workerId)
@@ -280,7 +280,7 @@ WebInspector.WorkerTerminatedScreen = function()
 {
     WebInspector.HelpScreen.call(this, WebInspector.UIString("Inspected worker terminated"));
     var p = this.contentElement.createChild("p");
-    p.addStyleClass("help-section");
+    p.classList.add("help-section");
     p.textContent = WebInspector.UIString("Inspected worker has terminated. Once it restarts we will attach to it automatically.");
 }
 

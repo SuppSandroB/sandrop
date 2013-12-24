@@ -40,8 +40,8 @@ WebInspector.CSSNamedFlowCollectionsView = function()
     this._contentNodes = {};
     this._regionNodes = {};
 
-    this.element.addStyleClass("css-named-flow-collections-view");
-    this.element.addStyleClass("fill");
+    this.element.classList.add("css-named-flow-collections-view");
+    this.element.classList.add("fill");
 
     this._statusElement = document.createElement("span");
     this._statusElement.textContent = WebInspector.UIString("CSS Named Flows");
@@ -55,7 +55,7 @@ WebInspector.CSSNamedFlowCollectionsView = function()
     this._flowTree = new TreeOutline(this._flowListElement);
 
     this._emptyElement = document.createElement("div");
-    this._emptyElement.addStyleClass("info");
+    this._emptyElement.classList.add("info");
     this._emptyElement.textContent = WebInspector.UIString("No CSS Named Flows");
 
     this._tabbedPane = new WebInspector.TabbedPane();
@@ -78,7 +78,7 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.DOMDocument} document
+     * @param {!WebInspector.DOMDocument} document
      */
     _setDocument: function(document)
     {
@@ -87,11 +87,11 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _documentUpdated: function(event)
     {
-        var document = /** @type {WebInspector.DOMDocument} */ (event.data);
+        var document = /** @type {!WebInspector.DOMDocument} */ (event.data);
         this._setDocument(document);
     },
 
@@ -116,7 +116,7 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.NamedFlow} flow
+     * @param {!WebInspector.NamedFlow} flow
      */
     _appendNamedFlow: function(flow)
     {
@@ -163,7 +163,7 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.NamedFlow} flow
+     * @param {!WebInspector.NamedFlow} flow
      */
     _updateNamedFlow: function(flow)
     {
@@ -193,14 +193,14 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.NamedFlowCollection} namedFlowCollection
+     * @param {?WebInspector.NamedFlowCollection} namedFlowCollection
      */
     _resetNamedFlows: function(namedFlowCollection)
     {
         for (var flowHash in this._namedFlows)
             this._removeNamedFlow(flowHash);
 
-        var namedFlows = namedFlowCollection.namedFlowMap;
+        var namedFlows = namedFlowCollection ? namedFlowCollection.namedFlowMap : {};
         for (var flowName in namedFlows)
             this._appendNamedFlow(namedFlows[flowName]);
 
@@ -211,7 +211,7 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _namedFlowCreated: function(event)
     {
@@ -219,12 +219,12 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
         if (event.data.documentNodeId !== this._document.id)
             return;
 
-        var flow = /** @type {WebInspector.NamedFlow} */ (event.data);
+        var flow = /** @type {!WebInspector.NamedFlow} */ (event.data);
         this._appendNamedFlow(flow);
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _namedFlowRemoved: function(event)
     {
@@ -236,7 +236,7 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _regionLayoutUpdated: function(event)
     {
@@ -244,12 +244,12 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
         if (event.data.documentNodeId !== this._document.id)
             return;
 
-        var flow = /** @type {WebInspector.NamedFlow} */ (event.data);
+        var flow = /** @type {!WebInspector.NamedFlow} */ (event.data);
         this._updateNamedFlow(flow);
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _regionOversetChanged: function(event)
     {
@@ -257,12 +257,12 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
         if (event.data.documentNodeId !== this._document.id)
             return;
 
-        var flow = /** @type {WebInspector.NamedFlow} */ (event.data);
+        var flow = /** @type {!WebInspector.NamedFlow} */ (event.data);
         this._updateNamedFlow(flow);
     },
 
     /**
-     * @param {DOMAgent.NodeId} documentNodeId
+     * @param {!DOMAgent.NodeId} documentNodeId
      * @param {string} flowName
      */
     _hashNamedFlow: function(documentNodeId, flowName)
@@ -289,13 +289,14 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
 
     /**
      * @param {string} flowHash
+     * @return {boolean}
      */
     _selectNamedFlowTab: function(flowHash)
     {
         var flowContainer = this._namedFlows[flowHash];
 
         if (this._tabbedPane.selectedTabId === flowHash)
-            return;
+            return false;
 
         if (!this._tabbedPane.selectTab(flowHash)) {
             if (!flowContainer.flowView)
@@ -304,19 +305,20 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
             this._tabbedPane.appendTab(flowHash, flowContainer.flow.name, flowContainer.flowView);
             this._tabbedPane.selectTab(flowHash);
         }
+        return false;
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _selectedNodeChanged: function(event)
     {
-        var node = /** @type {WebInspector.DOMNode} */ (event.data);
+        var node = /** @type {!WebInspector.DOMNode} */ (event.data);
         this._showNamedFlowForNode(node);
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _tabSelected: function(event)
     {
@@ -324,7 +326,7 @@ WebInspector.CSSNamedFlowCollectionsView.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _tabClosed: function(event)
     {
@@ -417,10 +419,10 @@ WebInspector.FlowTreeElement.prototype = {
             return;
 
         if (newOverset) {
-            this.title.addStyleClass("named-flow-overflow");
+            this.title.classList.add("named-flow-overflow");
             this.tooltip = WebInspector.UIString("Overflows.");
         } else {
-            this.title.removeStyleClass("named-flow-overflow");
+            this.title.classList.remove("named-flow-overflow");
             this.tooltip = "";
         }
 

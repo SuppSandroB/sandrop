@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2013 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,18 +31,11 @@
  */
 WebInspector.Placard = function(title, subtitle)
 {
-    this.element = document.createElement("div");
-    this.element.className = "placard";
+    this.element = document.createElementWithClass("div", "placard");
     this.element.placard = this;
 
-    this.titleElement = document.createElement("div");
-    this.titleElement.className = "title";
-
-    this.subtitleElement = document.createElement("div");
-    this.subtitleElement.className = "subtitle";
-
-    this.element.appendChild(this.subtitleElement);
-    this.element.appendChild(this.titleElement);
+    this.subtitleElement = this.element.createChild("div", "subtitle");
+    this.titleElement = this.element.createChild("div", "title");
 
     this.title = title;
     this.subtitle = subtitle;
@@ -96,7 +90,7 @@ WebInspector.Placard.prototype = {
         if (this._selected)
             return;
         this._selected = true;
-        this.element.addStyleClass("selected");
+        this.element.classList.add("selected");
     },
 
     deselect: function()
@@ -104,7 +98,7 @@ WebInspector.Placard.prototype = {
         if (!this._selected)
             return;
         this._selected = false;
-        this.element.removeStyleClass("selected");
+        this.element.classList.remove("selected");
     },
 
     toggleSelected: function()

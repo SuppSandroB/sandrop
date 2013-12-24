@@ -57,7 +57,7 @@ WebInspector.CookieParser.KeyValue = function(key, value, position)
 
 WebInspector.CookieParser.prototype = {
     /**
-     * @return {Array.<WebInspector.Cookie>}
+     * @return {!Array.<!WebInspector.Cookie>}
      */
     cookies: function()
     {
@@ -66,7 +66,7 @@ WebInspector.CookieParser.prototype = {
 
     /**
      * @param {string|undefined} cookieHeader
-     * @return {?Array.<WebInspector.Cookie>}
+     * @return {?Array.<!WebInspector.Cookie>}
      */
     parseCookie: function(cookieHeader)
     {
@@ -86,7 +86,7 @@ WebInspector.CookieParser.prototype = {
 
     /**
      * @param {string|undefined} setCookieHeader
-     * @return {?Array.<WebInspector.Cookie>}
+     * @return {?Array.<!WebInspector.Cookie>}
      */
     parseSetCookie: function(setCookieHeader)
     {
@@ -127,7 +127,7 @@ WebInspector.CookieParser.prototype = {
     },
 
     /**
-     * @return {WebInspector.CookieParser.KeyValue}
+     * @return {?WebInspector.CookieParser.KeyValue}
      */
     _extractKeyValue: function()
     {
@@ -180,7 +180,7 @@ WebInspector.CookieParser.prototype = {
 
 /**
  * @param {string|undefined} header
- * @return {?Array.<WebInspector.Cookie>}
+ * @return {?Array.<!WebInspector.Cookie>}
  */
 WebInspector.CookieParser.parseCookie = function(header)
 {
@@ -189,7 +189,7 @@ WebInspector.CookieParser.parseCookie = function(header)
 
 /**
  * @param {string|undefined} header
- * @return {?Array.<WebInspector.Cookie>}
+ * @return {?Array.<!WebInspector.Cookie>}
  */
 WebInspector.CookieParser.parseSetCookie = function(header)
 {
@@ -318,7 +318,7 @@ WebInspector.Cookie.prototype = {
     },
 
     /**
-     * @return {Date}
+     * @return {?Date}
      */
     expiresDate: function(requestDate)
     {
@@ -335,7 +335,7 @@ WebInspector.Cookie.prototype = {
     },
 
     /**
-     * @return {Object}
+     * @return {!Object}
      */
     attributes: function()
     {
@@ -377,10 +377,9 @@ WebInspector.Cookies.getCookiesAsync = function(callback)
 {
     /**
      * @param {?Protocol.Error} error 
-     * @param {Array.<PageAgent.Cookie>} cookies
-     * @param {string} cookiesString
+     * @param {!Array.<!PageAgent.Cookie>} cookies
      */
-    function mycallback(error, cookies, cookiesString)
+    function mycallback(error, cookies)
     {
         if (error)
             return;
@@ -391,7 +390,7 @@ WebInspector.Cookies.getCookiesAsync = function(callback)
 }
 
 /**
- * @param {PageAgent.Cookie} protocolCookie
+ * @param {!PageAgent.Cookie} protocolCookie
  * @return {!WebInspector.Cookie}
  */
 WebInspector.Cookies.buildCookieProtocolObject = function(protocolCookie)
@@ -411,7 +410,7 @@ WebInspector.Cookies.buildCookieProtocolObject = function(protocolCookie)
 }
 
 /**
- * @param {WebInspector.Cookie} cookie 
+ * @param {!WebInspector.Cookie} cookie
  * @param {string} resourceURL
  */
 WebInspector.Cookies.cookieMatchesResourceURL = function(cookie, resourceURL)

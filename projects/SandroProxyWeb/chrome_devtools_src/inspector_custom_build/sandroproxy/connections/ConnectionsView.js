@@ -162,7 +162,7 @@ WebInspector.ConnectionsView.prototype = {
         this._createSortingFunctions();
         this._createTable();
         this._createSummaryBar();
-        this._toggleStateFilter(WebInspector.ConnectionsView.ALL_TYPES, false);
+        this._toggleStateFilter(WebInspector.ConnectionsView.STATE_ALL_TYPES, false);
     },
     
     
@@ -289,7 +289,7 @@ WebInspector.ConnectionsView.prototype = {
         this._dataGrid = new WebInspector.DataGrid(columns);
         this._dataGrid.setName("connections");
         this._dataGrid.resizeMethod = WebInspector.DataGrid.ResizeMethod.Last;
-        this._dataGrid.element.addStyleClass("network-log-grid");
+        this._dataGrid.element.classList.add("network-log-grid");
         this._dataGrid.element.addEventListener("contextmenu", this._contextMenu.bind(this), true);
         this._dataGrid.show(this.element);
 
@@ -350,7 +350,7 @@ WebInspector.ConnectionsView.prototype = {
         filterBarElement.title = WebInspector.UIString("Use %s Click to select multiple types.", WebInspector.KeyboardShortcut.shortcutToString("", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta));
         this._filterBarElement = filterBarElement;
 
-        this._addStateFilter(WebInspector.ConnectionsView.ALL_STATES, WebInspector.UIString("All"));
+        this._addStateFilter(WebInspector.ConnectionsView.STATE_ALL_TYPES, WebInspector.UIString("All"));
         filterBarElement.createChild("div", "scope-bar-divider");
 
         for (var stateGroupId in WebInspector.ConnectionsView.STATE_GROUPS) {
@@ -411,24 +411,24 @@ WebInspector.ConnectionsView.prototype = {
 
     _toggleStateFilter: function(stateName, allowMultiSelect)
     {
-        if (allowMultiSelect && stateName !== WebInspector.ConnectionsView.ALL_TYPES)
-            this._stateFilterElements[WebInspector.ConnectionsView.ALL_TYPES].removeStyleClass("selected");
+        if (allowMultiSelect && stateName !== WebInspector.ConnectionsView.STATE_ALL_TYPES)
+            this._stateFilterElements[WebInspector.ConnectionsView.STATE_ALL_TYPES].classList.remove("selected");
         else {
             for (var key in this._stateFilterElements)
-                this._stateFilterElements[key].removeStyleClass("selected");
+                this._stateFilterElements[key].classList.remove("selected");
         }
 
         var filterElement = this._stateFilterElements[stateName];
-        filterElement.enableStyleClass("selected", !filterElement.hasStyleClass("selected"));
+        filterElement.enableStyleClass("selected", !filterElement.classList.contains("selected"));
         // We can't unselect All, so we break early here
         var allowedStatesGroups = {};
         for (var key in this._stateFilterElements) {
-            if (this._stateFilterElements[key].hasStyleClass("selected"))
+            if (this._stateFilterElements[key].classList.contains("selected"))
                 allowedStatesGroups[key] = true;
             }
 
         // If All wasn't selected, and now is, unselect everything else.
-        if (stateName === WebInspector.ConnectionsView.ALL_TYPES)
+        if (stateName === WebInspector.ConnectionsView.STATE_ALL_TYPES)
             this._stateFilter = WebInspector.ConnectionsView._trivialStateFilter;
         else
             this._stateFilter = WebInspector.ConnectionsView._stateFilter.bind(null, allowedStatesGroups);
@@ -502,9 +502,9 @@ WebInspector.ConnectionsView.prototype = {
     _setLargerRows: function(enabled)
     {
         if (!enabled) {
-            this._dataGrid.element.addStyleClass("small");
+            this._dataGrid.element.classList.add("small");
         } else {
-            this._dataGrid.element.removeStyleClass("small");
+            this._dataGrid.element.classList.remove("small");
         }
         this.dispatchEventToListeners(WebInspector.ConnectionsView.EventTypes.RowSizeChanged, { largeRows: enabled });
         this._updateOffscreenRows();
@@ -551,7 +551,7 @@ WebInspector.ConnectionsView.prototype = {
 
             var dataGridNode = this._dataGrid.dataGridNodeFromNode(row);
             if (dataGridNode.isFilteredOut()) {
-                row.removeStyleClass("offscreen");
+                row.classList.remove("offscreen");
                 continue;
             }
 
@@ -592,9 +592,14 @@ WebInspector.ConnectionsView.prototype = {
             if (filter && matches)
             this._highlightMatchedRequest(request, false, filter);
         }
-        node.element.enableStyleClass("filtered-out", !matches);
-        if (!matches)
+        if (!matches){
+            node.element.classList.add("filtered-out");
             this._filteredOutConnections.put(connection, true);
+        }else{
+            if(node.element.classList.contains("filtered-out"))
+                node.element.classList.remove("filtered-out");
+        }
+            
     },
     
     performFilter: function(query)
@@ -628,14 +633,14 @@ WebInspector.ConnectionsView.prototype = {
     _removeAllNodeHighlights: function()
     {
         if (this._highlightedNode) {
-            this._highlightedNode.element.removeStyleClass("highlighted-row");
+            this._highlightedNode.element.classList.remove("highlighted-row");
             delete this._highlightedNode;
         }
     },
     
     _highlightNode: function(node)
     {
-        node.element.addStyleClass("highlighted-row");
+        node.element.classList.add("highlighted-row");
         this._highlightedNode = node;
     },
 

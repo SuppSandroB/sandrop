@@ -38,11 +38,12 @@ WebInspector.MetricsSidebarPane = function()
     WebInspector.cssModel.addEventListener(WebInspector.CSSStyleModel.Events.MediaQueryResultChanged, this._styleSheetOrMediaQueryResultChanged, this);
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrModified, this._attributesUpdated, this);
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrRemoved, this._attributesUpdated, this);
+    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameResized, this._frameResized, this);
 }
 
 WebInspector.MetricsSidebarPane.prototype = {
     /**
-     * @param {WebInspector.DOMNode=} node
+     * @param {?WebInspector.DOMNode=} node
      */
     update: function(node)
     {
@@ -66,6 +67,10 @@ WebInspector.MetricsSidebarPane.prototype = {
             return;
         }
 
+        /**
+         * @param {?WebInspector.CSSStyleDeclaration} style
+         * @this {WebInspector.MetricsSidebarPane}
+         */
         function callback(style)
         {
             if (!style || this.node !== node)
@@ -74,6 +79,10 @@ WebInspector.MetricsSidebarPane.prototype = {
         }
         WebInspector.cssModel.getComputedStyleAsync(node.id, callback.bind(this));
 
+        /**
+         * @param {?WebInspector.CSSStyleDeclaration} style
+         * @this {WebInspector.MetricsSidebarPane}
+         */
         function inlineStyleCallback(style)
         {
             if (!style || this.node !== node)
@@ -86,6 +95,23 @@ WebInspector.MetricsSidebarPane.prototype = {
     _styleSheetOrMediaQueryResultChanged: function()
     {
         this._innerUpdate();
+    },
+
+    _frameResized: function()
+    {
+        /**
+         * @this {WebInspector.MetricsSidebarPane}
+         */
+        function refreshContents()
+        {
+            this._innerUpdate();
+            delete this._activeTimer;
+        }
+
+        if (this._activeTimer)
+            clearTimeout(this._activeTimer);
+
+        this._activeTimer = setTimeout(refreshContents.bind(this), 100);
     },
 
     _attributesUpdated: function(event)
@@ -134,6 +160,9 @@ WebInspector.MetricsSidebarPane.prototype = {
         }
     },
 
+    /**
+     * @param {!WebInspector.CSSStyleDeclaration} style
+     */
     _updateMetrics: function(style)
     {
         // Updating with computed style.
@@ -141,6 +170,13 @@ WebInspector.MetricsSidebarPane.prototype = {
         metricsElement.className = "metrics";
         var self = this;
 
+        /**
+         * @param {!WebInspector.CSSStyleDeclaration} style
+         * @param {string} name
+         * @param {string} side
+         * @param {string} suffix
+         * @this {WebInspector.MetricsSidebarPane}
+         */
         function createBoxPartElement(style, name, side, suffix)
         {
             var propertyName = (name !== "position" ? name + "-" : "") + side + suffix;
@@ -303,6 +339,11 @@ WebInspector.MetricsSidebarPane.prototype = {
     {
         var element = event.currentTarget;
 
+        /**
+         * @param {string} originalValue
+         * @param {string} replacementString
+         * @this {WebInspector.MetricsSidebarPane}
+         */
         function finishHandler(originalValue, replacementString)
         {
             this._applyUserInput(element, replacementString, originalValue, context, false);

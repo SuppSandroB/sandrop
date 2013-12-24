@@ -144,14 +144,6 @@ Node.prototype.rangeBoundaryForOffset = function(offset)
     return { container: node, offset: offset };
 }
 
-/**
- * @param {string} className
- */
-Element.prototype.removeStyleClass = function(className)
-{
-    this.classList.remove(className);
-}
-
 Element.prototype.removeMatchingStyleClasses = function(classNameRegex)
 {
     var regex = new RegExp("(^|\\s+)" + classNameRegex + "($|\\s+)");
@@ -161,31 +153,14 @@ Element.prototype.removeMatchingStyleClasses = function(classNameRegex)
 
 /**
  * @param {string} className
- */
-Element.prototype.addStyleClass = function(className)
-{
-    this.classList.add(className);
-}
-
-/**
- * @param {string} className
- * @return {boolean}
- */
-Element.prototype.hasStyleClass = function(className)
-{
-    return this.classList.contains(className);
-}
-
-/**
- * @param {string} className
  * @param {*} enable
  */
 Element.prototype.enableStyleClass = function(className, enable)
 {
     if (enable)
-        this.addStyleClass(className);
+        this.classList.add(className);
     else
-        this.removeStyleClass(className);
+        this.classList.remove(className);
 }
 
 /**
@@ -212,8 +187,8 @@ Element.prototype.isScrolledToBottom = function()
 }
 
 /**
- * @param {Node} fromNode
- * @param {Node} toNode
+ * @param {!Node} fromNode
+ * @param {!Node} toNode
  */
 function removeSubsequentNodes(fromNode, toNode)
 {
@@ -236,8 +211,8 @@ function Size(width, height)
 }
 
 /**
- * @param {Element=} containerElement
- * @return {Size}
+ * @param {?Element=} containerElement
+ * @return {!Size}
  */
 Element.prototype.measurePreferredSize = function(containerElement)
 {
@@ -248,6 +223,17 @@ Element.prototype.measurePreferredSize = function(containerElement)
     this.positionAt(undefined, undefined);
     this.remove();
     return result;
+}
+
+/**
+ * @param {!Event} event
+ * @return {boolean}
+ */
+Element.prototype.containsEventPoint = function(event)
+{
+    var box = this.getBoundingClientRect();
+    return box.left < event.x  && event.x < box.right &&
+           box.top < event.y && event.y < box.bottom;
 }
 
 Node.prototype.enclosingNodeOrSelfWithNodeNameInArray = function(nameArray)
@@ -266,12 +252,12 @@ Node.prototype.enclosingNodeOrSelfWithNodeName = function(nodeName)
 
 /**
  * @param {string} className
- * @param {Element=} stayWithin
+ * @param {!Element=} stayWithin
  */
 Node.prototype.enclosingNodeOrSelfWithClass = function(className, stayWithin)
 {
     for (var node = this; node && node !== stayWithin && node !== this.ownerDocument; node = node.parentNode)
-        if (node.nodeType === Node.ELEMENT_NODE && node.hasStyleClass(className))
+        if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains(className))
             return node;
     return null;
 }
@@ -297,13 +283,23 @@ Element.prototype.isInsertionCaretInside = function()
 }
 
 /**
+ * @param {string} elementName
+ * @param {string=} className
+ */
+Document.prototype.createElementWithClass = function(elementName, className)
+{
+    var element = this.createElement(elementName);
+    if (className)
+        element.className = className;
+    return element;
+}
+
+/**
  * @param {string=} className
  */
 Element.prototype.createChild = function(elementName, className)
 {
-    var element = this.ownerDocument.createElement(elementName);
-    if (className)
-        element.className = className;
+    var element = this.ownerDocument.createElementWithClass(elementName, className);
     this.appendChild(element);
     return element;
 }
@@ -341,19 +337,8 @@ Element.prototype.totalOffsetTop = function()
 
 Element.prototype.totalOffset = function()
 {
-    var totalLeft = 0;
-    var totalTop = 0;
-
-    for (var element = this; element; element = element.offsetParent) {
-        totalLeft += element.offsetLeft;
-        totalTop += element.offsetTop;
-        if (this !== element) {
-            totalLeft += element.clientLeft - element.scrollLeft;
-            totalTop += element.clientTop - element.scrollTop;
-        }
-    }
-
-    return { left: totalLeft, top: totalTop };
+    var rect = this.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
 }
 
 Element.prototype.scrollOffset = function()
@@ -383,8 +368,8 @@ function AnchorBox(x, y, width, height)
 }
 
 /**
- * @param {Window} targetWindow
- * @return {AnchorBox}
+ * @param {!Window} targetWindow
+ * @return {!AnchorBox}
  */
 Element.prototype.offsetRelativeToWindow = function(targetWindow)
 {
@@ -405,8 +390,8 @@ Element.prototype.offsetRelativeToWindow = function(targetWindow)
 }
 
 /**
- * @param {Window} targetWindow
- * @return {AnchorBox}
+ * @param {!Window} targetWindow
+ * @return {!AnchorBox}
  */
 Element.prototype.boxInWindow = function(targetWindow)
 {
@@ -574,7 +559,7 @@ function consumeEvent(e)
  * Mutation observers leak memory. Keep track of them and disconnect
  * on unload.
  * @constructor
- * @param {function(Array.<WebKitMutation>)} handler
+ * @param {function(!Array.<!WebKitMutation>)} handler
  */
 function NonLeakingMutationObserver(handler)
 {
@@ -593,8 +578,8 @@ NonLeakingMutationObserver._instances = [];
 
 NonLeakingMutationObserver.prototype = {
     /**
-     * @param {Element} element
-     * @param {Object} config
+     * @param {!Element} element
+     * @param {!Object} config
      */
     observe: function(element, config)
     {

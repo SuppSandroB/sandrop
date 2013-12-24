@@ -40,7 +40,7 @@ WebInspector.DockController = function()
     this._dockToggleButtonOption.addEventListener("click", this._toggleDockState, this);
     this._dockToggleButton.setLongClickOptionsEnabled(this._createDockOptions.bind(this));
 
-    this.setDockSide(WebInspector.queryParamsObject["dockSide"] || "bottom");
+    this.setDockSide(WebInspector.queryParamsObject["can_dock"] ? (WebInspector.queryParamsObject["dockSide"] || "bottom") : "undocked");
 }
 
 WebInspector.DockController.State = {
@@ -55,7 +55,7 @@ WebInspector.DockController.Events = {
 
 WebInspector.DockController.prototype = {
     /**
-     * @return {Element}
+     * @return {!Element}
      */
     get element()
     {
@@ -95,19 +95,19 @@ WebInspector.DockController.prototype = {
         var body = document.body;
         switch (this._dockSide) {
         case WebInspector.DockController.State.DockedToBottom:
-            body.removeStyleClass("undocked");
-            body.removeStyleClass("dock-to-right");
-            body.addStyleClass("dock-to-bottom");
+            body.classList.remove("undocked");
+            body.classList.remove("dock-to-right");
+            body.classList.add("dock-to-bottom");
             break;
         case WebInspector.DockController.State.DockedToRight: 
-            body.removeStyleClass("undocked");
-            body.addStyleClass("dock-to-right");
-            body.removeStyleClass("dock-to-bottom");
+            body.classList.remove("undocked");
+            body.classList.add("dock-to-right");
+            body.classList.remove("dock-to-bottom");
             break;
         case WebInspector.DockController.State.Undocked: 
-            body.addStyleClass("undocked");
-            body.removeStyleClass("dock-to-right");
-            body.removeStyleClass("dock-to-bottom");
+            body.classList.add("undocked");
+            body.classList.remove("dock-to-right");
+            body.classList.remove("dock-to-bottom");
             break;
         }
 
@@ -128,7 +128,7 @@ WebInspector.DockController.prototype = {
     },
 
     /**
-     * @param {WebInspector.StatusBarButton} button
+     * @param {!WebInspector.StatusBarButton} button
      * @param {string} state
      */
     _decorateButtonForTargetState: function(button, state)
@@ -155,7 +155,7 @@ WebInspector.DockController.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} e
+     * @param {!WebInspector.Event} e
      */
     _toggleDockState: function(e)
     {
@@ -172,6 +172,6 @@ WebInspector.DockController.prototype = {
 }
 
 /**
- * @type {?WebInspector.DockController}
+ * @type {!WebInspector.DockController}
  */
-WebInspector.dockController = null;
+WebInspector.dockController;

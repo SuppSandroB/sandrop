@@ -53,99 +53,102 @@ WebInspector.ProfilesPanelDescriptor.ShortcutKeys = {
 
 WebInspector.ProfilesPanelDescriptor.ProfileURLRegExp = /webkit-profile:\/\/(.+)\/(.+)/;
 
-/**
- * @param {string} title
- * @return {string}
- */
-WebInspector.ProfilesPanelDescriptor.resolveProfileTitle = function(title)
-{
-    return title;
-}
+/** @interface */
+WebInspector.CPUProfilerModelDelegate = function() {};
 
-/**
- * @param {Event} event
- */
-WebInspector.ProfilesPanelDescriptor._openCPUProfile = function(event)
-{
-    event.preventDefault();
-    var panel = WebInspector.showPanel("profiles");
-    var link = /** @type {!Element} */ (event.target);
-    var view = /** @type {WebInspector.CPUProfileView} */ (panel.showProfile("CPU", link.profileUID));
-    if (!view)
-        return;
-    if (typeof link.timeLeft === "number" && typeof link.timeRight === "number")
-        view.selectRange(link.timeLeft, link.timeRight);
-}
+WebInspector.CPUProfilerModelDelegate.prototype = {
+    /**
+     * @param {string} protocolId
+     * @param {!DebuggerAgent.Location} scriptLocation
+     * @param {string=} title
+     */
+    consoleProfileStarted: function(protocolId, scriptLocation, title) {},
 
-/**
- * @param {number} uid
- * @param {string} linkText
- * @param {number=} timeLeft
- * @param {number=} timeRight
- * @param {string=} tooltipText
- * @return {!Element}
- */
-WebInspector.ProfilesPanelDescriptor.linkifyCPUProfile = function(uid, linkText, timeLeft, timeRight, tooltipText)
-{
-    var link = document.createElement("a");
-    link.innerText = linkText;
-    link.href = WebInspector.UIString("show CPU profile");
-    link.target = "_blank";
-    if (tooltipText)
-        link.title = tooltipText;
-    link.timeLeft = timeLeft;
-    link.timeRight = timeRight;
-    link.profileUID = uid;
-    link.addEventListener("click", WebInspector.ProfilesPanelDescriptor._openCPUProfile, true);
-    return link;
+    /**
+     * @param {string} protocolId
+     * @param {!DebuggerAgent.Location} scriptLocation
+     * @param {!ProfilerAgent.CPUProfile} cpuProfile
+     * @param {string=} title
+     */
+    consoleProfileFinished: function(protocolId, scriptLocation, cpuProfile, title) {}
 }
 
 /**
  * @constructor
  * @extends {WebInspector.Object}
+ * @implements {ProfilerAgent.Dispatcher}
  */
-WebInspector.ProfileManager = function()
+WebInspector.CPUProfilerModel = function()
 {
-   this._startedProfiles = {};
-};
+    /** @type {?WebInspector.CPUProfilerModelDelegate} */
+    this._delegate = null;
+    this._isRecording = false;
+    InspectorBackend.registerProfilerDispatcher(this);
+    ProfilerAgent.enable();
+}
 
-WebInspector.ProfileManager.EventTypes = {
+WebInspector.CPUProfilerModel.EventTypes = {
     ProfileStarted: "profile-started",
     ProfileStopped: "profile-stopped"
 };
 
-WebInspector.ProfileManager.prototype = {
+WebInspector.CPUProfilerModel.prototype = {
     /**
-     * @param {string} profileTypeId
-     * @return {boolean}
-     */
-    isStarted: function(profileTypeId)
+      * @param {!WebInspector.CPUProfilerModelDelegate} delegate
+      */
+    setDelegate: function(delegate)
     {
-        return profileTypeId in this._startedProfiles;
+        this._delegate = delegate;
     },
 
     /**
-     * @param {string} profileTypeId
+     * @param {string} id
+     * @param {!DebuggerAgent.Location} scriptLocation
+     * @param {!ProfilerAgent.CPUProfile} cpuProfile
+     * @param {string=} title
      */
-    notifyStarted: function(profileTypeId)
+    consoleProfileFinished: function(id, scriptLocation, cpuProfile, title)
     {
-        this._startedProfiles[profileTypeId] = true;
-        this.dispatchEventToListeners(WebInspector.ProfileManager.EventTypes.ProfileStarted, profileTypeId);
+        // Make sure ProfilesPanel is initialized and CPUProfileType is created.
+        WebInspector.inspectorView.panel("profiles");
+        this._delegate.consoleProfileFinished(id, scriptLocation, cpuProfile, title);
     },
 
     /**
-     * @param {string} profileTypeId
+     * @param {string} id
+     * @param {!DebuggerAgent.Location} scriptLocation
+     * @param {string=} title
      */
-    notifyStoped: function(profileTypeId)
+    consoleProfileStarted: function(id, scriptLocation, title)
     {
-        delete this._startedProfiles[profileTypeId];
-        this.dispatchEventToListeners(WebInspector.ProfileManager.EventTypes.ProfileStopped, profileTypeId);
+        // Make sure ProfilesPanel is initialized and CPUProfileType is created.
+        WebInspector.inspectorView.panel("profiles");
+        this._delegate.consoleProfileStarted(id, scriptLocation, title);
+    },
+
+    /**
+      * @param {boolean} isRecording
+      */
+    setRecording: function(isRecording)
+    {
+        this._isRecording = isRecording;
+        this.dispatchEventToListeners(isRecording ?
+            WebInspector.CPUProfilerModel.EventTypes.ProfileStarted :
+            WebInspector.CPUProfilerModel.EventTypes.ProfileStopped);
+    },
+
+    /**
+      * @return {boolean}
+      */
+    isRecordingProfile: function()
+    {
+        return this._isRecording;
     },
 
     __proto__: WebInspector.Object.prototype
-};
+}
 
 /**
- * @type {WebInspector.ProfileManager}
+ * @type {!WebInspector.CPUProfilerModel}
  */
-WebInspector.profileManager;
+WebInspector.cpuProfilerModel;

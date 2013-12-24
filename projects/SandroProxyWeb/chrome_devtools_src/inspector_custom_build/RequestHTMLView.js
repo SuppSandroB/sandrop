@@ -31,14 +31,14 @@
 /**
  * @constructor
  * @extends {WebInspector.RequestView}
- * @param {WebInspector.NetworkRequest} request
+ * @param {!WebInspector.NetworkRequest} request
  * @param {string} dataURL
  */
 WebInspector.RequestHTMLView = function(request, dataURL)
 {
     WebInspector.RequestView.call(this, request);
     this._dataURL = dataURL;
-    this.element.addStyleClass("html");
+    this.element.classList.add("html");
 }
 
 WebInspector.RequestHTMLView.prototype = {

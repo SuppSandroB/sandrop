@@ -58,13 +58,14 @@ WebInspector.TimelineManager.prototype = {
     /**
      * @param {number=} maxCallStackDepth
      * @param {boolean=} includeDomCounters
+     * @param {boolean=} includeGPUEvents
      * @param {function(?Protocol.Error)=} callback
      */
-    start: function(maxCallStackDepth, includeDomCounters, callback)
+    start: function(maxCallStackDepth, includeDomCounters, includeGPUEvents, callback)
     {
         this._enablementCount++;
         if (this._enablementCount === 1)
-            TimelineAgent.start(maxCallStackDepth, /* bufferEvents */false, includeDomCounters, callback);
+            TimelineAgent.start(maxCallStackDepth, /* bufferEvents */false, includeDomCounters, includeGPUEvents, callback);
         else if (callback)
             callback(null);
     },
@@ -100,7 +101,7 @@ WebInspector.TimelineDispatcher = function(manager)
 
 WebInspector.TimelineDispatcher.prototype = {
     /**
-     * @param {TimelineAgent.TimelineEvent} record
+     * @param {!TimelineAgent.TimelineEvent} record
      */
     eventRecorded: function(record)
     {
@@ -139,6 +140,6 @@ WebInspector.TimelineDispatcher.prototype = {
 }
 
 /**
- * @type {WebInspector.TimelineManager}
+ * @type {!WebInspector.TimelineManager}
  */
 WebInspector.timelineManager;

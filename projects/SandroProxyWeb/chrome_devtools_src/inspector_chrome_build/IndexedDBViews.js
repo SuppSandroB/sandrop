@@ -31,15 +31,15 @@
 /**
  * @constructor
  * @extends {WebInspector.View}
- * @param {WebInspector.IndexedDBModel.Database} database
+ * @param {!WebInspector.IndexedDBModel.Database} database
  */
 WebInspector.IDBDatabaseView = function(database)
 {
     WebInspector.View.call(this);
     this.registerRequiredCSS("indexedDBViews.css");
 
-    this.element.addStyleClass("fill");
-    this.element.addStyleClass("indexed-db-database-view");
+    this.element.classList.add("fill");
+    this.element.classList.add("indexed-db-database-view");
 
     this._headersListElement = this.element.createChild("ol", "outline-disclosure");
     this._headersTreeOutline = new TreeOutline(this._headersListElement);
@@ -87,7 +87,7 @@ WebInspector.IDBDatabaseView.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.Database} database
+     * @param {!WebInspector.IndexedDBModel.Database} database
      */
     update: function(database)
     {
@@ -102,10 +102,10 @@ WebInspector.IDBDatabaseView.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.View}
- * @param {WebInspector.IndexedDBModel} model
- * @param {WebInspector.IndexedDBModel.DatabaseId} databaseId
- * @param {WebInspector.IndexedDBModel.ObjectStore} objectStore
- * @param {WebInspector.IndexedDBModel.Index} index
+ * @param {!WebInspector.IndexedDBModel} model
+ * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
+ * @param {!WebInspector.IndexedDBModel.ObjectStore} objectStore
+ * @param {?WebInspector.IndexedDBModel.Index} index
  */
 WebInspector.IDBDataView = function(model, databaseId, objectStore, index)
 {
@@ -116,13 +116,13 @@ WebInspector.IDBDataView = function(model, databaseId, objectStore, index)
     this._databaseId = databaseId;
     this._isIndex = !!index;
 
-    this.element.addStyleClass("indexed-db-data-view");
+    this.element.classList.add("indexed-db-data-view");
 
     var editorToolbar = this._createEditorToolbar();
     this.element.appendChild(editorToolbar);
 
     this._dataGridContainer = this.element.createChild("div", "fill");
-    this._dataGridContainer.addStyleClass("data-grid-container");
+    this._dataGridContainer.classList.add("data-grid-container");
 
     this._refreshButton = new WebInspector.StatusBarButton(WebInspector.UIString("Refresh"), "refresh-storage-status-bar-item");
     this._refreshButton.addEventListener("click", this._refreshButtonClicked, this);
@@ -139,7 +139,7 @@ WebInspector.IDBDataView = function(model, databaseId, objectStore, index)
 
 WebInspector.IDBDataView.prototype = {
     /**
-     * @return {WebInspector.DataGrid}
+     * @return {!WebInspector.DataGrid}
      */
     _createDataGrid: function()
     {
@@ -159,7 +159,7 @@ WebInspector.IDBDataView.prototype = {
     /**
      * @param {string} prefix
      * @param {*} keyPath
-     * @return {DocumentFragment}
+     * @return {!DocumentFragment}
      */
     _keyColumnHeaderFragment: function(prefix, keyPath)
     {
@@ -187,7 +187,7 @@ WebInspector.IDBDataView.prototype = {
 
     /**
      * @param {string} keyPathString
-     * @return {DocumentFragment}
+     * @return {!DocumentFragment}
      */
     _keyPathStringFragment: function(keyPathString)
     {
@@ -200,16 +200,16 @@ WebInspector.IDBDataView.prototype = {
     },
 
     /**
-     * @return {Element}
+     * @return {!Element}
      */
     _createEditorToolbar: function()
     {
         var editorToolbar = document.createElement("div");
-        editorToolbar.addStyleClass("status-bar");
-        editorToolbar.addStyleClass("data-view-toolbar");
+        editorToolbar.classList.add("status-bar");
+        editorToolbar.classList.add("data-view-toolbar");
 
         this._pageBackButton = editorToolbar.createChild("button", "back-button");
-        this._pageBackButton.addStyleClass("status-bar-item");
+        this._pageBackButton.classList.add("status-bar-item");
         this._pageBackButton.title = WebInspector.UIString("Show previous page.");
         this._pageBackButton.disabled = true;
         this._pageBackButton.appendChild(document.createElement("img"));
@@ -217,7 +217,7 @@ WebInspector.IDBDataView.prototype = {
         editorToolbar.appendChild(this._pageBackButton);
 
         this._pageForwardButton = editorToolbar.createChild("button", "forward-button");
-        this._pageForwardButton.addStyleClass("status-bar-item");
+        this._pageForwardButton.classList.add("status-bar-item");
         this._pageForwardButton.title = WebInspector.UIString("Show next page.");
         this._pageForwardButton.disabled = true;
         this._pageForwardButton.appendChild(document.createElement("img"));
@@ -252,8 +252,8 @@ WebInspector.IDBDataView.prototype = {
     },
 
     /**
-     * @param {WebInspector.IndexedDBModel.ObjectStore} objectStore
-     * @param {WebInspector.IndexedDBModel.Index} index
+     * @param {!WebInspector.IndexedDBModel.ObjectStore} objectStore
+     * @param {?WebInspector.IndexedDBModel.Index} index
      */
     update: function(objectStore, index)
     {
@@ -316,8 +316,9 @@ WebInspector.IDBDataView.prototype = {
         this._lastSkipCount = skipCount;
 
         /**
-         * @param {Array.<WebInspector.IndexedDBModel.Entry>} entries
+         * @param {!Array.<!WebInspector.IndexedDBModel.Entry>} entries
          * @param {boolean} hasMore
+         * @this {WebInspector.IDBDataView}
          */
         function callback(entries, hasMore)
         {
@@ -354,6 +355,9 @@ WebInspector.IDBDataView.prototype = {
 
     _clearButtonClicked: function(event)
     {
+        /**
+         * @this {WebInspector.IDBDataView}
+         */
         function cleared() {
             this._clearButton.setEnabled(true);
             this._updateData(true);
@@ -394,7 +398,7 @@ WebInspector.IDBDataGridNode = function(data)
 
 WebInspector.IDBDataGridNode.prototype = {
     /**
-     * @return {Element}
+     * @return {!Element}
      */
     createCell: function(columnIdentifier)
     {
@@ -428,11 +432,11 @@ WebInspector.IDBDataGridNode.prototype = {
             contents.appendChild(section.element);
             break;
         case "string":
-            contents.addStyleClass("primitive-value");
+            contents.classList.add("primitive-value");
             contents.appendChild(document.createTextNode("\"" + value.description + "\""));
             break;
         default:
-            contents.addStyleClass("primitive-value");
+            contents.classList.add("primitive-value");
             contents.appendChild(document.createTextNode(value.description));
         }
     },

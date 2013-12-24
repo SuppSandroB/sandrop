@@ -36,16 +36,17 @@ WebInspector.RevisionHistoryView = function()
 {
     WebInspector.View.call(this);
     this.registerRequiredCSS("revisionHistory.css");
-    this.element.addStyleClass("revision-history-drawer");
-    this.element.addStyleClass("fill");
-    this.element.addStyleClass("outline-disclosure");
+    this.element.classList.add("revision-history-drawer");
+    this.element.classList.add("fill");
+    this.element.classList.add("outline-disclosure");
     this._uiSourceCodeItems = new Map();
 
     var olElement = this.element.createChild("ol");
     this._treeOutline = new TreeOutline(olElement);
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
+     * @this {WebInspector.RevisionHistoryView}
      */
     function populateRevisions(uiSourceCode)
     {
@@ -60,7 +61,7 @@ WebInspector.RevisionHistoryView = function()
 }
 
 /**
- * @param {WebInspector.UISourceCode} uiSourceCode
+ * @param {!WebInspector.UISourceCode} uiSourceCode
  */
 WebInspector.RevisionHistoryView.showHistory = function(uiSourceCode)
 {
@@ -73,7 +74,7 @@ WebInspector.RevisionHistoryView.showHistory = function(uiSourceCode)
 
 WebInspector.RevisionHistoryView.prototype = {
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _createUISourceCodeItem: function(uiSourceCode)
     {
@@ -114,7 +115,7 @@ WebInspector.RevisionHistoryView.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _clearHistory: function(uiSourceCode)
     {
@@ -123,7 +124,7 @@ WebInspector.RevisionHistoryView.prototype = {
 
     _revisionAdded: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data.uiSourceCode);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.data.uiSourceCode);
         var uiSourceCodeItem = this._uiSourceCodeItems.get(uiSourceCode);
         if (!uiSourceCodeItem) {
             uiSourceCodeItem = this._createUISourceCodeItem(uiSourceCode);
@@ -138,7 +139,7 @@ WebInspector.RevisionHistoryView.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _revealUISourceCode: function(uiSourceCode)
     {
@@ -151,12 +152,12 @@ WebInspector.RevisionHistoryView.prototype = {
 
     _uiSourceCodeRemoved: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.data);
         this._removeUISourceCode(uiSourceCode);
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _removeUISourceCode: function(uiSourceCode)
     {
@@ -179,8 +180,8 @@ WebInspector.RevisionHistoryView.prototype = {
 /**
  * @constructor
  * @extends {TreeElement}
- * @param {WebInspector.Revision} revision
- * @param {WebInspector.Revision} baseRevision
+ * @param {!WebInspector.Revision} revision
+ * @param {!WebInspector.Revision} baseRevision
  * @param {boolean} allowRevert
  */
 WebInspector.RevisionHistoryTreeElement = function(revision, baseRevision, allowRevert)
@@ -196,13 +197,13 @@ WebInspector.RevisionHistoryTreeElement = function(revision, baseRevision, allow
     this._revertElement.textContent = WebInspector.UIString("apply revision content");
     this._revertElement.addEventListener("click", this._revision.revertToThis.bind(this._revision), false);
     if (!allowRevert)
-        this._revertElement.addStyleClass("hidden");
+        this._revertElement.classList.add("hidden");
 }
 
 WebInspector.RevisionHistoryTreeElement.prototype = {
     onattach: function()
     {
-        this.listItemElement.addStyleClass("revision-history-revision");
+        this.listItemElement.classList.add("revision-history-revision");
     },
 
     onexpand: function()
@@ -213,7 +214,7 @@ WebInspector.RevisionHistoryTreeElement.prototype = {
             return;
         this._wasExpandedOnce = true;
 
-        this.childrenListElement.addStyleClass("source-code");
+        this.childrenListElement.classList.add("source-code");
         if (this._baseRevision)
             this._baseRevision.requestContent(step1.bind(this));
         else
@@ -221,6 +222,7 @@ WebInspector.RevisionHistoryTreeElement.prototype = {
 
         /**
          * @param {?string} baseContent
+         * @this {WebInspector.RevisionHistoryTreeElement}
          */
         function step1(baseContent)
         {
@@ -230,6 +232,7 @@ WebInspector.RevisionHistoryTreeElement.prototype = {
         /**
          * @param {?string} baseContent
          * @param {?string} newContent
+         * @this {WebInspector.RevisionHistoryTreeElement}
          */
         function step2(baseContent, newContent)
         {
@@ -296,7 +299,7 @@ WebInspector.RevisionHistoryTreeElement.prototype = {
         {
             var numberString = lineNumber !== null ? numberToStringWithSpacesPadding(lineNumber + 1, 4) : "    ";
             var lineNumberSpan = document.createElement("span");
-            lineNumberSpan.addStyleClass("webkit-line-number");
+            lineNumberSpan.classList.add("webkit-line-number");
             lineNumberSpan.textContent = numberString;
             child.listItemElement.appendChild(lineNumberSpan);
         }
@@ -307,13 +310,13 @@ WebInspector.RevisionHistoryTreeElement.prototype = {
         var contentSpan = document.createElement("span");
         contentSpan.textContent = lineContent;
         child.listItemElement.appendChild(contentSpan);
-        child.listItemElement.addStyleClass("revision-history-line");
-        child.listItemElement.addStyleClass("revision-history-line-" + changeType);
+        child.listItemElement.classList.add("revision-history-line");
+        child.listItemElement.classList.add("revision-history-line-" + changeType);
     },
 
     allowRevert: function()
     {
-        this._revertElement.removeStyleClass("hidden");
+        this._revertElement.classList.remove("hidden");
     },
 
     __proto__: TreeElement.prototype

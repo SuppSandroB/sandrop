@@ -28,7 +28,7 @@
 
 /**
  * @constructor
- * @param {WebInspector.DatabaseModel} model
+ * @param {!WebInspector.DatabaseModel} model
  */
 WebInspector.Database = function(model, id, domain, name, version)
 {
@@ -80,7 +80,7 @@ WebInspector.Database.prototype = {
     },
 
     /**
-     * @param {function(Array.<string>)} callback
+     * @param {function(!Array.<string>)} callback
      */
     getTableNames: function(callback)
     {
@@ -94,16 +94,16 @@ WebInspector.Database.prototype = {
 
     /**
      * @param {string} query
-     * @param {function(Array.<string>=, Array.<*>=)} onSuccess
+     * @param {function(!Array.<string>=, !Array.<*>=)} onSuccess
      * @param {function(string)} onError
      */
     executeSql: function(query, onSuccess, onError)
     {
         /**
          * @param {?Protocol.Error} error
-         * @param {Array.<string>=} columnNames
-         * @param {Array.<*>=} values
-         * @param {DatabaseAgent.Error=} errorObj
+         * @param {!Array.<string>=} columnNames
+         * @param {!Array.<*>=} values
+         * @param {!DatabaseAgent.Error=} errorObj
          */
         function callback(error, columnNames, values, errorObj)
         {
@@ -145,7 +145,7 @@ WebInspector.DatabaseModel.Events = {
 
 WebInspector.DatabaseModel.prototype = {
     /**
-     * @return {Array.<WebInspector.Database>}
+     * @return {!Array.<!WebInspector.Database>}
      */
     databases: function()
     {
@@ -156,8 +156,8 @@ WebInspector.DatabaseModel.prototype = {
     },
 
     /**
-     * @param {DatabaseAgent.DatabaseId} databaseId
-     * @return {WebInspector.Database}
+     * @param {!DatabaseAgent.DatabaseId} databaseId
+     * @return {!WebInspector.Database}
      */
     databaseForId: function(databaseId)
     {
@@ -165,7 +165,7 @@ WebInspector.DatabaseModel.prototype = {
     },
 
     /**
-     * @param {WebInspector.Database} database
+     * @param {!WebInspector.Database} database
      */
     _addDatabase: function(database)
     {
@@ -179,7 +179,7 @@ WebInspector.DatabaseModel.prototype = {
 /**
  * @constructor
  * @implements {DatabaseAgent.Dispatcher}
- * @param {WebInspector.DatabaseModel} model
+ * @param {!WebInspector.DatabaseModel} model
  */
 WebInspector.DatabaseDispatcher = function(model)
 {
@@ -188,7 +188,7 @@ WebInspector.DatabaseDispatcher = function(model)
 
 WebInspector.DatabaseDispatcher.prototype = {
     /**
-     * @param {DatabaseAgent.Database} payload
+     * @param {!DatabaseAgent.Database} payload
      */
     addDatabase: function(payload)
     {
@@ -202,6 +202,6 @@ WebInspector.DatabaseDispatcher.prototype = {
 }
 
 /**
- * @type {WebInspector.DatabaseModel}
+ * @type {!WebInspector.DatabaseModel}
  */
-WebInspector.databaseModel = null;
+WebInspector.databaseModel;

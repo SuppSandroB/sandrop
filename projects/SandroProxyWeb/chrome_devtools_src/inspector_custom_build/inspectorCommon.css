@@ -28,16 +28,16 @@ body.platform-mac {
   font-family: 'Lucida Grande', sans-serif;
 }
 
-body.platform-windows {
-  font-family: 'Segoe UI', Tahoma, sans-serif;
-}
-
-body.dock-to-right:not(.undocked) {
+body.dock-to-right:not(.undocked):not(.overlay-contents) {
     border-left: 1px solid rgb(80, 80, 80);
 }
 
-body.dock-to-right.inactive:not(.undocked) {
+body.dock-to-right.inactive:not(.undocked):not(.overlay-contents) {
     border-left: 1px solid rgb(64%, 64%, 64%);
+}
+
+body.platform-windows {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
 }
 
 * {
@@ -100,16 +100,12 @@ iframe.view {
     top: 0;
     left: 0;
     right: 0;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.85);
     background-clip: padding-box;
     height: 20px;
     z-index: 200;
     pointer-events: none;
     overflow: hidden;
-}
-
-.resize-enabled .resources-dividers-label-bar {
-    cursor: move;
 }
 
 .resources-divider {
@@ -180,7 +176,7 @@ iframe.view {
     opacity: 0.2;
     border-right: 1px solid black;
     border-left: 1px solid black;
-    z-index: 150;
+    z-index: 250;
     pointer-events: none;
 }
 
@@ -195,10 +191,6 @@ iframe.view {
     z-index: 500;
     border-radius: 2px;
     box-shadow: white 1px 0 0, white -1px 0 0, white 0 1px 0, white 0 -1px 0;
-}
-
-.resize-enabled .overview-grid-window-resizer {
-    cursor: ew-resize;
 }
 
 .overview-grid-window-resizer-right {

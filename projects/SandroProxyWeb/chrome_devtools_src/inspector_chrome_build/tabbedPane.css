@@ -28,7 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
- .tabbed-pane {
+.tabbed-pane {
     flex: auto;
 }
 
@@ -36,6 +36,7 @@
     position: relative;
     overflow: auto;
     flex: auto;
+    display: flex;
 }
 
 .tabbed-pane-content.has-no-tabs {
@@ -69,6 +70,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+    cursor: default;
 }
 
 .tabbed-pane-header-tab.measuring {
@@ -103,8 +105,8 @@
     float: left;
     position: relative;
     vertical-align: bottom;
-    top: 1px;
     padding-left: 3px;
+    line-height: 20px;
 }
 
 .tabbed-pane-header-tabs-drop-down-container.measuring {
@@ -138,4 +140,5 @@ select.tabbed-pane-header-tabs-drop-down-select {
     margin: 0;
     font-size: 75%;
     -webkit-appearance: none;
+    width: 20px;
 }

@@ -36,7 +36,7 @@ WebInspector.ResourceView = function(resource)
     WebInspector.View.call(this);
     this.registerRequiredCSS("resourceView.css");
 
-    this.element.addStyleClass("resource-view");
+    this.element.classList.add("resource-view");
     this.resource = resource;
 }
 
@@ -50,7 +50,7 @@ WebInspector.ResourceView.prototype = {
 }
 
 /**
- * @param {WebInspector.Resource} resource
+ * @param {!WebInspector.Resource} resource
  */
 WebInspector.ResourceView.hasTextContent = function(resource)
 {
@@ -62,7 +62,7 @@ WebInspector.ResourceView.hasTextContent = function(resource)
 }
 
 /**
- * @param {WebInspector.Resource} resource
+ * @param {!WebInspector.Resource} resource
  */
 WebInspector.ResourceView.nonSourceViewForResource = function(resource)
 {
@@ -79,7 +79,7 @@ WebInspector.ResourceView.nonSourceViewForResource = function(resource)
 /**
  * @extends {WebInspector.SourceFrame}
  * @constructor
- * @param {WebInspector.Resource} resource
+ * @param {!WebInspector.Resource} resource
  */
 WebInspector.ResourceSourceFrame = function(resource)
 {
@@ -104,14 +104,14 @@ WebInspector.ResourceSourceFrame.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.View}
- * @param {WebInspector.Resource} resource
+ * @param {!WebInspector.Resource} resource
  */
 WebInspector.ResourceSourceFrameFallback = function(resource)
 {
     WebInspector.View.call(this);
     this._resource = resource;
-    this.element.addStyleClass("fill");
-    this.element.addStyleClass("script-view");
+    this.element.classList.add("fill");
+    this.element.classList.add("script-view");
     this._content = this.element.createChild("div", "script-view-fallback monospace");
 }
 

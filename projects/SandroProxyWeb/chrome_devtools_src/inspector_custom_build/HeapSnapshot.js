@@ -478,7 +478,7 @@ WebInspector.HeapSnapshotNodeIterator.prototype = {
 
 
 /**
- * @param{WebInspector.HeapSnapshotWorkerDispatcher=} dispatcher
+ * @param {!WebInspector.HeapSnapshotWorkerDispatcher=} dispatcher
  * @constructor
  */
 WebInspector.HeapSnapshotProgress = function(dispatcher)
@@ -492,7 +492,7 @@ WebInspector.HeapSnapshotProgress.Event = {
 
 WebInspector.HeapSnapshotProgress.prototype = {
     /**
-     * @param{string} status
+     * @param {string} status
      */
     updateStatus: function(status)
     {
@@ -500,9 +500,9 @@ WebInspector.HeapSnapshotProgress.prototype = {
     },
 
     /**
-     * @param{string} title
-     * @param{number} value
-     * @param{number} total
+     * @param {string} title
+     * @param {number} value
+     * @param {number} total
      */
     updateProgress: function(title, value, total)
     {
@@ -511,7 +511,7 @@ WebInspector.HeapSnapshotProgress.prototype = {
     },
 
     /**
-     * @param{string} text
+     * @param {string} text
      */
     _sendUpdateEvent: function(text)
     {
@@ -523,7 +523,7 @@ WebInspector.HeapSnapshotProgress.prototype = {
 
 
 /**
- * @param{WebInspector.HeapSnapshotProgress} progress
+ * @param {!WebInspector.HeapSnapshotProgress} progress
  * @constructor
  */
 WebInspector.HeapSnapshot = function(profile, progress)
@@ -531,7 +531,7 @@ WebInspector.HeapSnapshot = function(profile, progress)
     this.uid = profile.snapshot.uid;
     this._nodes = profile.nodes;
     this._containmentEdges = profile.edges;
-    /** @type{HeapSnapshotMetainfo} */
+    /** @type {!HeapSnapshotMetainfo} */
     this._metaNode = profile.snapshot.meta;
     this._strings = profile.strings;
     this._progress = progress;
@@ -1157,8 +1157,8 @@ WebInspector.HeapSnapshot.prototype = {
     // K. Cooper, T. Harvey and K. Kennedy "A Simple, Fast Dominance Algorithm"
     // Softw. Pract. Exper. 4 (2001), pp. 1-10.
     /**
-     * @param {Array.<number>} postOrderIndex2NodeOrdinal
-     * @param {Array.<number>} nodeOrdinal2PostOrderIndex
+     * @param {!Array.<number>} postOrderIndex2NodeOrdinal
+     * @param {!Array.<number>} nodeOrdinal2PostOrderIndex
      */
     _buildDominatorTree: function(postOrderIndex2NodeOrdinal, nodeOrdinal2PostOrderIndex)
     {
@@ -1542,7 +1542,7 @@ WebInspector.HeapSnapshot.prototype = {
 
 /**
  * @constructor
- * @param {Array.<number>=} unfilteredIterationOrder
+ * @param {!Array.<number>=} unfilteredIterationOrder
  */
 WebInspector.HeapSnapshotFilteredOrderedIterator = function(iterator, filter, unfilteredIterationOrder)
 {
@@ -1791,7 +1791,7 @@ WebInspector.HeapSnapshotEdgesProvider.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.HeapSnapshotFilteredOrderedIterator}
- * @param {Array.<number>=} nodeIndexes
+ * @param {!Array.<number>=} nodeIndexes
  */
 WebInspector.HeapSnapshotNodesProvider = function(snapshot, filter, nodeIndexes)
 {

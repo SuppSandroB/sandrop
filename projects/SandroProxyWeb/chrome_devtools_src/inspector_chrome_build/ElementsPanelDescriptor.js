@@ -40,13 +40,13 @@ WebInspector.ElementsPanelDescriptor = function()
 
 WebInspector.ElementsPanelDescriptor.prototype = {
     /** 
-     * @param {WebInspector.ContextMenu} contextMenu
-     * @param {Object} target
+     * @param {!WebInspector.ContextMenu} contextMenu
+     * @param {!Object} target
      */
     appendApplicableItems: function(event, contextMenu, target)
     {
         if (target instanceof WebInspector.RemoteObject) {
-            var remoteObject = /** @type {WebInspector.RemoteObject} */ (target);
+            var remoteObject = /** @type {!WebInspector.RemoteObject} */ (target);
             if (remoteObject.subtype !== "node")
                 return;
         } else if (!(target instanceof WebInspector.DOMNode))
@@ -85,12 +85,38 @@ WebInspector.ElementsPanelDescriptor.prototype = {
         stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.IncrementBy01, WebInspector.UIString("Increment by %f", 0.1));
         stylesPaneSection.addAlternateKeys(WebInspector.ElementsPanelDescriptor.ShortcutKeys.DecrementBy01, WebInspector.UIString("Decrement by %f", 0.1));
 
-        WebInspector.inspectorView.registerViewInDrawer("emulation", WebInspector.UIString("Emulation"), this);
+        /**
+         * Install emulation view.
+         * @this {WebInspector.ElementsPanelDescriptor}
+         */
+        function toggleEmulationView()
+        {
+            if (WebInspector.settings.showEmulationViewInDrawer.get())
+                WebInspector.inspectorView.registerViewInDrawer("emulation", WebInspector.UIString("Emulation"), this);
+            else
+                WebInspector.inspectorView.unregisterViewInDrawer("emulation");
+        }
+        WebInspector.settings.showEmulationViewInDrawer.addChangeListener(toggleEmulationView, this);
+        toggleEmulationView.call(this);
+
+        /**
+         * Install rendering view.
+         * @this {WebInspector.ElementsPanelDescriptor}
+         */
+        function toggleRenderingView()
+        {
+            if (WebInspector.settings.showRenderingViewInDrawer.get())
+                WebInspector.inspectorView.registerViewInDrawer("rendering", WebInspector.UIString("Rendering"), this);
+            else
+                WebInspector.inspectorView.unregisterViewInDrawer("rendering");
+        }
+        WebInspector.settings.showRenderingViewInDrawer.addChangeListener(toggleRenderingView, this);
+        toggleRenderingView.call(this);
     },
 
     /**
      * @param {string=} id
-     * @return {WebInspector.View}
+     * @return {?WebInspector.View}
      */
     createView: function(id)
     {

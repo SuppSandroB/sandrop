@@ -66,11 +66,11 @@ var InspectorFrontendAPI = {
             }
 
             /**
-             * @param {WebInspector.Event} event
+             * @param {!WebInspector.Event} event
              */
             function listener(event)
             {
-                var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
+                var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.data);
                 if (uiSourceCode.url === url) {
                     WebInspector.showPanel("sources").showUISourceCode(uiSourceCode, lineNumber, columnNumber);
                     WebInspector.workspace.removeEventListener(WebInspector.Workspace.Events.UISourceCodeAdded, listener);
@@ -96,8 +96,16 @@ var InspectorFrontendAPI = {
     loadTimelineFromURL: function(url)
     {
         InspectorFrontendAPI._runOnceLoaded(function() {
-            /** @type {WebInspector.TimelinePanel} */ (WebInspector.showPanel("timeline")).loadFromURL(url);
+            /** @type {!WebInspector.TimelinePanel} */ (WebInspector.showPanel("timeline")).loadFromURL(url);
         });
+    },
+
+    /**
+     * @param {boolean} useSoftMenu
+     */
+    setUseSoftMenu: function(useSoftMenu)
+    {
+        WebInspector.ContextMenu.setUseSoftMenu(useSoftMenu);
     },
 
     // FIXME: remove this legacy support.
@@ -179,6 +187,14 @@ var InspectorFrontendAPI = {
     /**
      * @param {string} url
      */
+    canceledSaveURL: function(url)
+    {
+        WebInspector.fileManager.canceledSaveURL(url);
+    },
+
+    /**
+     * @param {string} url
+     */
     appendedToURL: function(url)
     {
         WebInspector.fileManager.appendedToURL(url);
@@ -207,7 +223,7 @@ var InspectorFrontendAPI = {
     },
 
     /**
-     * @param {Object} queryParamsObject
+     * @param {!Object} queryParamsObject
      */
     dispatchQueryParameters: function(queryParamsObject)
     {
@@ -252,11 +268,11 @@ var InspectorFrontendAPI = {
     }
 }
 
-if (window.opener && window.dispatchStandaloneTestRunnerMessages) {
-    function onMessageFromOpener(event)
-    {
-        if (event.source === window.opener)
-            InspectorFrontendAPI._dispatch(event.data);
-    }
-    window.addEventListener("message", onMessageFromOpener, true);
+function onMessageFromOpener(event)
+{
+    if (event.source === window.opener)
+        InspectorFrontendAPI._dispatch(event.data);
 }
+
+if (window.opener && window.dispatchStandaloneTestRunnerMessages)
+    window.addEventListener("message", onMessageFromOpener, true);

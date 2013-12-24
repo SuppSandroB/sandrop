@@ -45,7 +45,7 @@ var onmessage = function(event) {
 };
 
 /**
- * @param {Object} params
+ * @param {!Object} params
  */
 FormatterWorker.format = function(params)
 {
@@ -81,7 +81,7 @@ FormatterWorker._chunkCount = function(totalLength, chunkSize)
 }
 
 /**
- * @param {Object} params
+ * @param {!Object} params
  */
 FormatterWorker.outline = function(params)
 {
@@ -102,63 +102,71 @@ FormatterWorker.outline = function(params)
     var tokenizer = WebInspector.CodeMirrorUtils.createTokenizer("text/javascript");
     for (var i = 0; i < lines.length; ++i) {
         var line = lines[i];
-        function processToken(tokenValue, tokenType, column, newColumn)
-        {
-            tokenType = tokenType ? WebInspector.CodeMirrorUtils.convertTokenType(tokenType) : null;
-            if (tokenType === "javascript-ident") {
-                previousIdentifier = tokenValue;
-                if (tokenValue && previousToken === "function") {
-                    // A named function: "function f...".
-                    currentFunction = { line: i, column: column, name: tokenValue };
+        tokenizer(line, processToken);
+    }
+
+    /**
+     * @param {string} tokenValue
+     * @param {string} tokenType
+     * @param {number} column
+     * @param {number} newColumn
+     */
+    function processToken(tokenValue, tokenType, column, newColumn)
+    {
+        tokenType = tokenType ? WebInspector.CodeMirrorUtils.convertTokenType(tokenType) : null;
+        if (tokenType === "javascript-ident") {
+            previousIdentifier = tokenValue;
+            if (tokenValue && previousToken === "function") {
+                // A named function: "function f...".
+                currentFunction = { line: i, column: column, name: tokenValue };
+                addedFunction = true;
+                previousIdentifier = null;
+            }
+        } else if (tokenType === "javascript-keyword") {
+            if (tokenValue === "function") {
+                if (previousIdentifier && (previousToken === "=" || previousToken === ":")) {
+                    // Anonymous function assigned to an identifier: "...f = function..."
+                    // or "funcName: function...".
+                    currentFunction = { line: i, column: column, name: previousIdentifier };
                     addedFunction = true;
                     previousIdentifier = null;
                 }
-            } else if (tokenType === "javascript-keyword") {
-                if (tokenValue === "function") {
-                    if (previousIdentifier && (previousToken === "=" || previousToken === ":")) {
-                        // Anonymous function assigned to an identifier: "...f = function..."
-                        // or "funcName: function...".
-                        currentFunction = { line: i, column: column, name: previousIdentifier };
-                        addedFunction = true;
-                        previousIdentifier = null;
-                    }
-                }
-            } else if (tokenValue === "." && previousTokenType === "javascript-ident")
-                previousIdentifier += ".";
-            else if (tokenValue === "(" && addedFunction)
-                isReadingArguments = true;
-            if (isReadingArguments && tokenValue)
-                argumentsText += tokenValue;
-
-            if (tokenValue === ")" && isReadingArguments) {
-                addedFunction = false;
-                isReadingArguments = false;
-                currentFunction.arguments = argumentsText.replace(/,[\r\n\s]*/g, ", ").replace(/([^,])[\r\n\s]+/g, "$1");
-                argumentsText = "";
-                outlineChunk.push(currentFunction);
             }
+        } else if (tokenValue === "." && previousTokenType === "javascript-ident")
+            previousIdentifier += ".";
+        else if (tokenValue === "(" && addedFunction)
+            isReadingArguments = true;
+        if (isReadingArguments && tokenValue)
+            argumentsText += tokenValue;
 
-            if (tokenValue.trim().length) {
-                // Skip whitespace tokens.
-                previousToken = tokenValue;
-                previousTokenType = tokenType;
-            }
-            processedChunkCharacters += newColumn - column;
-
-            if (processedChunkCharacters >= chunkSize) {
-                postMessage({ chunk: outlineChunk, total: chunkCount, index: currentChunk++ });
-                outlineChunk = [];
-                processedChunkCharacters = 0;
-            }
+        if (tokenValue === ")" && isReadingArguments) {
+            addedFunction = false;
+            isReadingArguments = false;
+            currentFunction.arguments = argumentsText.replace(/,[\r\n\s]*/g, ", ").replace(/([^,])[\r\n\s]+/g, "$1");
+            argumentsText = "";
+            outlineChunk.push(currentFunction);
         }
-        tokenizer(line, processToken);
+
+        if (tokenValue.trim().length) {
+            // Skip whitespace tokens.
+            previousToken = tokenValue;
+            previousTokenType = tokenType;
+        }
+        processedChunkCharacters += newColumn - column;
+
+        if (processedChunkCharacters >= chunkSize) {
+            postMessage({ chunk: outlineChunk, total: chunkCount, index: currentChunk++ });
+            outlineChunk = [];
+            processedChunkCharacters = 0;
+        }
     }
+
     postMessage({ chunk: outlineChunk, total: chunkCount, index: chunkCount });
 }
 
 /**
  * @param {string} content
- * @param {{original: Array.<number>, formatted: Array.<number>}} mapping
+ * @param {!{original: !Array.<number>, formatted: !Array.<number>}} mapping
  * @param {number} offset
  * @param {number} formattedOffset
  * @param {string} indentString
@@ -181,7 +189,7 @@ FormatterWorker._formatScript = function(content, mapping, offset, formattedOffs
 
 /**
  * @param {string} content
- * @param {{original: Array.<number>, formatted: Array.<number>}} mapping
+ * @param {!{original: !Array.<number>, formatted: !Array.<number>}} mapping
  * @param {number} offset
  * @param {number} formattedOffset
  * @param {string} indentString
@@ -225,6 +233,10 @@ FormatterWorker.HTMLFormatter.prototype = {
         var scriptOpened = false;
         var styleOpened = false;
         var tokenizer = WebInspector.CodeMirrorUtils.createTokenizer("text/html");
+
+        /**
+         * @this {FormatterWorker.HTMLFormatter}
+         */
         function processToken(tokenValue, tokenType, tokenStart, tokenEnd) {
             if (tokenType !== "xml-tag")
                 return;
@@ -293,7 +305,7 @@ FormatterWorker.HTMLFormatter.prototype = {
     },
 
     /**
-     * @param {function(string, {formatted: Array.<number>, original: Array.<number>}, number, number, string)} formatFunction
+     * @param {function(string, {formatted: !Array.<number>, original: !Array.<number>}, number, number, string)} formatFunction
      * @param {number} cursor
      */
     _handleSubFormatterEnd: function(formatFunction, cursor)
@@ -325,7 +337,7 @@ function require()
 }
 
 /**
- * @type {{tokenizer}}
+ * @type {!{tokenizer}}
  */
 var exports = { tokenizer: null };
 importScripts("UglifyJS/parse-js.js");

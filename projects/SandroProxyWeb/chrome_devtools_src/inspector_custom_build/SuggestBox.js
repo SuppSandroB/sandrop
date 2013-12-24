@@ -50,8 +50,8 @@ WebInspector.SuggestBoxDelegate.prototype = {
 
 /**
  * @constructor
- * @param {WebInspector.SuggestBoxDelegate} suggestBoxDelegate
- * @param {Element} anchorElement
+ * @param {!WebInspector.SuggestBoxDelegate} suggestBoxDelegate
+ * @param {!Element} anchorElement
  * @param {string=} className
  * @param {number=} maxItemsHeight
  */
@@ -87,7 +87,7 @@ WebInspector.SuggestBox.prototype = {
 
     /**
      * @param {boolean} isScroll
-     * @param {Event} event
+     * @param {?Event} event
      */
     _onScrollOrResize: function(isScroll, event)
     {
@@ -97,7 +97,7 @@ WebInspector.SuggestBox.prototype = {
     },
 
     /**
-     * @param {AnchorBox} anchorBox
+     * @param {!AnchorBox} anchorBox
      */
     setPosition: function(anchorBox)
     {
@@ -105,7 +105,7 @@ WebInspector.SuggestBox.prototype = {
     },
 
     /**
-     * @param {AnchorBox=} anchorBox
+     * @param {!AnchorBox=} anchorBox
      */
     _updateBoxPosition: function(anchorBox)
     {
@@ -145,13 +145,13 @@ WebInspector.SuggestBox.prototype = {
         if (underHeight >= aboveHeight) {
             // Locate the suggest box under the anchorBox.
             boxY = anchorBox.y + anchorBox.height;
-            this._element.removeStyleClass("above-anchor");
-            this._element.addStyleClass("under-anchor");
+            this._element.classList.remove("above-anchor");
+            this._element.classList.add("under-anchor");
         } else {
             // Locate the suggest box above the anchorBox.
             boxY = anchorBox.y - height;
-            this._element.removeStyleClass("under-anchor");
-            this._element.addStyleClass("above-anchor");
+            this._element.classList.remove("under-anchor");
+            this._element.classList.add("above-anchor");
         }
 
         this._element.positionAt(boxX, boxY);
@@ -160,7 +160,7 @@ WebInspector.SuggestBox.prototype = {
     },
 
     /**
-     * @param {Event} event
+     * @param {?Event} event
      */
     _onBoxMouseDown: function(event)
     {
@@ -174,6 +174,7 @@ WebInspector.SuggestBox.prototype = {
 
         this._element.remove();
         delete this._selectedElement;
+        this._selectedIndex = -1;
     },
 
     removeFromElement: function()
@@ -202,6 +203,7 @@ WebInspector.SuggestBox.prototype = {
 
     /**
      * @param {string=} text
+     * @return {boolean}
      */
     acceptSuggestion: function(text)
     {
@@ -225,6 +227,9 @@ WebInspector.SuggestBox.prototype = {
         if (!this._length)
             return false;
 
+        if (this._selectedIndex === -1 && shift < 0)
+            shift += 1;
+
         var index = this._selectedIndex + shift;
 
         if (isCircular)
@@ -239,7 +244,7 @@ WebInspector.SuggestBox.prototype = {
 
     /**
      * @param {string} text
-     * @param {Event} event
+     * @param {?Event} event
      */
     _onItemMouseDown: function(text, event)
     {
@@ -299,6 +304,9 @@ WebInspector.SuggestBox.prototype = {
             this._selectedElement.classList.remove("selected");
 
         this._selectedIndex = index;
+        if (index < 0)
+            return;
+
         this._selectedElement = this.contentElement.children[index];
         this._selectedElement.classList.add("selected");
 
@@ -331,7 +339,7 @@ WebInspector.SuggestBox.prototype = {
     },
 
     /**
-     * @param {AnchorBox} anchorBox
+     * @param {!AnchorBox} anchorBox
      * @param {!Array.<string>} completions
      * @param {number} selectedIndex
      * @param {boolean} canShowForSingleItem
@@ -350,7 +358,7 @@ WebInspector.SuggestBox.prototype = {
     },
 
     /**
-     * @param {KeyboardEvent} event
+     * @param {!KeyboardEvent} event
      * @return {boolean}
      */
     keyPressed: function(event)

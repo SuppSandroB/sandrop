@@ -33,8 +33,8 @@ WebInspector.TabbedEditorContainerDelegate = function() { }
 
 WebInspector.TabbedEditorContainerDelegate.prototype = {
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
-     * @return {WebInspector.SourceFrame}
+     * @param {!WebInspector.UISourceCode} uiSourceCode
+     * @return {!WebInspector.SourceFrame}
      */
     viewForFile: function(uiSourceCode) { }
 }
@@ -42,7 +42,7 @@ WebInspector.TabbedEditorContainerDelegate.prototype = {
 /**
  * @constructor
  * @extends {WebInspector.Object}
- * @param {WebInspector.TabbedEditorContainerDelegate} delegate
+ * @param {!WebInspector.TabbedEditorContainerDelegate} delegate
  * @param {string} settingName
  * @param {string} placeholderText
  */
@@ -56,7 +56,7 @@ WebInspector.TabbedEditorContainer = function(delegate, settingName, placeholder
     this._tabbedPane.setTabDelegate(new WebInspector.EditorContainerTabDelegate(this));
 
     this._tabbedPane.closeableTabs = true;
-    this._tabbedPane.element.id = "scripts-editor-container-tabbed-pane";
+    this._tabbedPane.element.id = "sources-editor-container-tabbed-pane";
 
     this._tabbedPane.addEventListener(WebInspector.TabbedPane.EventTypes.TabClosed, this._tabClosed, this);
     this._tabbedPane.addEventListener(WebInspector.TabbedPane.EventTypes.TabSelected, this._tabSelected, this);
@@ -79,7 +79,7 @@ WebInspector.TabbedEditorContainer.maximalPreviouslyViewedFilesCount = 30;
 
 WebInspector.TabbedEditorContainer.prototype = {
     /**
-     * @return {WebInspector.View}
+     * @return {!WebInspector.View}
      */
     get view()
     {
@@ -87,7 +87,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @type {WebInspector.SourceFrame}
+     * @type {!WebInspector.SourceFrame}
      */
     get visibleView()
     {
@@ -95,7 +95,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {Element} parentElement
+     * @param {!Element} parentElement
      */
     show: function(parentElement)
     {
@@ -103,7 +103,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     showFile: function(uiSourceCode)
     {
@@ -111,7 +111,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @return {Array.<WebInspector.UISourceCode>}
+     * @return {!Array.<!WebInspector.UISourceCode>}
      */
     historyUISourceCodes: function()
     {
@@ -157,19 +157,20 @@ WebInspector.TabbedEditorContainer.prototype = {
 
     _selectionChanged: function(event)
     {
-        var range = /** @type {WebInspector.TextRange} */ (event.data);
+        var range = /** @type {!WebInspector.TextRange} */ (event.data);
         this._history.updateSelectionRange(this._currentFile.uri(), range);
         this._history.save(this._previouslyViewedFilesSetting);
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      * @param {boolean=} userGesture
      */
     _innerShowFile: function(uiSourceCode, userGesture)
     {
         if (this._currentFile === uiSourceCode)
             return;
+
         this._removeScrollAndSelectionListeners();
         this._currentFile = uiSourceCode;
 
@@ -181,12 +182,12 @@ WebInspector.TabbedEditorContainer.prototype = {
         
         this._currentView = this.visibleView;
         this._addScrollAndSelectionListeners();
-        
+
         this.dispatchEventToListeners(WebInspector.TabbedEditorContainer.Events.EditorSelected, this._currentFile);
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      * @return {string}
      */
     _titleForFile: function(uiSourceCode)
@@ -218,7 +219,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {Array.<string>} ids
+     * @param {!Array.<string>} ids
      */
     _closeTabs: function(ids)
     {
@@ -243,7 +244,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     addUISourceCode: function(uiSourceCode)
     {
@@ -274,7 +275,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     removeUISourceCode: function(uiSourceCode)
     {
@@ -282,7 +283,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {Array.<WebInspector.UISourceCode>} uiSourceCodes
+     * @param {!Array.<!WebInspector.UISourceCode>} uiSourceCodes
      */
     removeUISourceCodes: function(uiSourceCodes)
     {
@@ -297,7 +298,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _editorClosedByUserAction: function(uiSourceCode)
     {
@@ -315,7 +316,11 @@ WebInspector.TabbedEditorContainer.prototype = {
     _updateHistory: function()
     {
         var tabIds = this._tabbedPane.lastOpenedTabIds(WebInspector.TabbedEditorContainer.maximalPreviouslyViewedFilesCount);
-        
+
+        /**
+         * @param {string} tabId
+         * @this {WebInspector.TabbedEditorContainer}
+         */
         function tabIdToURI(tabId)
         {
             return this._files[tabId].uri();
@@ -326,7 +331,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      * @return {string}
      */
     _tooltipForFile: function(uiSourceCode)
@@ -335,7 +340,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      * @param {boolean=} userGesture
      * @return {string}
      */
@@ -364,7 +369,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _tabClosed: function(event)
     {
@@ -389,7 +394,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.Event} event
+     * @param {!WebInspector.Event} event
      */
     _tabSelected: function(event)
     {
@@ -401,7 +406,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _addUISourceCodeListeners: function(uiSourceCode)
     {
@@ -413,7 +418,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _removeUISourceCodeListeners: function(uiSourceCode)
     {
@@ -425,7 +430,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {!WebInspector.UISourceCode} uiSourceCode
      */
     _updateFileTitle: function(uiSourceCode)
     {
@@ -442,32 +447,32 @@ WebInspector.TabbedEditorContainer.prototype = {
 
     _uiSourceCodeTitleChanged: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.target);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.target);
         this._updateFileTitle(uiSourceCode);
         this._updateHistory();
     },
 
     _uiSourceCodeWorkingCopyChanged: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.target);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.target);
         this._updateFileTitle(uiSourceCode);
     },
 
     _uiSourceCodeWorkingCopyCommitted: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.target);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.target);
         this._updateFileTitle(uiSourceCode);
     },
 
     _uiSourceCodeSavedStateUpdated: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.target);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.target);
         this._updateFileTitle(uiSourceCode);
     },
 
     _uiSourceCodeFormattedChanged: function(event)
     {
-        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.target);
+        var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.target);
         this._updateFileTitle(uiSourceCode);
     },
 
@@ -485,7 +490,7 @@ WebInspector.TabbedEditorContainer.prototype = {
     },
 
     /**
-     * @return {WebInspector.UISourceCode} uiSourceCode
+     * @return {!WebInspector.UISourceCode} uiSourceCode
      */
     currentFile: function()
     {
@@ -498,7 +503,7 @@ WebInspector.TabbedEditorContainer.prototype = {
 /**
  * @constructor
  * @param {string} url
- * @param {WebInspector.TextRange=} selectionRange
+ * @param {!WebInspector.TextRange=} selectionRange
  * @param {number=} scrollLineNumber
  */
 WebInspector.TabbedEditorContainer.HistoryItem = function(url, selectionRange, scrollLineNumber)
@@ -512,12 +517,12 @@ WebInspector.TabbedEditorContainer.HistoryItem = function(url, selectionRange, s
 WebInspector.TabbedEditorContainer.HistoryItem.serializableUrlLengthLimit = 4096;
 
 /**
- * @param {Object} serializedHistoryItem
- * @return {WebInspector.TabbedEditorContainer.HistoryItem}
+ * @param {!Object} serializedHistoryItem
+ * @return {!WebInspector.TabbedEditorContainer.HistoryItem}
  */
 WebInspector.TabbedEditorContainer.HistoryItem.fromObject = function (serializedHistoryItem)
 {
-    var selectionRange = serializedHistoryItem.selectionRange ? WebInspector.TextRange.fromObject(serializedHistoryItem.selectionRange) : null;
+    var selectionRange = serializedHistoryItem.selectionRange ? WebInspector.TextRange.fromObject(serializedHistoryItem.selectionRange) : undefined;
     return new WebInspector.TabbedEditorContainer.HistoryItem(serializedHistoryItem.url, selectionRange, serializedHistoryItem.scrollLineNumber);
 }
 
@@ -541,7 +546,7 @@ WebInspector.TabbedEditorContainer.HistoryItem.prototype = {
 
 /**
  * @constructor
- * @param {Array.<WebInspector.TabbedEditorContainer.HistoryItem>} items
+ * @param {!Array.<!WebInspector.TabbedEditorContainer.HistoryItem>} items
  */
 WebInspector.TabbedEditorContainer.History = function(items)
 {
@@ -551,7 +556,7 @@ WebInspector.TabbedEditorContainer.History = function(items)
 
 /**
  * @param {!Array.<!Object>} serializedHistory
- * @return {WebInspector.TabbedEditorContainer.History}
+ * @return {!WebInspector.TabbedEditorContainer.History}
  */
 WebInspector.TabbedEditorContainer.History.fromObject = function(serializedHistory)
 {
@@ -585,7 +590,7 @@ WebInspector.TabbedEditorContainer.History.prototype = {
 
     /**
      * @param {string} url
-     * @return {WebInspector.TextRange|undefined}
+     * @return {!WebInspector.TextRange|undefined}
      */
     selectionRange: function(url)
     {
@@ -595,7 +600,7 @@ WebInspector.TabbedEditorContainer.History.prototype = {
 
     /**
      * @param {string} url
-     * @param {WebInspector.TextRange} selectionRange
+     * @param {!WebInspector.TextRange=} selectionRange
      */
     updateSelectionRange: function(url, selectionRange)
     {
@@ -630,7 +635,7 @@ WebInspector.TabbedEditorContainer.History.prototype = {
     },
 
     /**
-     * @param {Array.<string>} urls
+     * @param {!Array.<string>} urls
      */
     update: function(urls)
     {
@@ -660,7 +665,7 @@ WebInspector.TabbedEditorContainer.History.prototype = {
     },
     
     /**
-     * @param {WebInspector.Setting} setting
+     * @param {!WebInspector.Setting} setting
      */
     save: function(setting)
     {
@@ -685,7 +690,7 @@ WebInspector.TabbedEditorContainer.History.prototype = {
 
 
     /**
-     * @return {Array.<string>}
+     * @return {!Array.<string>}
      */
     _urls: function()
     {
@@ -701,7 +706,7 @@ WebInspector.TabbedEditorContainer.History.prototype = {
 /**
  * @constructor
  * @implements {WebInspector.TabbedPaneTabDelegate}
- * @param {WebInspector.TabbedEditorContainer} editorContainer
+ * @param {!WebInspector.TabbedEditorContainer} editorContainer
  */
 WebInspector.EditorContainerTabDelegate = function(editorContainer)
 {
@@ -710,8 +715,8 @@ WebInspector.EditorContainerTabDelegate = function(editorContainer)
 
 WebInspector.EditorContainerTabDelegate.prototype = {
     /**
-     * @param {WebInspector.TabbedPane} tabbedPane
-     * @param {Array.<string>} ids
+     * @param {!WebInspector.TabbedPane} tabbedPane
+     * @param {!Array.<string>} ids
      */
     closeTabs: function(tabbedPane, ids)
     {

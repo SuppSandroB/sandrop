@@ -23,7 +23,7 @@
 WebInspector.ResourceWebSocketFrameView = function(resource)
 {
     WebInspector.View.call(this);
-    this.element.addStyleClass("resource-websocket");
+    this.element.classList.add("resource-websocket");
     this.resource = resource;
     this.element.removeChildren();
 
@@ -115,7 +115,7 @@ WebInspector.ResourceWebSocketFrameView.prototype = {
 
     /**
      * @param {!WebInspector.ContextMenu} contextMenu
-     * @param {WebInspector.DataGridNode} node
+     * @param {!WebInspector.DataGridNode} node
      */
     _onContextMenu: function(contextMenu, node)
     {

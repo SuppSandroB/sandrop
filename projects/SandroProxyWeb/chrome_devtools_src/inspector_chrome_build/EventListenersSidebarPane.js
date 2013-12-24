@@ -34,7 +34,7 @@
 WebInspector.EventListenersSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Event Listeners"));
-    this.bodyElement.addStyleClass("events-pane");
+    this.bodyElement.classList.add("events-pane");
 
     this.sections = [];
 
@@ -183,13 +183,17 @@ WebInspector.EventListenerBar = function(eventListener, nodeId, linkifier)
     this._setFunctionSubtitle(linkifier);
     this.editable = false;
     this.element.className = "event-bar"; /* Changed from "section" */
-    this.headerElement.addStyleClass("source-code");
+    this.headerElement.classList.add("source-code");
     this.propertiesElement.className = "event-properties properties-tree source-code"; /* Changed from "properties" */
 }
 
 WebInspector.EventListenerBar.prototype = {
     update: function()
     {
+        /**
+         * @param {?WebInspector.RemoteObject} nodeObject
+         * @this {WebInspector.EventListenerBar}
+         */
         function updateWithNodeObject(nodeObject)
         {
             var properties = [];
@@ -230,7 +234,7 @@ WebInspector.EventListenerBar.prototype = {
         }
 
         if (node.id === this._nodeId) {
-            this.titleElement.textContent = node.appropriateSelectorFor();
+            this.titleElement.textContent = WebInspector.DOMPresentationUtils.appropriateSelectorFor(node);
             return;
         }
 

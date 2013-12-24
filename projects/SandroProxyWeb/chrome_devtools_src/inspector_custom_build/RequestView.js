@@ -31,14 +31,14 @@
 /**
  * @constructor
  * @extends {WebInspector.View}
- * @param {WebInspector.NetworkRequest} request
+ * @param {!WebInspector.NetworkRequest} request
  */
 WebInspector.RequestView = function(request)
 {
     WebInspector.View.call(this);
     this.registerRequiredCSS("resourceView.css");
 
-    this.element.addStyleClass("resource-view");
+    this.element.classList.add("resource-view");
     this.request = request;
 }
 
@@ -52,7 +52,7 @@ WebInspector.RequestView.prototype = {
 }
 
 /**
- * @param {WebInspector.NetworkRequest} request
+ * @param {!WebInspector.NetworkRequest} request
  */
 WebInspector.RequestView.hasTextContent = function(request)
 {
@@ -64,7 +64,7 @@ WebInspector.RequestView.hasTextContent = function(request)
 }
 
 /**
- * @param {WebInspector.NetworkRequest} request
+ * @param {!WebInspector.NetworkRequest} request
  */
 WebInspector.RequestView.nonSourceViewForRequest = function(request)
 {

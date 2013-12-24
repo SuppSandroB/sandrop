@@ -31,12 +31,12 @@
 /**
  * @constructor
  * @extends {WebInspector.View}
- * @param {WebInspector.NetworkRequest} request
+ * @param {!WebInspector.NetworkRequest} request
  */
 WebInspector.RequestTimingView = function(request)
 {
     WebInspector.View.call(this);
-    this.element.addStyleClass("resource-timing-view");
+    this.element.classList.add("resource-timing-view");
 
     this._request = request;
 }
