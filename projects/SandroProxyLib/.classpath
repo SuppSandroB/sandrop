@@ -8,10 +8,10 @@
 	<classpathentry kind="lib" path="libs/bsf-2.3.0.jar"/>
 	<classpathentry kind="lib" path="libs/concurrent.jar"/>
 	<classpathentry kind="lib" path="libs/bsh-2.0b4.jar"/>
-	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="src" path="gen"/>
 	<classpathentry kind="lib" path="libs/jcifs-1.3.14.jar"/>
 	<classpathentry exported="true" kind="con" path="com.android.ide.eclipse.adt.DEPENDENCIES"/>
 	<classpathentry kind="lib" path="libs/jnetutils.jar"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="gen"/>
 	<classpathentry kind="output" path="bin/classes"/>
 </classpath>

@@ -1,9 +1,6 @@
-
 package org.sandroproxy.proxy.plugin;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.model.Request;
@@ -50,26 +47,12 @@ public class CustomPlugin extends ProxyPlugin {
         
         public Response fetchResponse(Request request) throws IOException {
             if (_enabled) {
-                // adding some header to request
-                String setCookieHeader = "Set-Cookie";
-                request.addHeader("X-SandroProxyPlugin", "0.9.25");
-                // sending request to server to get response
+                Log.i(TAG, "req:\n" + request.toString());
                 Response response = _in.fetchResponse(request);
+                Log.i(TAG, "resp:\n" + response.toString());
                 
-                // do we have any new cookies 
-                List<String> headerNames = Arrays.asList(response.getHeaderNames());
-                if (headerNames.contains(setCookieHeader)){
-                    String newCookies = response.getHeader(setCookieHeader);
-                    // log new cookie header value
-                    if (LOGD) Log.d(TAG, "New cookies from server: " + newCookies);
-                }
-                
-                // adding some header to response
-                response.addHeader("X-SandroProxyVer", "0.9.25");
-                // return changed response
                 return response;
             }
-            // just make normal action whitout any custom parsing
             return _in.fetchResponse(request);
         }
         
