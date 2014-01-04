@@ -37,6 +37,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.io.IOException;
 import java.lang.Thread;
 
@@ -51,6 +52,7 @@ public class Listener implements Runnable {
     private ListenerSpec _spec;
     
     private ServerSocket _serversocket = null;
+    private int _socketTimeout = 30000;
 
     private boolean _stop = false;
     private boolean _stopped = true;
@@ -103,15 +105,13 @@ public class Listener implements Runnable {
                 thread.setName(threadName);
                 thread.setDaemon(true);
                 thread.start();
+            } catch (SocketTimeoutException stex){
+            } catch (SocketException sex){
             } catch (IOException e) {
                 String exMessage = e.getMessage();
-                if (exMessage != null){
-                    if (!e.getMessage().equals("Try again")) {
-                        _logger.fine("I/O error while waiting for connection: " + exMessage);
-                    }
-                }else{
-                }
-                    
+                 _logger.fine("I/O error while waiting for connection: " + exMessage);
+            } catch (Exception ex){
+                ex.printStackTrace();
             }
         }
         _stopped = true;
@@ -130,7 +130,7 @@ public class Listener implements Runnable {
         _logger.info("Proxy listening on " + _spec);
         
         try {
-            _serversocket.setSoTimeout(100);
+            _serversocket.setSoTimeout(_socketTimeout);
         } catch (SocketException se) {
             _logger.warning("Error setting sockettimeout " + se);
             _logger.warning("It is likely that this listener will be unstoppable!");
@@ -139,6 +139,11 @@ public class Listener implements Runnable {
     
     public boolean stop() {
         _stop = true;
+        try {
+            _serversocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         if (!_stopped) {
             for (int i=0; i<20; i++) {
                 try {

@@ -53,19 +53,20 @@ public class LogHandler extends Handler {
         messageBuffer = "";
         new Thread(new Runnable() {
             public void run() {
-                
                 while (true){
-                    long ts = System.currentTimeMillis();
-                    if ((ts  - 100) > lastSendMessageTs){
-                        String sendMessage = LogHandler.getMessageBuffer();
-                        if (sendMessage.length() > 0){
-                            Message msg = mHandlerCallback.obtainMessage(1, sendMessage);
-                            mHandlerCallback.sendMessage(msg);
-                            lastSendMessageTs = ts;
+                    if (messageBuffer.length() > 0){
+                        long ts = System.currentTimeMillis();
+                        if ((ts  - 100) > lastSendMessageTs){
+                            String sendMessage = LogHandler.getMessageBuffer();
+                            if (sendMessage.length() > 0){
+                                Message msg = mHandlerCallback.obtainMessage(1, sendMessage);
+                                mHandlerCallback.sendMessage(msg);
+                                lastSendMessageTs = ts;
+                            }
                         }
                     }
                     try {
-                        Thread.sleep(50);
+                        Thread.sleep(60);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
