@@ -31,6 +31,7 @@
  */
 package org.sandroproxy.logger;
 
+import java.lang.Thread.State;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -47,12 +48,16 @@ public class LogHandler extends Handler {
 
     private long lastSendMessageTs = 0;
     
+    private Thread postingThread;
+    
     public LogHandler(android.os.Handler guiHandlerCallBack){
         mHandlerCallback = guiHandlerCallBack;
         this.setLevel(Level.FINEST);
         messageBuffer = "";
-        new Thread(new Runnable() {
+        postingThread = new Thread(new Runnable() {
             public void run() {
+                boolean checkLast = true;
+                int count = 0;
                 while (true){
                     if (messageBuffer.length() > 0){
                         long ts = System.currentTimeMillis();
@@ -66,13 +71,27 @@ public class LogHandler extends Handler {
                         }
                     }
                     try {
-                        Thread.sleep(60);
+                        if (checkLast){
+                            Thread.sleep(50);
+                            count++;
+                            if (count >= 20){
+                                checkLast = false;
+                                count = 0;
+                            }
+                        }else{
+                            synchronized (postingThread) {
+                                postingThread.wait();
+                                checkLast = true;
+                                count = 0;
+                            }
+                        }
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
             }
-          },"LogHandler.logPumper").start();
+          },"LogHandler.logPumper");
+        postingThread.start();
     }
     
     @Override
@@ -102,6 +121,12 @@ public class LogHandler extends Handler {
         if (record != null && record.getMessage() != null){
             synchronized (messageLock){
                 messageBuffer = record.getMessage()+ "\n" + messageBuffer;
+            }
+            State threadState = postingThread.getState();
+            if (postingThread != null && threadState == State.WAITING){
+                synchronized (postingThread) {
+                    postingThread.notify();
+                }
             }
         }
     }

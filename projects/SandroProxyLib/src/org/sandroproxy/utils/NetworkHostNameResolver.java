@@ -41,6 +41,8 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
     private static String TAG = NetworkHostNameResolver.class.getSimpleName();
     private static boolean LOGD = false;
     
+    private Thread workerThread;
+    
     private native String getOriginalDest(Socket socket);
     
     static
@@ -71,6 +73,11 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
 
         public void stop() {
           running = false;
+          if (workerThread != null && workerThread.getState() == Thread.State.WAITING){
+              synchronized (workerThread) {
+                  workerThread.notify();
+              }
+          }
         }
 
         @Override
@@ -78,7 +85,7 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
           running = true;
           while(running) {
               if (unresolvedSiteData.size() > 0){
-                  final SiteData siteDataCurrent = unresolvedSiteData.remove(0);
+                  final SiteData siteDataCurrent = unresolvedSiteData.get(0);
                   TrustManager[] trustAllCerts = new TrustManager[] {
                       new X509TrustManager() {
                           public X509Certificate[] getAcceptedIssuers() {
@@ -136,12 +143,15 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                 } catch (Exception e) {
                     if (LOGD) Log.d(TAG, e.getMessage());
                 }
+                unresolvedSiteData.remove(0);
               }else{
                   try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+                        synchronized (workerThread) {
+                            workerThread.wait();
+                        }
+                  } catch (InterruptedException e) {
+                      e.printStackTrace();
+                  }
               }
           }
         }
@@ -168,6 +178,11 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                     newSiteData.sourcePort + " uid " + 
                     newSiteData.appUID);
             unresolvedSiteData.add(newSiteData);
+            if (workerThread != null && workerThread.getState() == Thread.State.WAITING){
+                synchronized (workerThread) {
+                    workerThread.notify();
+                }
+            }
         }
     }
     
@@ -177,7 +192,8 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
             ipPortSiteData = new HashMap<String, SiteData>();
             unresolvedSiteData = new ArrayList<SiteData>();
             hostNameResolver = new HostNameResolver();
-            new Thread(hostNameResolver, "hostNameResolver").start();
+            workerThread = new Thread(hostNameResolver, "hostNameResolver");
+            workerThread.start();
             mListenerStarted = true;
         }catch (Exception ex){
             ex.printStackTrace();
