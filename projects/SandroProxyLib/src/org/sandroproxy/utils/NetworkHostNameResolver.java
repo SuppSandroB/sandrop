@@ -85,7 +85,7 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
           running = true;
           while(running) {
               if (unresolvedSiteData.size() > 0){
-                  final SiteData siteDataCurrent = unresolvedSiteData.get(0);
+                  final SiteData siteDataCurrent = unresolvedSiteData.remove(0);
                   TrustManager[] trustAllCerts = new TrustManager[] {
                       new X509TrustManager() {
                           public X509Certificate[] getAcceptedIssuers() {
@@ -141,9 +141,9 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
                       siteData.put(siteDataCurrent.sourcePort, siteDataCached);
                   }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     if (LOGD) Log.d(TAG, e.getMessage());
                 }
-                unresolvedSiteData.remove(0);
               }else{
                   try {
                         synchronized (workerThread) {
