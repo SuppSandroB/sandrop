@@ -8,6 +8,11 @@ public class CheckOptionCustomPorts {
     public int CP;
     
     /*
+     * Custom port mapping
+     */
+    public int CPM;
+    
+    /*
      * Store flow as files
      */
     public boolean SF;

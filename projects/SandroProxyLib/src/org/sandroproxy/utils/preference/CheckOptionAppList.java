@@ -59,6 +59,13 @@ public class CheckOptionAppList {
                             JSONObject customItemObj = customArray.getJSONObject(j);
                             CheckOptionCustomPorts customItem = new CheckOptionCustomPorts();
                             customItem.CP = customItemObj.getInt("CP");
+                            
+                            if (customItemObj.has("CPM")){
+                                customItem.CPM = customItemObj.getInt("CPM");
+                            }else{
+                                customItem.CPM = 0;
+                            }
+                            
                             customItem.SF = customItemObj.getBoolean("SF");
                             customItem.TSSL = customItemObj.getBoolean("TSSL");
                             app.CustomPortRules.put(customItem.CP, customItem);
@@ -193,6 +200,7 @@ public class CheckOptionAppList {
                     for (CheckOptionCustomPorts customPort : customPorts.values()) {
                         JSONObject customObjItem = new JSONObject();
                         customObjItem.put("CP", customPort.CP);
+                        customObjItem.put("CPM", customPort.CPM);
                         customObjItem.put("SF", customPort.SF);
                         customObjItem.put("TSSL", customPort.TSSL);
                         customArray.put(customObjItem);
