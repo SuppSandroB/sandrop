@@ -147,7 +147,7 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
         }
     }
     
-    private void parseData(Socket socket){
+    private void parseData(Socket socket, int _destPort){
         SiteData newSiteData = new SiteData();
         String originalDest = getOriginalDest(socket);
         String[] tokens = originalDest.split(":");
@@ -155,6 +155,9 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
             String destIP = tokens[0];
             String hostName = DNSProxy.getHostNameFromIp(destIP);
             int destPort = Integer.parseInt(tokens[1]);
+            if (destPort != _destPort && _destPort > 0){
+                destPort = _destPort;
+            }
             newSiteData.destPort = destPort;
             newSiteData.tcpAddress = destIP;
             newSiteData.sourcePort = socket.getPort();
@@ -192,12 +195,12 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
     }
     
     @Override
-    public SiteData getSecureHost(Socket socket) {
+    public SiteData getSecureHost(Socket socket, int _destPort) {
         SiteData secureHost = null;
         int port =  socket.getPort();
         int localport =  socket.getLocalPort();
         if (LOGD) Log.d(TAG, "Search site for port " + port + " local:" + localport);
-        parseData(socket);
+        parseData(socket, _destPort);
         if (siteData.size() == 0 || !siteData.containsKey(port)){
             try {
                 for(int i=0; i < 100; i++){

@@ -72,6 +72,7 @@ public class ConnectionHandler implements Runnable {
     private boolean _captureData = true;
     private boolean _useFakeCerts = false;
     private boolean _storeSslAsPcap = false;
+    private int _destPort = 0;
     private ITransparentProxyResolver _transparentResolver = null;
     private ConnectionDescriptor _connectionDescriptor = null;
     private String clientId = "device";
@@ -107,6 +108,7 @@ public class ConnectionHandler implements Runnable {
         if (connectionDescriptor != null && connectionDescriptor.getId() > -1){
             int uid = connectionDescriptor.getId();
             int port = connectionDescriptor.getRemotePort();
+            _destPort = port;
             clientId = connectionDescriptor.getNamespace() + " <" + connectionDescriptor.getId() + ">";
             Map<Integer, CheckOptionApp> appOptions =  _proxy.getAppOptions();
             if (!_captureData){
@@ -129,6 +131,21 @@ public class ConnectionHandler implements Runnable {
                     }
                 }
             }
+            if(appOptions.containsKey(CheckOptionApp.ALL_UID)){
+                CheckOptionApp appOpt = appOptions.get(CheckOptionApp.ALL_UID);
+                if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
+                    if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).CPM != port){
+                        _destPort = appOpt.CustomPortRules.get(port).CPM;
+                    }
+                }
+            }else if(appOptions.containsKey(uid)){
+                CheckOptionApp appOpt = appOptions.get(uid);
+                if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
+                    if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).CPM != port){
+                        _destPort = appOpt.CustomPortRules.get(port).CPM;
+                    }
+                }
+            }
         }else{
             clientId = "<" + _sock.getInetAddress().getHostAddress() + ":" + _sock.getPort() + ">";
         }
@@ -138,6 +155,7 @@ public class ConnectionHandler implements Runnable {
         } catch (SocketException se) {
             _logger.warning("Error setting socket parameters");
         }
+        if (LOGD) Log.d(TAG, "Destination port is " + _destPort);
     }
 
     public void run() {
@@ -176,6 +194,10 @@ public class ConnectionHandler implements Runnable {
                             requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + host +":" +  requestUrl.getPort() + requestUrl.getPath());
                             request.setURL(requestUrl);
                             request.setHeader("Host", host);
+                        }
+                        if (_destPort != 0 && _destPort != requestUrl.getPort()){
+                            requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + requestUrl.getHost() +":" +  _destPort + requestUrl.getPath());
+                            request.setURL(requestUrl);
                         }
                     }
                 } catch (IOException ioe) {
@@ -221,7 +243,7 @@ public class ConnectionHandler implements Runnable {
                     if (!_captureData){
                         if (_transparentSecure){
                             if (_transparentResolver != null){
-                                hostData = _transparentResolver.getSecureHost(_sock);
+                                hostData = _transparentResolver.getSecureHost(_sock, _destPort);
                             }else{
                                 _logger.fine("!! Error Can not act as forwarder on transparent ssl, not knowing where to connect.");
                                 _sock.close();
@@ -267,7 +289,7 @@ public class ConnectionHandler implements Runnable {
                     _logger.fine("Intercepting SSL connection!");
                     if (_transparentSecure){
                         if (_transparentResolver != null){
-                            hostData = _transparentResolver.getSecureHost(_sock);
+                            hostData = _transparentResolver.getSecureHost(_sock, _destPort);
                         }
                     }else{
                         hostData = new SiteData();
