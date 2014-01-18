@@ -147,7 +147,7 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
         }
     }
     
-    private void parseData(Socket socket, int _destPort){
+    private SiteData parseData(Socket socket, int _destPort){
         SiteData newSiteData = new SiteData();
         String originalDest = getOriginalDest(socket);
         String[] tokens = originalDest.split(":");
@@ -162,9 +162,14 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
             newSiteData.tcpAddress = destIP;
             newSiteData.sourcePort = socket.getPort();
             newSiteData.hostName = hostName;
+            newSiteData.name = "";
         }else{
             
         }
+        return newSiteData;
+    }
+    
+    private void getCertificateData(SiteData newSiteData){
         if (!siteData.containsKey(newSiteData.sourcePort)){
             if (LOGD) Log.d(TAG, "Add hostname to resolve :" + 
                     newSiteData.tcpAddress + " source port " + 
@@ -195,12 +200,15 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
     }
     
     @Override
-    public SiteData getSecureHost(Socket socket, int _destPort) {
+    public SiteData getSecureHost(Socket socket, int _destPort, boolean _getCertificateData) {
         SiteData secureHost = null;
         int port =  socket.getPort();
         int localport =  socket.getLocalPort();
         if (LOGD) Log.d(TAG, "Search site for port " + port + " local:" + localport);
-        parseData(socket, _destPort);
+        SiteData secureHostInit = parseData(socket, _destPort);
+        if (!_getCertificateData){
+            return secureHostInit;
+        }
         if (siteData.size() == 0 || !siteData.containsKey(port)){
             try {
                 for(int i=0; i < 100; i++){
@@ -223,11 +231,12 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
         }
         if (secureHost == null){
             if (LOGD) Log.d(TAG, "Nothing found for site for port " + port);
+            return secureHostInit;
         }else{
             if (LOGD) Log.d(TAG, "Having site for port " + port + " " 
-                            +  secureHost.name + " addr: " 
-                            + secureHost.tcpAddress 
-                            + " port " + secureHost.destPort);
+                    +  secureHost.name + " addr: " 
+                    + secureHost.tcpAddress 
+                    + " port " + secureHost.destPort);
         }
         return secureHost;
     }

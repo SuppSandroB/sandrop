@@ -243,13 +243,14 @@ public class ConnectionHandler implements Runnable {
                     if (!_captureData){
                         if (_transparentSecure){
                             if (_transparentResolver != null){
-                                hostData = _transparentResolver.getSecureHost(_sock, _destPort);
+                                hostData = _transparentResolver.getSecureHost(_sock, _destPort, false);
                             }else{
                                 _logger.fine("!! Error Can not act as forwarder on transparent ssl, not knowing where to connect.");
                                 _sock.close();
                                 return;
                             }
-                            String forwarderName = hostData.name + ":" + hostData.destPort;
+                            String siteName = hostData.name == null ? hostData.tcpAddress : "";
+                            String forwarderName = siteName + ":" + hostData.destPort;
                             _logger.fine("Acting as forwarder on " + forwarderName + " for " + clientId);
                             String hostName = hostData.hostName != null ? hostData.hostName : hostData.tcpAddress;
                             _base = new HttpUrl("https://" + hostName + ":" +  hostData.destPort);
@@ -289,7 +290,7 @@ public class ConnectionHandler implements Runnable {
                     _logger.fine("Intercepting SSL connection!");
                     if (_transparentSecure){
                         if (_transparentResolver != null){
-                            hostData = _transparentResolver.getSecureHost(_sock, _destPort);
+                            hostData = _transparentResolver.getSecureHost(_sock, _destPort, true);
                         }
                     }else{
                         hostData = new SiteData();

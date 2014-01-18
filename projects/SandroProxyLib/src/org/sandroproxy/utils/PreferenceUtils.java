@@ -61,6 +61,7 @@ public class PreferenceUtils {
     public static String dataCaptureBlackListRegEx = "preference_data_capture_blacklist";
     
     public static String chainProxyEnabled = "preference_chain_proxy_enabled";
+    public static String chainProxyActive = "preference_chain_proxy_active";
     public static String chainProxyHttp = "preference_chain_proxy_http";
     public static String chainProxyHttps = "preference_chain_proxy_https";
     public static String chainProxyExcludeList = "preference_chain_proxy_no_proxy_list";
@@ -162,6 +163,21 @@ public class PreferenceUtils {
             return true;
         }
         return false;
+    }
+    
+    public static boolean isChainProxySelected(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getBoolean(chainProxyEnabled, false);
+    }
+    
+    public static boolean isChainProxyActive(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getBoolean(chainProxyActive, false);
+    }
+    
+    public static void setChainProxyActive(Context context, boolean value){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putBoolean(chainProxyActive, value).commit();
     }
     
     public static boolean isTransparentProxySelected(Context context){

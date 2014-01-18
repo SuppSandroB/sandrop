@@ -34,9 +34,7 @@ package org.sandrop.webscarab.model;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -837,7 +835,7 @@ public class Message {
                 _content = new MessageOutputStream();
                 GZIPOutputStream gzos = new GZIPOutputStream(_content);
                 gzos.write(bytes);
-                gzos.close();
+                // gzos.close(); // http://code.google.com/p/sandrop/issues/detail?id=100
             } catch (IOException ioe) {
                 _logger.info("IOException gzipping content : " + ioe);
             }
