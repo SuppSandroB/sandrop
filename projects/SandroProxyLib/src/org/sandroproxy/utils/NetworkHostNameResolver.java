@@ -209,6 +209,7 @@ public class NetworkHostNameResolver implements ITransparentProxyResolver{
         if (!_getCertificateData){
             return secureHostInit;
         }
+        getCertificateData(secureHostInit);
         if (siteData.size() == 0 || !siteData.containsKey(port)){
             try {
                 for(int i=0; i < 100; i++){
