@@ -108,9 +108,26 @@ public class ConnectionHandler implements Runnable {
         if (connectionDescriptor != null && connectionDescriptor.getId() > -1){
             int uid = connectionDescriptor.getId();
             int port = connectionDescriptor.getRemotePort();
-            _destPort = port;
             clientId = connectionDescriptor.getNamespace() + " <" + connectionDescriptor.getId() + ">";
             Map<Integer, CheckOptionApp> appOptions =  _proxy.getAppOptions();
+            if (_transparent || _transparentSecure){
+                _destPort = port;
+                if(appOptions.containsKey(CheckOptionApp.ALL_UID)){
+                    CheckOptionApp appOpt = appOptions.get(CheckOptionApp.ALL_UID);
+                    if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
+                        if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).CPM != port){
+                            _destPort = appOpt.CustomPortRules.get(port).CPM;
+                        }
+                    }
+                }else if(appOptions.containsKey(uid)){
+                    CheckOptionApp appOpt = appOptions.get(uid);
+                    if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
+                        if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).CPM != port){
+                            _destPort = appOpt.CustomPortRules.get(port).CPM;
+                        }
+                    }
+                }
+            }
             if (!_captureData){
                 if (appOptions != null){
                     if(appOptions.containsKey(CheckOptionApp.ALL_UID)){
@@ -128,21 +145,6 @@ public class ConnectionHandler implements Runnable {
                                 _storeSslAsPcap = true;
                             }
                         }
-                    }
-                }
-            }
-            if(appOptions.containsKey(CheckOptionApp.ALL_UID)){
-                CheckOptionApp appOpt = appOptions.get(CheckOptionApp.ALL_UID);
-                if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
-                    if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).CPM != port){
-                        _destPort = appOpt.CustomPortRules.get(port).CPM;
-                    }
-                }
-            }else if(appOptions.containsKey(uid)){
-                CheckOptionApp appOpt = appOptions.get(uid);
-                if (appOpt != null && appOpt.CE && appOpt.CustomPortRules != null){
-                    if (appOpt.CustomPortRules.containsKey(port) && appOpt.CustomPortRules.get(port).CPM != port){
-                        _destPort = appOpt.CustomPortRules.get(port).CPM;
                     }
                 }
             }
