@@ -56,6 +56,7 @@ if (!window.InspectorFrontendHost) {
 WebInspector.InspectorFrontendHostStub = function()
 {
     this.isStub = true;
+    this._fileBuffers = {};
 }
 
 WebInspector.InspectorFrontendHostStub.prototype = {
@@ -135,7 +136,13 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     copyText: function(text)
     {
-        WebInspector.log("Clipboard is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
+    	// sandroproxy change
+        // WebInspector.log("Clipboard is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
+        this._textToCopy = text;
+        if (!document.execCommand("copy")) {
+            var screen = new WebInspector.ClipboardAccessDeniedScreen();
+            screen.showModal();
+        }
     },
 
     openInNewTab: function(url)
@@ -145,17 +152,47 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     save: function(url, content, forceSaveAs)
     {
-        WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
-        WebInspector.fileManager.canceledSaveURL(url);
+    	// sandroproxy change
+        // WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
+        if (this._fileBuffers[url])
+            throw new Error("Concurrent file modification denied.");
+
+        this._fileBuffers[url] = [content];
+        setTimeout(WebInspector.fileManager.savedURL.bind(WebInspector.fileManager, url), 0);
     },
 
     append: function(url, content)
     {
-        WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
+    	// sandroproxy change
+        // WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
+        var buffer = this._fileBuffers[url];
+        if (!buffer)
+            throw new Error("File is not open for write yet.");
+
+        buffer.push(content);
+        setTimeout(WebInspector.fileManager.appendedToURL.bind(WebInspector.fileManager, url), 0);
     },
 
     close: function(url)
     {
+    	var content = this._fileBuffers[url];
+        delete this._fileBuffers[url];
+
+        if (!content)
+            return;
+
+        var lastSlashIndex = url.lastIndexOf("/");
+        var fileNameSuffix = (lastSlashIndex === -1) ? url : url.substring(lastSlashIndex + 1);
+
+        var blob = new Blob(content, { type: "application/octet-stream" });
+        var objectUrl = window.URL.createObjectURL(blob);
+        window.location = objectUrl + "#/" + fileNameSuffix;
+
+        function cleanup()
+        {
+            window.URL.revokeObjectURL(objectUrl);
+        }
+        setTimeout(cleanup, 3000);
     },
 
     sendMessageToBackend: function(message)
