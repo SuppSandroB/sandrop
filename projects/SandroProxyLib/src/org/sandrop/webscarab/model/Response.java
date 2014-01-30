@@ -51,6 +51,7 @@ public class Response extends Message {
     private Request _request = null;
     private Socket _socket = null;
     private boolean _protocolswitch = false;
+    public static String NO_DATA_FROM_SERVER = "No data received from the server";
     
     /** Creates a new instance of Response */
     public Response() {
@@ -85,7 +86,7 @@ public class Response extends Message {
     public void read(InputStream is) throws IOException {
         String line = readLine(is);
         if (line == null) {
-            throw new IOException("No data received from the server");
+            throw new IOException(NO_DATA_FROM_SERVER);
         }
         String[] parts = line.split(" ", 3);
         if (parts.length >= 2) {

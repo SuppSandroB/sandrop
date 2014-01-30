@@ -499,7 +499,17 @@ public class ConnectionHandler implements Runnable {
                                 .severe("IOException retrieving the response for "
                                         + request.getURL() + " : " + ioe);
                         ioe.printStackTrace();
-                        response = errorResponse(request, ioe);
+                        if (ioe.getMessage() != null && ioe.getMessage().equals(Response.NO_DATA_FROM_SERVER)){
+                            // we just close to client also, not sending 500 http error response
+                            _logger.fine("Nothing to read from server.Closing connection");
+                            _clientOut.close();
+                            connection.closeConnection();
+                            
+                            return;
+                        }else{
+                            response = errorResponse(request, ioe);
+                        }
+                        
                         // prevent the conversation from being
                         // submitted/recorded
                         _proxy.failedResponse(request, response, conversationId, ioe.toString(), httpDataModified);
