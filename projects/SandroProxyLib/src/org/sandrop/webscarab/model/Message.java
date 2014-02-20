@@ -836,6 +836,7 @@ public class Message {
                 GZIPOutputStream gzos = new GZIPOutputStream(_content);
                 gzos.write(bytes);
                 // gzos.close(); // http://code.google.com/p/sandrop/issues/detail?id=100
+                gzos.finish(); // http://code.google.com/p/sandrop/issues/detail?id=100#c6
             } catch (IOException ioe) {
                 _logger.info("IOException gzipping content : " + ioe);
             }
