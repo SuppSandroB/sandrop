@@ -44,8 +44,14 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.logging.Logger;
+import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.DeflaterInputStream;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
+import java.util.zip.InflaterOutputStream;
 
 import org.sandrop.webscarab.httpclient.ChunkedInputStream;
 import org.sandrop.webscarab.httpclient.ChunkedOutputStream;
@@ -75,6 +81,7 @@ public class Message {
     private MessageOutputStream _content = null;
     private boolean _chunked = false;
     private boolean _gzipped = false;
+    private boolean _deflate = false;
     private int _length = -1;
     protected Logger _logger = Logger.getLogger(this.getClass().getName());
     
@@ -152,6 +159,10 @@ public class Message {
     
     public boolean isCompressed(){
         return _gzipped;
+    }
+    
+    public boolean isDeflated(){
+        return _deflate;
     }
     
     public boolean isChunked(){
@@ -403,6 +414,11 @@ public class Message {
             } else {
                 _gzipped = false;
             }
+            if (header.getValue().indexOf("deflate")>-1) {
+                _deflate = true;
+            } else {
+                _deflate = false;
+            }
         } else if (header.getName().equalsIgnoreCase("Content-length")) {
             try {
                 _length = Integer.parseInt(header.getValue().trim());
@@ -646,7 +662,22 @@ public class Message {
                 }
                 return baos.toByteArray();
             } catch (Exception ioe) {
-                _logger.info("Exception unzipping content : " + ioe);
+                _logger.info("Exception unzipping content : " + ioe.getMessage());
+                return NO_CONTENT;
+            }
+        } else if (_content != null && _deflate){
+            try {
+                InputStream is = getContentInputStream();
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                InflaterOutputStream iflos = new InflaterOutputStream(baos, new Inflater(true));
+                byte[] buff = new byte[1024];
+                int got;
+                while ((got = is.read(buff))>-1) {
+                    iflos.write(buff, 0, got);
+                }
+                return baos.toByteArray();
+            } catch (Exception ioe) {
+                _logger.info("Exception unzipping content : " + ioe.getMessage());
                 return NO_CONTENT;
             }
         }
@@ -657,6 +688,8 @@ public class Message {
                 InputStream is;
                 if (_gzipped){
                     is = new GZIPInputStream(getContentInputStream());
+                }else if (_deflate){
+                    is = new InflaterInputStream(getContentInputStream(), new Inflater(true));
                 }else{
                     is = getContentInputStream();
                 }
@@ -675,47 +708,6 @@ public class Message {
         }
     }
     
-//    public void flushContentToOutputStream(OutputStream os) throws IOException {
-//        try {
-//            flushContentStream(null);
-//        } catch (IOException ioe) {
-//            _logger.info("IOException flushing the contentStream: " + ioe);
-//        }
-//        if (_content != null && _gzipped) {
-//            try {
-//                InputStream is;
-//                is = getContentInputStream();
-//                GZIPInputStream gzis = new GZIPInputStream(is);
-//                byte[] buff = new byte[1024];
-//                int got;
-//                while ((got = gzis.read(buff))>-1) {
-//                    os.write(buff, 0, got);
-//                }
-//                if (is instanceof ByteArrayInputStream){
-//                    addRemoveActiveContentSum(getContentSize(), true);
-//                }
-//            } catch (Exception ioe) {
-//                _logger.info("IOException unzipping content : " + ioe);
-//            }
-//        }
-//        if (_content != null) {
-//            InputStream is;
-//            try {
-//                is = getContentInputStream();
-//            
-//                byte[] buff = new byte[1024];
-//                int got;
-//                while ((got = is.read(buff))>-1) {
-//                    os.write(buff, 0, got);
-//                    if (is instanceof ByteArrayInputStream){
-//                        addRemoveActiveContentSum(got, true);
-//                    }
-//                }
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//        }
-//    }
     
     /**
      * reads all content from the content stream if one exists. Bytes read are stored internally, and returned via getContent()
@@ -769,45 +761,6 @@ public class Message {
         if (ioe != null) throw ioe;
     }
     
-    /* Writes the bytes read to the supplied outputstream
-     * This method immediately throws any IOExceptions that occur while reading
-     * the contentStream, but defers any exceptions that occur writing to the
-     * supplied outputStream until the entire contentStream has been read and
-     * saved.
-     */
-//    public void flushContentStreamToOutputStream(OutputStream os) throws IOException {
-//        IOException ioe = null;
-//        if (_contentStream == null && contentFileName.length() > 0){
-//            _contentStream = new FileInputStream(new File(contentFileName));
-//        }
-//        if (_contentStream == null) return;
-//        byte[] buf = new byte[4096];
-//        _logger.finest("Reading initial bytes from contentStream " + _contentStream);
-//        int got = _contentStream.read(buf);
-//        _logger.finest("Got " + got + " bytes");
-//        while (got > 0) {
-//            if (os != null) {
-//                try {
-//                    os.write(buf,0,got);
-//                    if (_contentStream instanceof ByteArrayInputStream){
-//                        addRemoveActiveContentSum(got, true);
-//                    }
-//                } catch (IOException e) {
-//                    _logger.info("IOException ioe writing to output stream : " + e);
-//                    // _logger.info("Had seen " + (_content.size()-got) + " bytes, was writing " + got);
-//                    ioe = e;
-//                    os = null;
-//                }
-//            }
-//            got = _contentStream.read(buf);
-//            _logger.finest("Got " + got + " bytes");
-//        }
-//        _contentStream = null;
-//        if (ioe != null) throw ioe;
-//    }
-    
-    
-    
     /**
      * sets the message to not have a body. This is typical for a CONNECT request or
      * response, which should not read any body.
@@ -837,6 +790,16 @@ public class Message {
                 gzos.write(bytes);
                 // gzos.close(); // http://code.google.com/p/sandrop/issues/detail?id=100
                 gzos.finish(); // http://code.google.com/p/sandrop/issues/detail?id=100#c6
+            } catch (IOException ioe) {
+                _logger.info("IOException gzipping content : " + ioe);
+            }
+        } else if (_deflate){
+            try {
+                _content = new MessageOutputStream();
+                DeflaterOutputStream zos = new DeflaterOutputStream(_content, new Deflater(Deflater.BEST_COMPRESSION, true));
+                zos.write(bytes);
+                // zos.close(); // http://code.google.com/p/sandrop/issues/detail?id=100
+                zos.finish(); // http://code.google.com/p/sandrop/issues/detail?id=100#c6
             } catch (IOException ioe) {
                 _logger.info("IOException gzipping content : " + ioe);
             }

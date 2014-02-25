@@ -50,7 +50,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     
     protected static final boolean LOGD = false;
     
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     
     private static SqlLiteStore mInstance = null;
     
@@ -130,6 +130,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String REQUEST_URL = "url";
     public static final String REQUEST_GZIPED = "gziped";
     public static final String REQUEST_CHUNKED = "chunked";
+    public static final String REQUEST_DEFLATED = "deflate";
     
     // response table
     public static final String RESPONSE_UNIQUE_ID = ID_COL;
@@ -142,6 +143,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String RESPONSE_CONTENT_ID = "content_id";
     public static final String RESPONSE_GZIPED = "gziped";
     public static final String RESPONSE_CHUNKED = "chunked";
+    public static final String RESPONSE_DEFLATED = "deflate";
     
     // headers table
     public static final String HEADERS_UNIQUE_ID = ID_COL;
@@ -159,6 +161,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
     public static final String CONTENT_PARENT_TYPE = "parent_type";
     public static final String CONTENT_GZIPED = "gziped";
     public static final String CONTENT_CHUNKED = "chunked";
+    public static final String CONTENT_DEFLATED = "deflated";
     public static final String CONTENT_FILE_STORE = "file_store";
     public static final String CONTENT_DATA = "data";
     public static final String CONTENT_FILE_NAME = "file_name";
@@ -262,6 +265,15 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_COVERSATION_ID]
                 + " ADD COLUMN " + CONVERSATION_CLIENT_APP_NAME + " TEXT;");
 
+    }
+    
+    private static void upgradeHtmlTables2(){
+        mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_REQUEST_ID]
+                + " ADD COLUMN " + REQUEST_DEFLATED + " INTEGER;");
+        mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_RESPONSE_ID]
+                + " ADD COLUMN " + RESPONSE_DEFLATED + " INTEGER;");
+        mDatabase.execSQL("ALTER TABLE " + mTableNames[TABLE_CONTENT_ID]
+                + " ADD COLUMN " + CONTENT_DEFLATED + " INTEGER;");
     }
     
     private static void createHtmlTables(){
@@ -511,6 +523,12 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                     + oldVersion + " to "
                     + DATABASE_VERSION);
             createDnsTable();
+        }
+        if (oldVersion < 5){
+            Log.i(LOGTAG, "Upgrading database from version "
+                    + oldVersion + " to "
+                    + DATABASE_VERSION);
+            upgradeHtmlTables2();
         }
         mDatabase.setVersion(DATABASE_VERSION);
     }
@@ -971,6 +989,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         reqContentCV.put(CONTENT_PARENT_TYPE, contentParentType);
         reqContentCV.put(CONTENT_GZIPED, message.isCompressed());
         reqContentCV.put(CONTENT_CHUNKED, message.isChunked());
+        reqContentCV.put(CONTENT_DEFLATED, message.isDeflated());
         // TODO we need that message object return if we have file store or memory store
         String contentFileName = fileName;
         if (message.moveContentToFile(new File(contentFileName))){
@@ -1162,6 +1181,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         reqCV.put(REQUEST_QUERY, request.getURL().getQuery());
         reqCV.put(REQUEST_GZIPED, request.isCompressed());
         reqCV.put(REQUEST_CHUNKED, request.isChunked());
+        reqCV.put(REQUEST_DEFLATED, request.isDeflated());
         
         long requestId = mDatabase.insertOrThrow(mTableNames[TABLE_REQUEST_ID], 
                                         null, reqCV);
@@ -1180,6 +1200,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
         resCV.put(RESPONSE_STATUS_CODE, response.getStatus());
         resCV.put(RESPONSE_CHUNKED, response.isChunked());
         resCV.put(RESPONSE_GZIPED, response.isCompressed());
+        resCV.put(RESPONSE_DEFLATED, response.isDeflated());
         
         long responseId = mDatabase.insertOrThrow(mTableNames[TABLE_RESPONSE_ID], 
                 null, resCV);
@@ -1207,6 +1228,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 reqCV.put(REQUEST_QUERY, request.getURL().getQuery());
                 reqCV.put(REQUEST_GZIPED, request.isCompressed());
                 reqCV.put(REQUEST_CHUNKED, request.isChunked());
+                reqCV.put(REQUEST_DEFLATED, request.isDeflated());
                 
                 mDatabase.beginTransaction();
                 long requestId = mDatabase.insertOrThrow(mTableNames[TABLE_REQUEST_ID], 
@@ -1220,6 +1242,7 @@ public class SqlLiteStore implements SiteModelStore, FragmentsStore, SpiderStore
                 resCV.put(RESPONSE_STATUS_CODE, response.getStatus());
                 resCV.put(RESPONSE_CHUNKED, response.isChunked());
                 resCV.put(RESPONSE_GZIPED, response.isCompressed());
+                resCV.put(RESPONSE_DEFLATED, response.isDeflated());
                 
                 long responseId = mDatabase.insertOrThrow(mTableNames[TABLE_RESPONSE_ID], 
                         null, resCV);
