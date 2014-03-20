@@ -185,7 +185,7 @@ public class ConnectionHandler implements Runnable {
             // proxy rather than a reverse proxy), check for a CONNECT
             if (_base == null && !_transparentSecure){
                 try {
-                    request = new Request(_transparent, _transparentSecure);
+                    request = new Request(_transparent, _transparentSecure, _connectionDescriptor);
                     request.read(_clientIn);
                     HttpUrl requestUrl = request.getURL();
                     if (requestUrl != null){
@@ -414,7 +414,7 @@ public class ConnectionHandler implements Runnable {
                 // continuation of a CONNECT from a normal proxy
                 // read the request, otherwise we already have it.
                 if (request == null) {
-                    request = new Request(_transparent, _transparentSecure);
+                    request = new Request(_transparent, _transparentSecure, _connectionDescriptor);
                     _logger.fine("Reading request from the " + clientId);
                     _sock.setSoTimeout(_socket_timeout_large);
                     request.read(_clientIn, _base);

@@ -51,6 +51,7 @@ public class Request extends Message {
     private String _version = "HTTP/1.0";
     private boolean _isTransparent = false;
     private boolean _isSecure = false;
+    private ConnectionDescriptor _connectionDescriptor= null;
     
     
     /** Creates a new instance of Request */
@@ -58,9 +59,10 @@ public class Request extends Message {
     }
     
     /** Creates a new instance of Request */
-    public Request(boolean isTransparent, boolean isSecure) {
+    public Request(boolean isTransparent, boolean isSecure, ConnectionDescriptor connectionDescriptor) {
         _isTransparent = isTransparent;
         _isSecure = isSecure;
+        _connectionDescriptor = connectionDescriptor;
     }
     
     /**
@@ -303,6 +305,14 @@ public class Request extends Message {
      */    
     public String getVersion() {
         return _version;
+    }
+    
+    /**
+     * gets the ConnectionDescriptor
+     * @return the client info
+     */    
+    public ConnectionDescriptor getConnectionDescriptor() {
+        return _connectionDescriptor;
     }
     
     /**
