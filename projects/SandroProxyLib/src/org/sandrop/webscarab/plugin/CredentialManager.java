@@ -193,6 +193,8 @@ public class CredentialManager implements Authenticator {
     }
     
     private String getPreferredCredentials(String host, String[] challenges) {
+        if (challenges == null || challenges.length == 0)
+            return null;
         // we don't do pre-emptive auth at all
         for (int i=0; i<challenges.length; i++) {
             if (challenges[i] != null){
@@ -221,8 +223,6 @@ public class CredentialManager implements Authenticator {
                 }
             }
         }
-        if (challenges == null || challenges.length == 0)
-            return null;
         for (int i=0; i<challenges.length; i++) {
             if (challenges[i] != null){
                 String challengeLowerCase = challenges[i].toLowerCase();
