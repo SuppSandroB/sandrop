@@ -65,7 +65,7 @@ public class CustomPlugin extends ProxyPlugin {
                 }
                 
                 HttpUrl reqUrl = request.getURL();
-                if (reqUrl != null && reqUrl.getHost() != null && 
+                if (reqUrl != null && reqUrl.getHost() != null && reqUrl.getPath() != null &&
                         (reqUrl.getHost().equals("en.wikipedia.org") || reqUrl.getHost().equals("en.m.wikipedia.org")) && 
                         reqUrl.getPath().equals("/wiki/Main_Page")){
                     changeResponse = true; 
