@@ -108,13 +108,15 @@ public class DNSProxy implements Runnable {
 //  private static String dnsRelayGaeIp = "173.194.70.141";
   
   private static String dnsRelayPingEuHostName = "ping.eu";
-  private String dnsRelayPingEuIp = "88.198.46.60";
+  private static String dnsRelayPingEuIp = "88.198.46.60";
   
   private static String dnsRelayWwwIpCnHostName = "www.ip.cn";
   private static String dnsRelayWwwIpCnIp = "216.157.85.151";
   
   private static String dnsRelayHostName;
   private static String dnsRelayIp;
+  
+  private static String dnsRelayCustomId = "Custom";
   
   private boolean localProvider = true;
 
@@ -138,7 +140,7 @@ public class DNSProxy implements Runnable {
       dnsLocalServers = servers;
   }
 
-  public DNSProxy(Context ctx, int port, String providerId) {
+  public DNSProxy(Context ctx, int port, String providerId, String customHostName, String customIp) {
 
     this.srvPort = port;
     this.providerId = providerId;
@@ -155,7 +157,11 @@ public class DNSProxy implements Runnable {
         dnsRelayHostName = dnsRelayWwwIpCnHostName;
         dnsRelayIp = dnsRelayWwwIpCnIp;
         localProvider = false;
-    } 
+    } else if (providerId.equalsIgnoreCase(dnsRelayCustomId)){
+        dnsRelayHostName = customHostName;
+        dnsRelayIp = customIp;
+        localProvider = false;
+    }
 //    else if (providerId.equalsIgnoreCase(dnsRelayMyhostsSinappHostName)){
 //        dnsRelayHostName = dnsRelayMyhostsSinappHostName;
 //        dnsRelayIp = dnsRelayMyhostsSinappIp;
