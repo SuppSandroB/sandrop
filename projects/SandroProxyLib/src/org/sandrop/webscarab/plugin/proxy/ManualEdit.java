@@ -33,8 +33,10 @@
 package org.sandrop.webscarab.plugin.proxy;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.util.logging.Logger;
 import org.sandrop.webscarab.httpclient.HTTPClient;
+import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
@@ -209,6 +211,10 @@ public class ManualEdit extends ProxyPlugin {
                     _content = Pattern.compile(CONTENT);
                 } catch (PatternSyntaxException pse2) {}
             }
+        }
+        
+        public Socket getConnectedSocket(HttpUrl url, boolean makeHandshake, Request request) throws IOException{
+            return _in.getConnectedSocket(url, makeHandshake, request);
         }
         
         public Response fetchResponse(Request request) throws IOException {

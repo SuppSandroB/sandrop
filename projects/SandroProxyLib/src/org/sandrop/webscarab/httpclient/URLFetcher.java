@@ -502,7 +502,11 @@ public class URLFetcher implements HTTPClient {
                         for (int i = 0; i < headerNames.length; i++) {
                             String headerName = headerNames[i];
                             String headerValue = request.getHeader(headerName);
-                            _out.write(( headerName + ": " + headerValue +  "\r\n").getBytes());
+                            if (headerName != null && headerName.length() > 0 && 
+                                    !headerName.equalsIgnoreCase("Content-Type") && 
+                                    !headerName.equalsIgnoreCase("Transfer-Encoding")){
+                                _out.write(( headerName + ": " + headerValue +  "\r\n").getBytes());
+                            }
                         }
                     }else{
                         _out.write(("Proxy-Connection: " + "Keep-Alive\r\n").getBytes());

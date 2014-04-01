@@ -239,6 +239,33 @@ public class ConnectionHandler implements Runnable {
                     request = null;
                 }
             }
+            
+            if (_httpClient == null)
+                _httpClient = HTTPClientFactory.getValidInstance().getHTTPClient();
+
+            HTTPClient hc = _httpClient;
+
+            // Maybe set SSL ProxyAuthorization here at a connection level?
+            // I prefer it in the Request itself, since it gets archived, and
+            // can be replayed trivially using netcat
+
+            // layer the proxy plugins onto the recorder. We do this
+            // in reverse order so that they operate intuitively
+            // the first plugin in the array gets the first chance to modify
+            // the request, and the last chance to modify the response
+            // we also set flag if there is any chance that request/response is modified
+            if (_plugins != null) {
+                for (int i = _plugins.length - 1; i >= 0; i--) {
+                    ProxyPlugin plugin = _plugins[i];
+                    if (plugin.getEnabled()){
+                        httpDataModified = true;
+                    }
+                    hc = plugin.getProxyPlugin(hc);
+                }
+            }
+
+            
+            
             // if we are servicing a CONNECT, or operating as a reverse
             // proxy with an https:// base URL, negotiate SSL
             if (_base != null || _transparentSecure) {
@@ -263,9 +290,9 @@ public class ConnectionHandler implements Runnable {
                                 // make ssl tunnel with client with fake certificates
                                 _sock = negotiateSSL(_sock, hostData, true);
                                 // make ssl with server 
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true, null);
+                                target = hc.getConnectedSocket(_base, true, null);
                             } else{
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false, null);
+                                target = hc.getConnectedSocket(_base, false, null);
                             }
                             SocketForwarder.connect(forwarderName, _sock, target, _storeSslAsPcap, _proxy.getPcapStorageDir(), connectionDescriptor);
                             return;
@@ -282,9 +309,9 @@ public class ConnectionHandler implements Runnable {
                                 // make ssl tunnel with client with fake certificates
                                 _sock = negotiateSSL(_sock, hostData, true);
                                 // make ssl with server 
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true, baseRequest);
+                                target = hc.getConnectedSocket(_base, true, baseRequest);
                             } else{
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false, baseRequest);
+                                target = hc.getConnectedSocket(_base, false, baseRequest);
                             }
                             SocketForwarder.connect(forwarderName, _sock, target, _storeSslAsPcap, _proxy.getPcapStorageDir(), connectionDescriptor);
                             return;
@@ -326,12 +353,12 @@ public class ConnectionHandler implements Runnable {
                     if (checkForSSL){
                         try{
                             int testReadTimeout = 2000;
-                            HTTPClient hc =  HTTPClientFactory.getValidInstance().getHTTPClient(-1, testReadTimeout);
+                            HTTPClient hcTemp =  HTTPClientFactory.getValidInstance().getHTTPClient(-1, testReadTimeout);
                             Request testRequest = new Request();
                             testRequest.setURL(_base);
                             testRequest.setMethod("GET");
                             testRequest.setNoBody();
-                            hc.fetchResponse(testRequest);
+                            hcTemp.fetchResponse(testRequest);
                             isSSLPort = true;
                         }catch (Exception ex){
                             ex.printStackTrace();
@@ -382,30 +409,6 @@ public class ConnectionHandler implements Runnable {
                 }
             }
             
-            if (_httpClient == null)
-                _httpClient = HTTPClientFactory.getValidInstance().getHTTPClient();
-
-            HTTPClient hc = _httpClient;
-
-            // Maybe set SSL ProxyAuthorization here at a connection level?
-            // I prefer it in the Request itself, since it gets archived, and
-            // can be replayed trivially using netcat
-
-            // layer the proxy plugins onto the recorder. We do this
-            // in reverse order so that they operate intuitively
-            // the first plugin in the array gets the first chance to modify
-            // the request, and the last chance to modify the response
-            // we also set flag if there is any chance that request/response is modified
-            if (_plugins != null) {
-                for (int i = _plugins.length - 1; i >= 0; i--) {
-                    ProxyPlugin plugin = _plugins[i];
-                    if (plugin.getEnabled()){
-                        httpDataModified = true;
-                    }
-                    hc = plugin.getProxyPlugin(hc);
-                }
-            }
-
             // do we keep-alive?
             String keepAlive = null;
             String version = null;

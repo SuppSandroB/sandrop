@@ -32,10 +32,12 @@
 
 package org.sandrop.webscarab.httpclient;
 
+import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.Request;
 import org.sandrop.webscarab.model.Response;
 
 import java.io.IOException;
+import java.net.Socket;
 
 /**
  *
@@ -44,5 +46,7 @@ import java.io.IOException;
 public interface HTTPClient {
     
     Response fetchResponse(Request request) throws IOException;
+    
+    Socket getConnectedSocket(HttpUrl url, boolean makeHandshake, Request request) throws IOException;
     
 }

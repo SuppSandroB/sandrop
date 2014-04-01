@@ -33,11 +33,13 @@
 package org.sandrop.webscarab.plugin.proxy;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.util.Date;
 
 import org.sandrop.webscarab.httpclient.HTTPClient;
 import org.sandrop.webscarab.model.Cookie;
 import org.sandrop.webscarab.model.FrameworkModel;
+import org.sandrop.webscarab.model.HttpUrl;
 import org.sandrop.webscarab.model.NamedValue;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.Request;
@@ -100,6 +102,10 @@ public class CookieTracker extends ProxyPlugin {
         
         public Plugin(HTTPClient in) {
             _in = in;
+        }
+        
+        public Socket getConnectedSocket(HttpUrl url, boolean makeHandshake, Request request) throws IOException{
+            return _in.getConnectedSocket(url, makeHandshake, request);
         }
         
         public Response fetchResponse(Request request) throws IOException {
