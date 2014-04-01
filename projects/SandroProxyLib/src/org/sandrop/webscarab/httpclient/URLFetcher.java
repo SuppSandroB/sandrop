@@ -271,7 +271,7 @@ public class URLFetcher implements HTTPClient {
             request.deleteHeader("Proxy-Authorization");
 
             _response = null;
-            connect(url, true);
+            connect(url, true, request);
             if (_response != null) { // there was an error opening the socket
                 return _response;
             }
@@ -405,9 +405,9 @@ public class URLFetcher implements HTTPClient {
         return _response;
     }
     
-    public Socket getConnectedSocket(HttpUrl url, boolean makeHandshake) throws IOException{
+    public Socket getConnectedSocket(HttpUrl url, boolean makeHandshake, Request request) throws IOException{
         _socket = null;
-        connect(url, makeHandshake);
+        connect(url, makeHandshake, request);
         return _socket;
     }
     
@@ -444,7 +444,7 @@ public class URLFetcher implements HTTPClient {
         return hostSocketAddress;
     }
 
-    private void connect(HttpUrl url, boolean makeSslHandshake) throws IOException {
+    private void connect(HttpUrl url, boolean makeSslHandshake, Request request) throws IOException {
         if (! invalidSocket(url)) return;
         _logger.fine("Opening a new connection");
         _socket = new Socket(java.net.Proxy.NO_PROXY);
@@ -497,9 +497,18 @@ public class URLFetcher implements HTTPClient {
                     }
                     _out.write((connectMethod + " " + _host + ":" + _port + " HTTP/1.0\r\n").getBytes());
                     // setting headers to alive connection on http 1.0
-                    _out.write(("Proxy-Connection: " + "Keep-Alive\r\n").getBytes());
-                    _out.write(("Connection: " + "Keep-Alive\r\n").getBytes());
-                    if (authHeader != null) {
+                    if (request != null && request.getHeaderNames() != null){
+                        String[] headerNames = request.getHeaderNames();
+                        for (int i = 0; i < headerNames.length; i++) {
+                            String headerName = headerNames[i];
+                            String headerValue = request.getHeader(headerName);
+                            _out.write(( headerName + ": " + headerValue +  "\r\n").getBytes());
+                        }
+                    }else{
+                        _out.write(("Proxy-Connection: " + "Keep-Alive\r\n").getBytes());
+                        _out.write(("Connection: " + "Keep-Alive\r\n").getBytes());
+                    }
+                    if (authHeader != null && (request == null || request.getHeader("Proxy-Authorization") == null)) {
                         _out.write(("Proxy-Authorization: " + authHeader + "\r\n").getBytes());
                     }
                     _out.write("\r\n".getBytes());

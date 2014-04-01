@@ -181,6 +181,7 @@ public class ConnectionHandler implements Runnable {
             
             ConnectionDescriptor connectionDescriptor = _connectionDescriptor;
             Request request = null;
+            Request baseRequest = null;
             // if we do not already have a base URL (i.e. we operate as a normal
             // proxy rather than a reverse proxy), check for a CONNECT
             if (_base == null && !_transparentSecure){
@@ -201,6 +202,7 @@ public class ConnectionHandler implements Runnable {
                             requestUrl = new HttpUrl(requestUrl.getScheme() + "://" + requestUrl.getHost() +":" +  _destPort + requestUrl.getPath());
                             request.setURL(requestUrl);
                         }
+                        baseRequest = request;
                     }
                 } catch (IOException ioe) {
                     _logger.severe("Error reading the initial request" + ioe);
@@ -261,9 +263,9 @@ public class ConnectionHandler implements Runnable {
                                 // make ssl tunnel with client with fake certificates
                                 _sock = negotiateSSL(_sock, hostData, true);
                                 // make ssl with server 
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true);
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true, null);
                             } else{
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false, null);
                             }
                             SocketForwarder.connect(forwarderName, _sock, target, _storeSslAsPcap, _proxy.getPcapStorageDir(), connectionDescriptor);
                             return;
@@ -280,9 +282,9 @@ public class ConnectionHandler implements Runnable {
                                 // make ssl tunnel with client with fake certificates
                                 _sock = negotiateSSL(_sock, hostData, true);
                                 // make ssl with server 
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true);
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, true, baseRequest);
                             } else{
-                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false);
+                                target = HTTPClientFactory.getValidInstance().getConnectedSocket(_base, false, baseRequest);
                             }
                             SocketForwarder.connect(forwarderName, _sock, target, _storeSslAsPcap, _proxy.getPcapStorageDir(), connectionDescriptor);
                             return;

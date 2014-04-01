@@ -36,11 +36,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -222,7 +218,7 @@ public class HTTPClientFactory {
         return uf;
     }
     
-    public Socket getConnectedSocket(HttpUrl url, boolean makeSslHandshake) throws IOException{
+    public Socket getConnectedSocket(HttpUrl url, boolean makeSslHandshake, Request request) throws IOException{
         URLFetcher uf = new URLFetcher();
         uf.setHttpProxy(_httpProxy, _httpProxyPort);
         uf.setHttpsProxy(_httpsProxy, _httpsProxyPort);
@@ -231,7 +227,7 @@ public class HTTPClientFactory {
         uf.setLocalDomainName(_localDomainName);
         uf.setTimeouts(_connectTimeout, _readTimeout);
         uf.setAuthenticator(_authenticator);
-        return uf.getConnectedSocket(url, makeSslHandshake);
+        return uf.getConnectedSocket(url, makeSslHandshake, request);
     }
     
     public HTTPClient getHTTPClient(int connectTimeout, int readTimeout) {
