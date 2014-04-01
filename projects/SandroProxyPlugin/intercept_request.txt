@@ -10,7 +10,5 @@ result = false;
 intercept_response = false;
 
 if (request != null){
-    result = true;
-    intercept_response = true;
     request.addHeader("ScriptChanges", "ScriptSandroProxy");
 }
