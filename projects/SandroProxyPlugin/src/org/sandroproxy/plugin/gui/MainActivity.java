@@ -12,6 +12,7 @@ import java.util.logging.Level;
 import org.sandrop.webscarab.model.Preferences;
 import org.sandrop.webscarab.model.StoreException;
 import org.sandrop.webscarab.plugin.Framework;
+import org.sandrop.webscarab.plugin.proxy.IClientResolver;
 import org.sandrop.webscarab.plugin.proxy.Proxy;
 import org.sandrop.webscarab.plugin.proxy.ProxyPlugin;
 import org.sandroproxy.logger.Logger;
@@ -19,6 +20,7 @@ import org.sandroproxy.plugin.R;
 import org.sandroproxy.proxy.plugin.CustomPlugin;
 import org.sandroproxy.utils.NetworkHostNameResolver;
 import org.sandroproxy.utils.PreferenceUtils;
+import org.sandroproxy.utils.network.ClientResolver;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 import android.os.AsyncTask;
@@ -62,6 +64,7 @@ public class MainActivity extends Activity {
     private static boolean mInitChecked = false;
     
     NetworkHostNameResolver networkHostNameResolver = null;
+    IClientResolver clientResolver = null;
     
     private static String ACTION_INSTALL = "android.credentials.INSTALL";
     private static String EXTRA_CERTIFICATE = "CERT";
@@ -93,7 +96,8 @@ public class MainActivity extends Activity {
                             framework = new Framework(getApplicationContext());
                             setStore(getApplicationContext());
                             networkHostNameResolver = new NetworkHostNameResolver(getApplicationContext());
-                            Proxy proxy = new Proxy(framework, networkHostNameResolver, null);
+                            clientResolver = new ClientResolver(getApplicationContext());
+                            Proxy proxy = new Proxy(framework, networkHostNameResolver, clientResolver);
                             framework.addPlugin(proxy);
                             if (true){
                                 ProxyPlugin plugin = new CustomPlugin();
@@ -101,6 +105,7 @@ public class MainActivity extends Activity {
                             }
                             proxy.run();
                             proxyStarted = true;
+                            logger.fine("Android os proxy should point to localhost 9008");
                         }
                     };
                     thread.setName("Starting proxy");
@@ -333,16 +338,17 @@ public class MainActivity extends Activity {
      */
     public static boolean isDeviceRooted() {
       // get from build info
+      boolean trueReturn = true;
       String buildTags = android.os.Build.TAGS;
       if (buildTags != null && buildTags.contains("test-keys")) {
-          return true;
+          return trueReturn;
       }
       try {
        // check if /system/app/Superuser.apk is present
         {
             File file = new File("/system/app/Superuser.apk");
             if (file.exists()) {
-              return true;
+              return trueReturn;
             }
         }
         // search for some typical locations
@@ -352,7 +358,7 @@ public class MainActivity extends Activity {
             for (String suPlace : suPlaces) {
                 File file = new File(suPlace + "su");
                 if (file.exists()) {
-                    return true;
+                    return trueReturn;
                 }
             }
         }
