@@ -39,6 +39,8 @@ import java.io.IOException;
 import java.net.Socket;
 
 import java.text.ParseException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Represents a HTTP response as sent by an HTTP server
  * @author rdawes
@@ -53,9 +55,12 @@ public class Response extends Message {
     private boolean _protocolswitch = false;
     public static String NO_DATA_FROM_SERVER = "No data received from the server";
     
+    private Logger _logger = Logger.getLogger(getClass().getName());
+    
     /** Creates a new instance of Response */
     public Response() {
         setVersion("HTTP/1.0");
+        _logger.setLevel(Level.FINEST);
     }
     
     /** Creates a new instance of Response, copied from the supplied Response
@@ -85,6 +90,7 @@ public class Response extends Message {
      */    
     public void read(InputStream is) throws IOException {
         String line = readLine(is);
+        _logger.fine("Response first line :" + line);
         if (line == null) {
             throw new IOException(NO_DATA_FROM_SERVER);
         }

@@ -104,7 +104,7 @@ public class URLFetcher implements HTTPClient {
     private static Map<String, String> _proxyAuthCredsBasic;
     private static Map<String, InetAddress> _cachedLocalAddresses;
     
-    private static boolean LOGD = false;
+    private static boolean LOGD = true;
 
     /** Creates a new instance of URLFetcher
      */
@@ -464,6 +464,7 @@ public class URLFetcher implements HTTPClient {
                 _out = _socket.getOutputStream();
                 _direct = false;
             } else {
+                _logger.fine("Connect to " + _httpsProxy + ":" + _httpsProxyPort);
                 _socket.connect(getSocketAddress(_httpsProxy, _httpsProxyPort), _connectTimeout);
                 _in = _socket.getInputStream();
                 _out = _socket.getOutputStream();
@@ -495,10 +496,13 @@ public class URLFetcher implements HTTPClient {
                         _out = _socket.getOutputStream();
                         startNewConnection = false;
                     }
-                    _out.write((connectMethod + " " + _host + ":" + _port + " HTTP/1.0\r\n").getBytes());
+                    _out.write((connectMethod + " " + _host + ":" + _port + " HTTP/1.1\r\n").getBytes());
+                    _logger.fine("Added " + connectMethod + " " + _host + ":" + _port + " HTTP/1.1");
                     // setting headers to alive connection on http 1.0
                     if (request != null && request.getHeaderNames() != null){
                         String[] headerNames = request.getHeaderNames();
+                        boolean addKeepAliveProxyConnection = true;
+                        boolean addKeepAliveConnection = true;
                         for (int i = 0; i < headerNames.length; i++) {
                             String headerName = headerNames[i];
                             String headerValue = request.getHeader(headerName);
@@ -506,14 +510,33 @@ public class URLFetcher implements HTTPClient {
                                     !headerName.equalsIgnoreCase("Content-Type") && 
                                     !headerName.equalsIgnoreCase("Transfer-Encoding")){
                                 _out.write(( headerName + ": " + headerValue +  "\r\n").getBytes());
+                                _logger.fine("Added " + headerName + ": " + headerValue);
+                                if (headerName.equalsIgnoreCase("Proxy-Connection")){
+                                    addKeepAliveProxyConnection = false;
+                                }
+                                if (headerName.equalsIgnoreCase("Connection")){
+                                    addKeepAliveProxyConnection = false;
+                                }
                             }
                         }
+                        if (addKeepAliveProxyConnection){
+                            _out.write(("Proxy-Connection: " + "Keep-Alive\r\n").getBytes());
+                            _logger.fine("Added " + "Proxy-Connection: " + "Keep-Alive");
+                        }
+                        if (addKeepAliveConnection){
+                            _out.write(("Connection: " + "Keep-Alive\r\n").getBytes());
+                            _logger.fine("Added " + "Connection: " + "Keep-Alive");
+                        }
                     }else{
+                        // TODO should we have some generic Host and UserAgent??
                         _out.write(("Proxy-Connection: " + "Keep-Alive\r\n").getBytes());
+                        _logger.fine("Added " + "Proxy-Connection: " + "Keep-Alive");
                         _out.write(("Connection: " + "Keep-Alive\r\n").getBytes());
+                        _logger.fine("Added " + "Connection: " + "Keep-Alive");
                     }
                     if (authHeader != null && (request == null || request.getHeader("Proxy-Authorization") == null)) {
                         _out.write(("Proxy-Authorization: " + authHeader + "\r\n").getBytes());
+                        _logger.fine("Added " + "Proxy-Authorization: " + authHeader);
                     }
                     _out.write("\r\n".getBytes());
                     _out.flush();
