@@ -30,7 +30,6 @@ import org.sandrop.webscarab.model.Response;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 import dnsutils.DNS;
-import dnsutils.DNSInputStream;
 import dnsutils.DNSQuery;
 import dnsutils.DNSRR;
 import dnsutils.record.Address;
@@ -48,7 +47,7 @@ public class DNSProxy implements Runnable {
     
   private static Logger _logger = Logger.getLogger(DNSProxy.class.getName());
   
-  private static boolean LOGD = false;
+  private static boolean LOGD = true;
   
   public static String getHostNameFromIp(String ip){
       String hostName = null;
@@ -115,8 +114,9 @@ public class DNSProxy implements Runnable {
   
   private static String dnsRelayHostName;
   private static String dnsRelayIp;
+  private static String dnsRelayUrl;
   
-  private static String dnsRelayCustomId = "Custom";
+  public static String dnsRelayCustomId = "Custom";
   
   private boolean localProvider = true;
 
@@ -140,7 +140,7 @@ public class DNSProxy implements Runnable {
       dnsLocalServers = servers;
   }
 
-  public DNSProxy(Context ctx, int port, String providerId, String customHostName, String customIp) {
+  public DNSProxy(Context ctx, int port, String providerId, String customHostName, String customIp, String customUrl) {
 
     this.srvPort = port;
     this.providerId = providerId;
@@ -160,6 +160,7 @@ public class DNSProxy implements Runnable {
     } else if (providerId.equalsIgnoreCase(dnsRelayCustomId)){
         dnsRelayHostName = customHostName;
         dnsRelayIp = customIp;
+        dnsRelayUrl = customUrl;
         localProvider = false;
     }
 //    else if (providerId.equalsIgnoreCase(dnsRelayMyhostsSinappHostName)){
@@ -443,6 +444,7 @@ public class DNSProxy implements Runnable {
   @Override
   public void run() {
 
+    Thread.currentThread().setName("DNS Proxy resolver");
     loadCache();
 
     byte[] qbuffer = new byte[1024];
@@ -484,8 +486,8 @@ public class DNSProxy implements Runnable {
                 try{
                     dnsServer = dnsLocalServers.get(i);
                     if (dnsServer != null && dnsServer.length() > 0){
-                        if (LOGD) Log.d(TAG, "used local provider -> just send it up to " + dnsServer + " for " + dnsQuery.getQueryHost());
                         DatagramPacket dt = new DatagramPacket(dnsPacket.getData(), dnsPacket.getLength(), InetAddress.getByName(dnsServer), LOCAL_DNS_PORT);
+                        if (LOGD) Log.d(TAG, "used local provider -> just send it up to " + dnsServer + " for " + dnsQuery.getQueryHost());
                         dnsSocket.send(dt);
                         DatagramPacket dnsPacketResponse = new DatagramPacket(qbuffer, qbuffer.length);
                         dnsSocket.receive(dnsPacketResponse);
@@ -536,6 +538,12 @@ public class DNSProxy implements Runnable {
 //            addToCache(questDomain, answer);
 //            sendDns(answer, dnsq, srvSocket);
 //            if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayMyhostsSinappHostName);
+        } else if (questDomain.toLowerCase().endsWith(dnsRelayHostName) && providerId.equals(dnsRelayCustomId)) {
+          byte[] ips = parseIPString(dnsRelayIp);
+          byte[] answer = createDNSResponse(udpreq, ips);
+          addToCache(questDomain, answer);
+          sendDns(answer, dnsPacket, srvSocket);
+          if (LOGD) Log.d(TAG, "Custom DNS resolver " + dnsRelayHostName);
         } else {
           Runnable runnable = new Runnable() {
             @Override
@@ -608,7 +616,7 @@ public class DNSProxy implements Runnable {
           request.setMethod("POST");
           request.setHeader(new NamedValue("Host", dnsRelayHostName));
           request.setHeader(new NamedValue("Content-Type", "application/x-www-form-urlencoded"));
-          request.setContent(new String("host=www.ijs.si&go=Go").getBytes());
+          request.setContent(new String("host=www.google.com&go=Go").getBytes());
           request.setURL(base);
       } else if (providerId.toLowerCase().equals(dnsRelayWwwIpCnHostName)){
           String url = "http://" + dnsRelayHostName + "/getip.php?action=queryip&ip_url=" + URLEncoder.encode(domain) + "&from=web";
@@ -622,6 +630,15 @@ public class DNSProxy implements Runnable {
 //          request.setMethod("GET");
 //          request.setHeader(new NamedValue("Host", dnsRelayHostName));
 //          request.setURL(base);
+      } else if (providerId.equals(dnsRelayCustomId)){
+        String url = String.format(dnsRelayUrl, URLEncoder.encode(Base64.encodeBytes(Base64.encodeBytesToBytes(domain.getBytes()))));
+        HttpUrl base = new HttpUrl(url);
+        request.setMethod("GET");
+        request.setHeader(new NamedValue("Host", dnsRelayHostName));
+//        request.setHeader(new NamedValue("User-agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:29.0) Gecko/20100101 Firefox/29.0"));
+//        request.setHeader(new NamedValue("Accept-Encoding", "gzip, deflate"));
+//        request.setHeader(new NamedValue("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"));
+        request.setURL(base);
       }
       
       return request;
@@ -662,6 +679,10 @@ public class DNSProxy implements Runnable {
               int pos2 = line.indexOf(marker2);
               ip = line.substring(pos1 + marker1.length(), pos2);
           }
+      } else if (providerId.equals(dnsRelayCustomId)){
+        response.flushContentStream();
+        byte[] content = response.getContent();
+        ip = new String(content);
       }
       return ip;
   }

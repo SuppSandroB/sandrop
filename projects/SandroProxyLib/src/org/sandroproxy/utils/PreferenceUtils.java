@@ -75,10 +75,21 @@ public class PreferenceUtils {
     // dns proxy stuff
     public static String dnsProxyEnabledKey = "preference_dns_proxy_key_onoff";
     public static String dnsProxyEnabledActiveKey = "preference_dns_proxy_key_onoff_active";
+    
     public static String dnsProxyProviderKey = "preference_dns_proxy_provider_list_key";
     public static String dnsProxyProviderActiveKey = "preference_dns_proxy_provider_list_key_active";
+    
     public static String dnsProxyPortKey = "preference_dns_proxy_port_key";
     public static String dnsProxyPortActiveKey = "preference_dns_proxy_port_key_active";
+    
+    public static String dnsProxyCustomHostnameKey = "preference_dns_proxy_custom_hostname_key";
+    // public static String dnsProxyCustomHostnameActiveKey = "preference_dns_proxy_custom_hostname_key_active";
+    
+    public static String dnsProxyCustomIpKey = "preference_dns_proxy_custom_ip_key";
+    // public static String dnsProxyCustomIPActiveKey = "preference_dns_proxy_custom_url_key_active";
+    
+    public static String dnsProxyCustomUrlKey = "preference_dns_proxy_custom_url_key";
+    // public static String dnsProxyCustomUrlActiveKey = "preference_dns_proxy_custom_url_key_active";
     
     public static String getProxyPort(Context context){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
@@ -231,7 +242,7 @@ public class PreferenceUtils {
     }
     
     public static void setDnsProxyProviderActive(Context context, String providerId){
-        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+       SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         pref.edit().putString(dnsProxyProviderActiveKey, providerId).commit();
     }
     
@@ -255,6 +266,41 @@ public class PreferenceUtils {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
         pref.edit().putString(dnsProxyPortActiveKey, port).commit();
     }
+    
+    public static String getDnsProxyCustomHostnameSelected(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyCustomHostnameKey, null);
+    }
+    
+//    public static String getDnsCustomHostnameActive(Context context){
+//        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+//        return pref.getString(dnsProxyCustomHostnameActiveKey, null);
+//    }
+//    
+//    public static void setDnsProxyCustomHostnameActive(Context context, String hostname){
+//        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+//        pref.edit().putString(dnsProxyCustomHostnameActiveKey, hostname).commit();
+//    }
+    
+    public static String getDnsProxyCustomIpSelected(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyCustomIpKey, null);
+    }
+    
+    public static String getDnsProxyCustomUrlSelected(Context context){
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(dnsProxyCustomUrlKey, null);
+    }
+    
+//    public static String getDnsCustomUrlActive(Context context){
+//        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+//        return pref.getString(dnsProxyCustomUrlActiveKey, null);
+//    }
+//    
+//    public static void setDnsProxyCustomUrlActive(Context context, String url){
+//        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+//        pref.edit().putString(dnsProxyCustomUrlActiveKey, url).commit();
+//    }
     
 
 }
