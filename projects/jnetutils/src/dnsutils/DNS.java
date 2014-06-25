@@ -31,6 +31,7 @@ public final class DNS {
     TYPE_MINFO = 14, // mail info
     TYPE_MX = 15, // mail exchanger
     TYPE_TXT = 16, // text
+    TYPE_AAAA  = 28,
     TYPE_AXFR = 252, // zone transfer request
     TYPE_MAILB = 253, // mailbox request
     TYPE_MAILA = 254, // mail agent request
