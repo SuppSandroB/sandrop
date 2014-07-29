@@ -31,7 +31,7 @@ public final class DNS {
     TYPE_MINFO = 14, // mail info
     TYPE_MX = 15, // mail exchanger
     TYPE_TXT = 16, // text
-    TYPE_AAAA  = 28,
+    TYPE_AAAA  = 28, // ipv6 address
     TYPE_AXFR = 252, // zone transfer request
     TYPE_MAILB = 253, // mailbox request
     TYPE_MAILA = 254, // mail agent request
@@ -63,11 +63,12 @@ public final class DNS {
     "Address", "NameServer", "MailDomain", "MailForwarder",
     "CanonicalName", "StartOfAuthority", "MailBox", "MailGroup",
     "MailRename", "Null", "WellKnownServices", "Pointer",
-    "HostInfo", "MailInfo", "MailExchanger", "Text"
+    "HostInfo", "MailInfo", "MailExchanger", "Text", "AAAARecord"
   };
   
   public static String typeName (int type) {
-    return ((type >= 1) && (type <= 16)) ? typeNames[type - 1] : "Unknown";
+    if (type == TYPE_AAAA) return "AAAARecord";
+    return ((type >= 1) && (type <= 28)) ? typeNames[type - 1] : "Unknown";
   }
   
   private static final String[] codeNames = {

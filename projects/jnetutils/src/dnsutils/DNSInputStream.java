@@ -33,6 +33,14 @@ public class DNSInputStream extends ByteArrayInputStream {
   public long readInt () throws IOException {
     return dataIn.readInt () & 0xffffffffL;
   }
+  
+  public void readByteArray(byte[] byteArray){
+      try {
+        dataIn.read(byteArray);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+  }
 
   public String readString () throws IOException {
     int len = readByte ();
