@@ -21,6 +21,6 @@ public class AAAARecord extends DNSRR {
   }
   
   public String toString () {
-    return getRRName () + "\tinternet address = " + ipAddress.toString();
+    return ipAddress.getHostAddress();
   }
 }
