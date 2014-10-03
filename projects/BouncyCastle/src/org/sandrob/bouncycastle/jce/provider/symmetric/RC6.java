@@ -123,9 +123,9 @@ public final class RC6
     {
         public Mappings()
         {
-            put("Cipher.RC6", "org.bouncycastle.jce.provider.symmetric.RC6$ECB");
-            put("KeyGenerator.RC6", "org.bouncycastle.jce.provider.symmetric.RC6$KeyGen");
-            put("AlgorithmParameters.RC6", "org.bouncycastle.jce.provider.symmetric.RC6$AlgParams");
+            put("Cipher.RC6", "org.sandrob.bouncycastle.jce.provider.symmetric.RC6$ECB");
+            put("KeyGenerator.RC6", "org.sandrob.bouncycastle.jce.provider.symmetric.RC6$KeyGen");
+            put("AlgorithmParameters.RC6", "org.sandrob.bouncycastle.jce.provider.symmetric.RC6$AlgParams");
         }
     }
 }

@@ -12,7 +12,7 @@ import org.sandrob.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 
 /**
  * utility class for converting java.security RSA objects into their
- * org.bouncycastle.crypto counterparts.
+ * org.sandrob.bouncycastle.crypto counterparts.
  */
 class RSAUtil
 {

@@ -25,9 +25,9 @@ import org.sandrob.bouncycastle.util.Selector;
  * This class is an <code>Selector</code> like implementation to select
  * attribute certificates from a given set of criteria.
  * 
- * @see org.bouncycastle.x509.X509AttributeCertificate
- * @see org.bouncycastle.x509.X509Store
- *  @deprecated use org.bouncycastle.cert.X509AttributeCertificateSelector and org.bouncycastle.cert.X509AttributeCertificateSelectorBuilder.
+ * @see org.sandrob.bouncycastle.x509.X509AttributeCertificate
+ * @see org.sandrob.bouncycastle.x509.X509Store
+ *  @deprecated use org.sandrob.bouncycastle.cert.X509AttributeCertificateSelector and org.sandrob.bouncycastle.cert.X509AttributeCertificateSelectorBuilder.
  */
 public class X509AttributeCertStoreSelector
     implements Selector

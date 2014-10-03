@@ -44,7 +44,7 @@ import org.sandrob.bouncycastle.util.Selector;
  *                         -- for example, an executable
  *          }
  * </pre>
- * @deprecated use org.bouncycastle.cert.AttributeCertificateHolder
+ * @deprecated use org.sandrob.bouncycastle.cert.AttributeCertificateHolder
  */
 public class AttributeCertificateHolder
     implements CertSelector, Selector

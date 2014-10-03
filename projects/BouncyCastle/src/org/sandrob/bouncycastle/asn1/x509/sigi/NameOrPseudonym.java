@@ -24,7 +24,7 @@ import org.sandrob.bouncycastle.asn1.x500.DirectoryString;
  *       }
  * </pre>
  * 
- * @see org.bouncycastle.asn1.x509.sigi.PersonalData
+ * @see org.sandrob.bouncycastle.asn1.x509.sigi.PersonalData
  * 
  */
 public class NameOrPseudonym

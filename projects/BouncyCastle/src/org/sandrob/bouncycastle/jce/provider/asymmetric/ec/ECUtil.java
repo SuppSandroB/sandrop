@@ -23,7 +23,7 @@ import java.security.PublicKey;
 
 /**
  * utility class for converting jce/jca ECDSA, ECDH, and ECDHC
- * objects into their org.bouncycastle.crypto counterparts.
+ * objects into their org.sandrob.bouncycastle.crypto counterparts.
  */
 public class ECUtil
 {

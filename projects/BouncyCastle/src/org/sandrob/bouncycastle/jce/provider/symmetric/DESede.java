@@ -261,30 +261,30 @@ public final class DESede
     {
         public Mappings()
         {
-            put("Cipher.DESEDE", "org.bouncycastle.jce.provider.symmetric.DESede$ECB");
-            put("Cipher." + PKCSObjectIdentifiers.des_EDE3_CBC, "org.bouncycastle.jce.provider.symmetric.DESede$CBC");
-            put("Cipher." + OIWObjectIdentifiers.desCBC, "org.bouncycastle.jce.provider.symmetric.DESede$CBC");
-            put("Cipher.DESEDEWRAP", "org.bouncycastle.jce.provider.symmetric.DESede$Wrap");
-            put("Cipher." + PKCSObjectIdentifiers.id_alg_CMS3DESwrap, "org.bouncycastle.jce.provider.symmetric.DESede$Wrap");
-            put("Cipher.DESEDERFC3211WRAP", "org.bouncycastle.jce.provider.symmetric.DESede$RFC3211");
+            put("Cipher.DESEDE", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$ECB");
+            put("Cipher." + PKCSObjectIdentifiers.des_EDE3_CBC, "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$CBC");
+            put("Cipher." + OIWObjectIdentifiers.desCBC, "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$CBC");
+            put("Cipher.DESEDEWRAP", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$Wrap");
+            put("Cipher." + PKCSObjectIdentifiers.id_alg_CMS3DESwrap, "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$Wrap");
+            put("Cipher.DESEDERFC3211WRAP", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$RFC3211");
 
-            put("KeyGenerator.DESEDE", "org.bouncycastle.jce.provider.symmetric.DESede$KeyGenerator");
-            put("KeyGenerator." + PKCSObjectIdentifiers.des_EDE3_CBC, "org.bouncycastle.jce.provider.symmetric.DESede$KeyGenerator3");
-            put("KeyGenerator.DESEDEWRAP", "org.bouncycastle.jce.provider.symmetric.DESede$KeyGenerator");
+            put("KeyGenerator.DESEDE", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$KeyGenerator");
+            put("KeyGenerator." + PKCSObjectIdentifiers.des_EDE3_CBC, "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$KeyGenerator3");
+            put("KeyGenerator.DESEDEWRAP", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$KeyGenerator");
 
-            put("SecretKeyFactory.DESEDE", "org.bouncycastle.jce.provider.symmetric.DESede$KeyFactory");
+            put("SecretKeyFactory.DESEDE", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$KeyFactory");
 
-            put("Mac.DESEDECMAC", "org.bouncycastle.jce.provider.symmetric.DESede$CMAC");
-            put("Mac.DESEDEMAC", "org.bouncycastle.jce.provider.symmetric.DESede$CBCMAC");
+            put("Mac.DESEDECMAC", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$CMAC");
+            put("Mac.DESEDEMAC", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$CBCMAC");
             put("Alg.Alias.Mac.DESEDE", "DESEDEMAC");
 
-            put("Mac.DESEDEMAC/CFB8", "org.bouncycastle.jce.provider.symmetric.DESede$DESedeCFB8");
+            put("Mac.DESEDEMAC/CFB8", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$DESedeCFB8");
             put("Alg.Alias.Mac.DESEDE/CFB8", "DESEDEMAC/CFB8");
 
-            put("Mac.DESEDEMAC64", "org.bouncycastle.jce.provider.symmetric.DESede$DESede64");
+            put("Mac.DESEDEMAC64", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$DESede64");
             put("Alg.Alias.Mac.DESEDE64", "DESEDEMAC64");
 
-            put("Mac.DESEDEMAC64WITHISO7816-4PADDING", "org.bouncycastle.jce.provider.symmetric.DESede$DESede64with7816d4");
+            put("Mac.DESEDEMAC64WITHISO7816-4PADDING", "org.sandrob.bouncycastle.jce.provider.symmetric.DESede$DESede64with7816d4");
             put("Alg.Alias.Mac.DESEDE64WITHISO7816-4PADDING", "DESEDEMAC64WITHISO7816-4PADDING");
             put("Alg.Alias.Mac.DESEDEISO9797ALG1MACWITHISO7816-4PADDING", "DESEDEMAC64WITHISO7816-4PADDING");
             put("Alg.Alias.Mac.DESEDEISO9797ALG1WITHISO7816-4PADDING", "DESEDEMAC64WITHISO7816-4PADDING");

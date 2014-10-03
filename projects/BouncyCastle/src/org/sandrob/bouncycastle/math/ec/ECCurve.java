@@ -404,7 +404,7 @@ public abstract class ECCurve
         }
 
         /* (non-Javadoc)
-         * @see org.bouncycastle.math.ec.ECCurve#decodePoint(byte[])
+         * @see org.sandrob.bouncycastle.math.ec.ECCurve#decodePoint(byte[])
          */
         public ECPoint decodePoint(byte[] encoded)
         {

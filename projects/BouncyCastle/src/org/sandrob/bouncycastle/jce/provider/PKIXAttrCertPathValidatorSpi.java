@@ -19,7 +19,7 @@ import java.util.Set;
 /**
  * CertPathValidatorSpi implementation for X.509 Attribute Certificates la RFC 3281.
  * 
- * @see org.bouncycastle.x509.ExtendedPKIXParameters
+ * @see org.sandrob.bouncycastle.x509.ExtendedPKIXParameters
  */
 public class PKIXAttrCertPathValidatorSpi
     extends CertPathValidatorSpi

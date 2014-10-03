@@ -16,7 +16,7 @@ import org.sandrob.bouncycastle.jce.interfaces.ElGamalPublicKey;
 
 /**
  * utility class for converting jce/jca ElGamal objects
- * objects into their org.bouncycastle.crypto counterparts.
+ * objects into their org.sandrob.bouncycastle.crypto counterparts.
  */
 public class ElGamalUtil
 {

@@ -36,8 +36,8 @@ public final class Grain128
     {
         public Mappings()
         {
-            put("Cipher.Grain128", "org.bouncycastle.jce.provider.symmetric.Grain128$Base");
-            put("KeyGenerator.Grain128", "org.bouncycastle.jce.provider.symmetric.Grain128$KeyGen");
+            put("Cipher.Grain128", "org.sandrob.bouncycastle.jce.provider.symmetric.Grain128$Base");
+            put("KeyGenerator.Grain128", "org.sandrob.bouncycastle.jce.provider.symmetric.Grain128$KeyGen");
         }
     }
 }

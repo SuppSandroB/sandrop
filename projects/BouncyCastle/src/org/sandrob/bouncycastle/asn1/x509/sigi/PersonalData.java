@@ -30,8 +30,8 @@ import java.util.Enumeration;
  *       }
  * </pre>
  *
- * @see org.bouncycastle.asn1.x509.sigi.NameOrPseudonym
- * @see org.bouncycastle.asn1.x509.sigi.SigIObjectIdentifiers
+ * @see org.sandrob.bouncycastle.asn1.x509.sigi.NameOrPseudonym
+ * @see org.sandrob.bouncycastle.asn1.x509.sigi.SigIObjectIdentifiers
  */
 public class PersonalData
     extends ASN1Encodable

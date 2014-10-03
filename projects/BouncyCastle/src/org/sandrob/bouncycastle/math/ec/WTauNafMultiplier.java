@@ -9,7 +9,7 @@ import java.math.BigInteger;
 class WTauNafMultiplier implements ECMultiplier
 {
     /**
-     * Multiplies a {@link org.bouncycastle.math.ec.ECPoint.F2m ECPoint.F2m}
+     * Multiplies a {@link org.sandrob.bouncycastle.math.ec.ECPoint.F2m ECPoint.F2m}
      * by <code>k</code> using the reduced <code>&tau;</code>-adic NAF (RTNAF)
      * method.
      * @param p The ECPoint.F2m to multiply.
@@ -38,7 +38,7 @@ class WTauNafMultiplier implements ECMultiplier
     }
 
     /**
-     * Multiplies a {@link org.bouncycastle.math.ec.ECPoint.F2m ECPoint.F2m}
+     * Multiplies a {@link org.sandrob.bouncycastle.math.ec.ECPoint.F2m ECPoint.F2m}
      * by an element <code>&lambda;</code> of <code><b>Z</b>[&tau;]</code> using
      * the <code>&tau;</code>-adic NAF (TNAF) method.
      * @param p The ECPoint.F2m to multiply.
@@ -70,7 +70,7 @@ class WTauNafMultiplier implements ECMultiplier
     }
 
     /**
-     * Multiplies a {@link org.bouncycastle.math.ec.ECPoint.F2m ECPoint.F2m}
+     * Multiplies a {@link org.sandrob.bouncycastle.math.ec.ECPoint.F2m ECPoint.F2m}
      * by an element <code>&lambda;</code> of <code><b>Z</b>[&tau;]</code>
      * using the window <code>&tau;</code>-adic NAF (TNAF) method, given the
      * WTNAF of <code>&lambda;</code>.

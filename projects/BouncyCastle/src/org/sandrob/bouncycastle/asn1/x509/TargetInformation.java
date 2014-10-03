@@ -110,7 +110,7 @@ public class TargetInformation
      * According to RFC 3281 only one targets element must be produced. If
      * multiple targets are given in the constructor they are merged into one
      * targets element. If this was produced from a
-     * {@link org.bouncycastle.asn1.ASN1Sequence} the encoding is kept.
+     * {@link org.sandrob.bouncycastle.asn1.ASN1Sequence} the encoding is kept.
      * 
      * @return a DERObject
      */

@@ -7,7 +7,7 @@ import org.sandrob.bouncycastle.crypto.InvalidCipherTextException;
 
 /**
  * A block cipher mode that includes authenticated encryption with a streaming mode and optional associated data.
- * @see org.bouncycastle.crypto.params.AEADParameters
+ * @see org.sandrob.bouncycastle.crypto.params.AEADParameters
  */
 public interface AEADBlockCipher
 {
@@ -68,7 +68,7 @@ public interface AEADBlockCipher
      * @param outOff offset into out to start copying the data at.
      * @return number of bytes written into out.
      * @throws IllegalStateException if the cipher is in an inappropriate state.
-     * @throws org.bouncycastle.crypto.InvalidCipherTextException if the MAC fails to match.
+     * @throws org.sandrob.bouncycastle.crypto.InvalidCipherTextException if the MAC fails to match.
      */
     public int doFinal(byte[] out, int outOff)
         throws IllegalStateException, InvalidCipherTextException;

@@ -41,7 +41,7 @@ import org.sandrob.bouncycastle.jce.X509LDAPCertStoreParameters;
  * from a LDAP location.
  * <p>
  * At first a search is performed in the ldap*AttributeNames of the
- * {@link org.bouncycastle.jce.X509LDAPCertStoreParameters} with the given
+ * {@link org.sandrob.bouncycastle.jce.X509LDAPCertStoreParameters} with the given
  * information of the subject (for all kind of certificates) or issuer (for
  * CRLs), respectively, if a X509CertSelector is given with that details. For
  * CRLs, CA certificates and cross certificates a coarse search is made only for

@@ -6,11 +6,11 @@ import org.sandrob.bouncycastle.util.Selector;
  * This class is an <code>Selector</code> like implementation to select
  * certificates pairs, which are e.g. used for cross certificates. The set of
  * criteria is given from two
- * {@link org.bouncycastle.x509.X509CertStoreSelector}s which must be both
+ * {@link org.sandrob.bouncycastle.x509.X509CertStoreSelector}s which must be both
  * matched.
  * 
- * @see org.bouncycastle.x509.X509AttributeCertificate
- * @see org.bouncycastle.x509.X509Store
+ * @see org.sandrob.bouncycastle.x509.X509AttributeCertificate
+ * @see org.sandrob.bouncycastle.x509.X509Store
  */
 public class X509CertPairStoreSelector implements Selector
 {

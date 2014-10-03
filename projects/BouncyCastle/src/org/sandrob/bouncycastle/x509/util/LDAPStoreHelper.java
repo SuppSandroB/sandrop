@@ -47,10 +47,10 @@ import java.util.Set;
  * attribute certificates and cross certificates from a LDAP location.
  * <p/>
  * At first a search is performed in the ldap*AttributeNames of the
- * {@link org.bouncycastle.jce.X509LDAPCertStoreParameters} with the given
+ * {@link org.sandrob.bouncycastle.jce.X509LDAPCertStoreParameters} with the given
  * information of the subject (for all kind of certificates) or issuer (for
- * CRLs), respectively, if a {@link org.bouncycastle.x509.X509CertStoreSelector} or
- * {@link org.bouncycastle.x509.X509AttributeCertificate} is given with that
+ * CRLs), respectively, if a {@link org.sandrob.bouncycastle.x509.X509CertStoreSelector} or
+ * {@link org.sandrob.bouncycastle.x509.X509AttributeCertificate} is given with that
  * details.
  * <p/>
  * For the used schemes see:
@@ -248,7 +248,7 @@ public class LDAPStoreHelper
     /**
      * Can use the subject of the forward certificate of the set certificate
      * pair or the subject of the forward
-     * {@link org.bouncycastle.x509.X509CertStoreSelector} of the given
+     * {@link org.sandrob.bouncycastle.x509.X509CertStoreSelector} of the given
      * selector.
      *
      * @param xselector             The selector with the search criteria.

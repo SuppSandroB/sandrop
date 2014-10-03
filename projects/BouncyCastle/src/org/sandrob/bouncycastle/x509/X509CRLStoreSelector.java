@@ -16,9 +16,9 @@ import java.security.cert.X509CRLSelector;
  * This class is a Selector implementation for X.509 certificate revocation
  * lists.
  * 
- * @see org.bouncycastle.util.Selector
- * @see org.bouncycastle.x509.X509Store
- * @see org.bouncycastle.jce.provider.X509StoreCRLCollection
+ * @see org.sandrob.bouncycastle.util.Selector
+ * @see org.sandrob.bouncycastle.x509.X509Store
+ * @see org.sandrob.bouncycastle.jce.provider.X509StoreCRLCollection
  */
 public class X509CRLStoreSelector
     extends X509CRLSelector

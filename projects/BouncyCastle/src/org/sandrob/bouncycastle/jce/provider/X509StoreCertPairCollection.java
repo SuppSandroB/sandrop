@@ -10,11 +10,11 @@ import java.util.Collection;
 
 /**
  * This class is a collection based Bouncy Castle
- * {@link org.bouncycastle.x509.X509Store} SPI implementation for certificate
+ * {@link org.sandrob.bouncycastle.x509.X509Store} SPI implementation for certificate
  * pairs.
  *
- * @see org.bouncycastle.x509.X509Store
- * @see org.bouncycastle.x509.X509CertificatePair
+ * @see org.sandrob.bouncycastle.x509.X509Store
+ * @see org.sandrob.bouncycastle.x509.X509CertificatePair
  */
 public class X509StoreCertPairCollection extends X509StoreSpi
 {
@@ -51,8 +51,8 @@ public class X509StoreCertPairCollection extends X509StoreSpi
      * <code>selector</code>.
      * <p/>
      * The returned collection contains
-     * {@link org.bouncycastle.x509.X509CertificatePair}s. The selector must be
-     * a {@link org.bouncycastle.x509.X509CertPairStoreSelector} to select
+     * {@link org.sandrob.bouncycastle.x509.X509CertificatePair}s. The selector must be
+     * a {@link org.sandrob.bouncycastle.x509.X509CertPairStoreSelector} to select
      * certificate pairs.
      *
      * @return A collection with matching certificate pairs.

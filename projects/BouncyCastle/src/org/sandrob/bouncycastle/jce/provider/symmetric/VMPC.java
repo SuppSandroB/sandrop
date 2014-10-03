@@ -47,9 +47,9 @@ public final class VMPC
     {
         public Mappings()
         {
-            put("Cipher.VMPC", "org.bouncycastle.jce.provider.symmetric.VMPC$Base");
-            put("KeyGenerator.VMPC", "org.bouncycastle.jce.provider.symmetric.VMPC$KeyGen");
-            put("Mac.VMPCMAC", "org.bouncycastle.jce.provider.symmetric.VMPC$Mac");
+            put("Cipher.VMPC", "org.sandrob.bouncycastle.jce.provider.symmetric.VMPC$Base");
+            put("KeyGenerator.VMPC", "org.sandrob.bouncycastle.jce.provider.symmetric.VMPC$KeyGen");
+            put("Mac.VMPCMAC", "org.sandrob.bouncycastle.jce.provider.symmetric.VMPC$Mac");
             put("Alg.Alias.Mac.VMPC", "VMPCMAC");
             put("Alg.Alias.Mac.VMPC-MAC", "VMPCMAC");
         }

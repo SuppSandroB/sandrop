@@ -46,9 +46,9 @@ public final class TEA
     {
         public Mappings()
         {
-            put("Cipher.TEA", "org.bouncycastle.jce.provider.symmetric.TEA$ECB");
-            put("KeyGenerator.TEA", "org.bouncycastle.jce.provider.symmetric.TEA$KeyGen");
-            put("AlgorithmParameters.TEA", "org.bouncycastle.jce.provider.symmetric.TEA$AlgParams");
+            put("Cipher.TEA", "org.sandrob.bouncycastle.jce.provider.symmetric.TEA$ECB");
+            put("KeyGenerator.TEA", "org.sandrob.bouncycastle.jce.provider.symmetric.TEA$KeyGen");
+            put("AlgorithmParameters.TEA", "org.sandrob.bouncycastle.jce.provider.symmetric.TEA$AlgParams");
         }
     }
 }

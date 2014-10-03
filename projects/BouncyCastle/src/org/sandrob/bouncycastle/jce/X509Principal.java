@@ -17,7 +17,7 @@ import org.sandrob.bouncycastle.asn1.x509.X509Name;
  * Objects of this type can be created from certificates and CRLs using the
  * PrincipalUtil class.
  * </p>
- * @see org.bouncycastle.jce.PrincipalUtil
+ * @see org.sandrob.bouncycastle.jce.PrincipalUtil
  */
 public class X509Principal
     extends X509Name

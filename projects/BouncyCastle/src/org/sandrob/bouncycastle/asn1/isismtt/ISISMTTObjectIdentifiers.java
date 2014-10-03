@@ -86,7 +86,7 @@ public interface ISISMTTObjectIdentifiers
      *             RestrictionSyntax ::= DirectoryString (SIZE(1..1024))
      * </pre>
      * 
-     * @see org.bouncycastle.asn1.isismtt.x509.Restriction
+     * @see org.sandrob.bouncycastle.asn1.isismtt.x509.Restriction
      */
     static final ASN1ObjectIdentifier id_isismtt_at_restriction = id_isismtt_at.branch("8");
 
@@ -111,7 +111,7 @@ public interface ISISMTTObjectIdentifiers
      * inserting the RetrieveIfAllowed extension in the request, will be
      * returned in this extension.
      * 
-     * @see org.bouncycastle.asn1.isismtt.ocsp.RequestedCertificate
+     * @see org.sandrob.bouncycastle.asn1.isismtt.ocsp.RequestedCertificate
      */
     static final ASN1ObjectIdentifier id_isismtt_at_requestedCertificate = id_isismtt_at.branch("10");
 
@@ -135,7 +135,7 @@ public interface ISISMTTObjectIdentifiers
     /**
      * Hash of a certificate in OCSP.
      * 
-     * @see org.bouncycastle.asn1.isismtt.ocsp.CertHash
+     * @see org.sandrob.bouncycastle.asn1.isismtt.ocsp.CertHash
      */
     static final ASN1ObjectIdentifier id_isismtt_at_certHash = id_isismtt_at.branch("13");
 
@@ -145,7 +145,7 @@ public interface ISISMTTObjectIdentifiers
      * </pre>
      * 
      * Used in
-     * {@link org.bouncycastle.asn1.x509.SubjectDirectoryAttributes SubjectDirectoryAttributes}
+     * {@link org.sandrob.bouncycastle.asn1.x509.SubjectDirectoryAttributes SubjectDirectoryAttributes}
      */
     static final ASN1ObjectIdentifier id_isismtt_at_nameAtBirth = id_isismtt_at.branch("14");
 
@@ -158,7 +158,7 @@ public interface ISISMTTObjectIdentifiers
      *               AdditionalInformationSyntax ::= DirectoryString (SIZE(1..2048))
      * </pre>
      * 
-     * @see org.bouncycastle.asn1.isismtt.x509.AdditionalInformationSyntax
+     * @see org.sandrob.bouncycastle.asn1.isismtt.x509.AdditionalInformationSyntax
      */
     static final ASN1ObjectIdentifier id_isismtt_at_additionalInformation = id_isismtt_at.branch("15");
 

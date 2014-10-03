@@ -26,7 +26,7 @@ import org.sandrob.bouncycastle.asn1.DERSequence;
  *     AttributeValue ::= ANY DEFINED BY AttributeType
  * </pre>
  * 
- * @see org.bouncycastle.asn1.x509.X509Name for AttributeType ObjectIdentifiers.
+ * @see org.sandrob.bouncycastle.asn1.x509.X509Name for AttributeType ObjectIdentifiers.
  */
 public class SubjectDirectoryAttributes 
     extends ASN1Encodable

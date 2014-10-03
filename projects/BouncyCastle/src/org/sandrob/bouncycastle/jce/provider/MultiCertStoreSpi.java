@@ -27,7 +27,7 @@ public class MultiCertStoreSpi
 
         if (!(params instanceof MultiCertStoreParameters))
         {
-            throw new InvalidAlgorithmParameterException("org.bouncycastle.jce.provider.MultiCertStoreSpi: parameter must be a MultiCertStoreParameters object\n" +  params.toString());
+            throw new InvalidAlgorithmParameterException("org.sandrob.bouncycastle.jce.provider.MultiCertStoreSpi: parameter must be a MultiCertStoreParameters object\n" +  params.toString());
         }
 
         this.params = (MultiCertStoreParameters)params;

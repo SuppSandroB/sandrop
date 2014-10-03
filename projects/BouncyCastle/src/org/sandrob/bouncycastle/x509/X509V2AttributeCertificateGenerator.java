@@ -30,7 +30,7 @@ import org.sandrob.bouncycastle.asn1.x509.X509ExtensionsGenerator;
 
 /**
  * class to produce an X.509 Version 2 AttributeCertificate.
- * @deprecated use org.bouncycastle.cert.X509v2AttributeCertificateBuilder
+ * @deprecated use org.sandrob.bouncycastle.cert.X509v2AttributeCertificateBuilder
  */
 public class X509V2AttributeCertificateGenerator
 {

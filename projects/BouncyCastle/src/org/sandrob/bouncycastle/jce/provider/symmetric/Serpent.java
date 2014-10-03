@@ -46,9 +46,9 @@ public final class Serpent
     {
         public Mappings()
         {
-            put("Cipher.Serpent", "org.bouncycastle.jce.provider.symmetric.Serpent$ECB");
-            put("KeyGenerator.Serpent", "org.bouncycastle.jce.provider.symmetric.Serpent$KeyGen");
-            put("AlgorithmParameters.Serpent", "org.bouncycastle.jce.provider.symmetric.Serpent$AlgParams");
+            put("Cipher.Serpent", "org.sandrob.bouncycastle.jce.provider.symmetric.Serpent$ECB");
+            put("KeyGenerator.Serpent", "org.sandrob.bouncycastle.jce.provider.symmetric.Serpent$KeyGen");
+            put("AlgorithmParameters.Serpent", "org.sandrob.bouncycastle.jce.provider.symmetric.Serpent$AlgParams");
         }
     }
 }

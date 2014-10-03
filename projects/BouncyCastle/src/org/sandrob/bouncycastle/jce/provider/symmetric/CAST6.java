@@ -36,8 +36,8 @@ public final class CAST6
     {
         public Mappings()
         {
-            put("Cipher.CAST6", "org.bouncycastle.jce.provider.symmetric.CAST6$ECB");
-            put("KeyGenerator.CAST6", "org.bouncycastle.jce.provider.symmetric.CAST6$KeyGen");
+            put("Cipher.CAST6", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST6$ECB");
+            put("KeyGenerator.CAST6", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST6$KeyGen");
         }
     }
 }

@@ -150,7 +150,7 @@ public class DERApplicationSpecific
     }
     
     /* (non-Javadoc)
-     * @see org.bouncycastle.asn1.DERObject#encode(org.bouncycastle.asn1.DEROutputStream)
+     * @see org.sandrob.bouncycastle.asn1.DERObject#encode(org.sandrob.bouncycastle.asn1.DEROutputStream)
      */
     void encode(DEROutputStream out) throws IOException
     {

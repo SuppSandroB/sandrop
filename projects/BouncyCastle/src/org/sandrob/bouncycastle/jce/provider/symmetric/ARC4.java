@@ -36,11 +36,11 @@ public final class ARC4
     {
         public Mappings()
         {
-            put("Cipher.ARC4", "org.bouncycastle.jce.provider.symmetric.ARC4$Base");
+            put("Cipher.ARC4", "org.sandrob.bouncycastle.jce.provider.symmetric.ARC4$Base");
             put("Alg.Alias.Cipher.1.2.840.113549.3.4", "ARC4");
             put("Alg.Alias.Cipher.ARCFOUR", "ARC4");
             put("Alg.Alias.Cipher.RC4", "ARC4");
-            put("KeyGenerator.ARC4", "org.bouncycastle.jce.provider.symmetric.ARC4$KeyGen");
+            put("KeyGenerator.ARC4", "org.sandrob.bouncycastle.jce.provider.symmetric.ARC4$KeyGen");
             put("Alg.Alias.KeyGenerator.RC4", "ARC4");
             put("Alg.Alias.KeyGenerator.1.2.840.113549.3.4", "ARC4");
         }

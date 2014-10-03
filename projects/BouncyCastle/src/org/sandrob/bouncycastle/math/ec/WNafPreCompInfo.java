@@ -9,7 +9,7 @@ class WNafPreCompInfo implements PreCompInfo
     /**
      * Array holding the precomputed <code>ECPoint</code>s used for the Window
      * NAF multiplication in <code>
-     * {@link org.bouncycastle.math.ec.multiplier.WNafMultiplier.multiply()
+     * {@link org.sandrob.bouncycastle.math.ec.multiplier.WNafMultiplier.multiply()
      * WNafMultiplier.multiply()}</code>.
      */
     private ECPoint[] preComp = null;
@@ -17,7 +17,7 @@ class WNafPreCompInfo implements PreCompInfo
     /**
      * Holds an <code>ECPoint</code> representing twice(this). Used for the
      * Window NAF multiplication in <code>
-     * {@link org.bouncycastle.math.ec.multiplier.WNafMultiplier.multiply()
+     * {@link org.sandrob.bouncycastle.math.ec.multiplier.WNafMultiplier.multiply()
      * WNafMultiplier.multiply()}</code>.
      */
     private ECPoint twiceP = null;

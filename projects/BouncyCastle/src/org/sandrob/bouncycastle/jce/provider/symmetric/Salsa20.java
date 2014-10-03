@@ -36,8 +36,8 @@ public final class Salsa20
     {
         public Mappings()
         {
-            put("Cipher.SALSA20", "org.bouncycastle.jce.provider.symmetric.Salsa20$Base");
-            put("KeyGenerator.SALSA20", "org.bouncycastle.jce.provider.symmetric.Salsa20$KeyGen");
+            put("Cipher.SALSA20", "org.sandrob.bouncycastle.jce.provider.symmetric.Salsa20$Base");
+            put("KeyGenerator.SALSA20", "org.sandrob.bouncycastle.jce.provider.symmetric.Salsa20$KeyGen");
         }
     }
 }

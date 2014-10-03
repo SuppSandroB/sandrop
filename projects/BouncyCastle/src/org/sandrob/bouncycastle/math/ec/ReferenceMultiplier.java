@@ -7,7 +7,7 @@ class ReferenceMultiplier implements ECMultiplier
     /**
      * Simple shift-and-add multiplication. Serves as reference implementation
      * to verify (possibly faster) implementations in
-     * {@link org.bouncycastle.math.ec.ECPoint ECPoint}.
+     * {@link org.sandrob.bouncycastle.math.ec.ECPoint ECPoint}.
      * 
      * @param p The point to multiply.
      * @param k The factor by which to multiply.

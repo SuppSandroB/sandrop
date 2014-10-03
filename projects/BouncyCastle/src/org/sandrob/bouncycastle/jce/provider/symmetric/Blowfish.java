@@ -56,11 +56,11 @@ public final class Blowfish
     {
         public Mappings()
         {
-            put("Cipher.BLOWFISH", "org.bouncycastle.jce.provider.symmetric.Blowfish$ECB");
-            put("Cipher.1.3.6.1.4.1.3029.1.2", "org.bouncycastle.jce.provider.symmetric.Blowfish$CBC");
-            put("KeyGenerator.BLOWFISH", "org.bouncycastle.jce.provider.symmetric.Blowfish$KeyGen");
+            put("Cipher.BLOWFISH", "org.sandrob.bouncycastle.jce.provider.symmetric.Blowfish$ECB");
+            put("Cipher.1.3.6.1.4.1.3029.1.2", "org.sandrob.bouncycastle.jce.provider.symmetric.Blowfish$CBC");
+            put("KeyGenerator.BLOWFISH", "org.sandrob.bouncycastle.jce.provider.symmetric.Blowfish$KeyGen");
             put("Alg.Alias.KeyGenerator.1.3.6.1.4.1.3029.1.2", "BLOWFISH");
-            put("AlgorithmParameters.BLOWFISH", "org.bouncycastle.jce.provider.symmetric.Blowfish$AlgParams");
+            put("AlgorithmParameters.BLOWFISH", "org.sandrob.bouncycastle.jce.provider.symmetric.Blowfish$AlgParams");
             put("Alg.Alias.AlgorithmParameters.1.3.6.1.4.1.3029.1.2", "BLOWFISH");
         }
     }

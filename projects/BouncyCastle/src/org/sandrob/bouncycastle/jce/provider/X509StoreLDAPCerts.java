@@ -20,7 +20,7 @@ import java.util.Set;
  * A SPI implementation of Bouncy Castle <code>X509Store</code> for getting
  * certificates form a LDAP directory.
  *
- * @see org.bouncycastle.x509.X509Store
+ * @see org.sandrob.bouncycastle.x509.X509Store
  */
 public class X509StoreLDAPCerts
     extends X509StoreSpi

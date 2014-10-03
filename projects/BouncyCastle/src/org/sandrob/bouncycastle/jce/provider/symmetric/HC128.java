@@ -36,8 +36,8 @@ public final class HC128
     {
         public Mappings()
         {
-            put("Cipher.HC128", "org.bouncycastle.jce.provider.symmetric.HC128$Base");
-            put("KeyGenerator.HC128", "org.bouncycastle.jce.provider.symmetric.HC128$KeyGen");
+            put("Cipher.HC128", "org.sandrob.bouncycastle.jce.provider.symmetric.HC128$Base");
+            put("KeyGenerator.HC128", "org.sandrob.bouncycastle.jce.provider.symmetric.HC128$KeyGen");
         }
     }
 }

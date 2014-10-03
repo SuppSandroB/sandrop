@@ -25,7 +25,7 @@ class CombinedHash implements Digest
     }
 
     /**
-     * @see org.bouncycastle.crypto.Digest#getAlgorithmName()
+     * @see org.sandrob.bouncycastle.crypto.Digest#getAlgorithmName()
      */
     public String getAlgorithmName()
     {
@@ -33,7 +33,7 @@ class CombinedHash implements Digest
     }
 
     /**
-     * @see org.bouncycastle.crypto.Digest#getDigestSize()
+     * @see org.sandrob.bouncycastle.crypto.Digest#getDigestSize()
      */
     public int getDigestSize()
     {
@@ -41,7 +41,7 @@ class CombinedHash implements Digest
     }
 
     /**
-     * @see org.bouncycastle.crypto.Digest#update(byte)
+     * @see org.sandrob.bouncycastle.crypto.Digest#update(byte)
      */
     public void update(byte in)
     {
@@ -50,7 +50,7 @@ class CombinedHash implements Digest
     }
 
     /**
-     * @see org.bouncycastle.crypto.Digest#update(byte[],int,int)
+     * @see org.sandrob.bouncycastle.crypto.Digest#update(byte[],int,int)
      */
     public void update(byte[] in, int inOff, int len)
     {
@@ -59,7 +59,7 @@ class CombinedHash implements Digest
     }
 
     /**
-     * @see org.bouncycastle.crypto.Digest#doFinal(byte[],int)
+     * @see org.sandrob.bouncycastle.crypto.Digest#doFinal(byte[],int)
      */
     public int doFinal(byte[] out, int outOff)
     {
@@ -69,7 +69,7 @@ class CombinedHash implements Digest
     }
 
     /**
-     * @see org.bouncycastle.crypto.Digest#reset()
+     * @see org.sandrob.bouncycastle.crypto.Digest#reset()
      */
     public void reset()
     {

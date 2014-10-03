@@ -529,7 +529,7 @@ public class ISO9796d2PSSSigner
      * Return true if the full message was recoveredMessage.
      * 
      * @return true on full message recovery, false otherwise, or if not sure.
-     * @see org.bouncycastle.crypto.SignerWithRecovery#hasFullMessage()
+     * @see org.sandrob.bouncycastle.crypto.SignerWithRecovery#hasFullMessage()
      */
     public boolean hasFullMessage()
     {
@@ -540,7 +540,7 @@ public class ISO9796d2PSSSigner
      * Return a reference to the recoveredMessage message.
      * 
      * @return the full/partial recoveredMessage message.
-     * @see org.bouncycastle.crypto.SignerWithRecovery#getRecoveredMessage()
+     * @see org.sandrob.bouncycastle.crypto.SignerWithRecovery#getRecoveredMessage()
      */
     public byte[] getRecoveredMessage()
     {

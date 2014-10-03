@@ -46,9 +46,9 @@ public final class Twofish
     {
         public Mappings()
         {
-            put("Cipher.Twofish", "org.bouncycastle.jce.provider.symmetric.Twofish$ECB");
-            put("KeyGenerator.Twofish", "org.bouncycastle.jce.provider.symmetric.Twofish$KeyGen");
-            put("AlgorithmParameters.Twofish", "org.bouncycastle.jce.provider.symmetric.Twofish$AlgParams");
+            put("Cipher.Twofish", "org.sandrob.bouncycastle.jce.provider.symmetric.Twofish$ECB");
+            put("KeyGenerator.Twofish", "org.sandrob.bouncycastle.jce.provider.symmetric.Twofish$KeyGen");
+            put("AlgorithmParameters.Twofish", "org.sandrob.bouncycastle.jce.provider.symmetric.Twofish$AlgParams");
         }
     }
 }

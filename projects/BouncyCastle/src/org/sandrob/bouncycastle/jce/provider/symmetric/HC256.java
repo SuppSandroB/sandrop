@@ -36,8 +36,8 @@ public final class HC256
     {
         public Mappings()
         {
-            put("Cipher.HC256", "org.bouncycastle.jce.provider.symmetric.HC256$Base");
-            put("KeyGenerator.HC256", "org.bouncycastle.jce.provider.symmetric.HC256$KeyGen");
+            put("Cipher.HC256", "org.sandrob.bouncycastle.jce.provider.symmetric.HC256$Base");
+            put("KeyGenerator.HC256", "org.sandrob.bouncycastle.jce.provider.symmetric.HC256$KeyGen");
         }
     }
 }

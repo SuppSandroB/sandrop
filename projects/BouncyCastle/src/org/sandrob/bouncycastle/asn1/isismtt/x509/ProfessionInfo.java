@@ -30,7 +30,7 @@ import java.util.Enumeration;
  *               }
  * </pre>
  * 
- * @see org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
+ * @see org.sandrob.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
  */
 public class ProfessionInfo extends ASN1Encodable
 {

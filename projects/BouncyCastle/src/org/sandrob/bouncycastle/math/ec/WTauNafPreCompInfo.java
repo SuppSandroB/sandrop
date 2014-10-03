@@ -9,7 +9,7 @@ class WTauNafPreCompInfo implements PreCompInfo
     /**
      * Array holding the precomputed <code>ECPoint.F2m</code>s used for the
      * WTNAF multiplication in <code>
-     * {@link org.bouncycastle.math.ec.multiplier.WTauNafMultiplier.multiply()
+     * {@link org.sandrob.bouncycastle.math.ec.multiplier.WTauNafMultiplier.multiply()
      * WTauNafMultiplier.multiply()}</code>.
      */
     private ECPoint.F2m[] preComp = null;
@@ -18,7 +18,7 @@ class WTauNafPreCompInfo implements PreCompInfo
      * Constructor for <code>WTauNafPreCompInfo</code>
      * @param preComp Array holding the precomputed <code>ECPoint.F2m</code>s
      * used for the WTNAF multiplication in <code>
-     * {@link org.bouncycastle.math.ec.multiplier.WTauNafMultiplier.multiply()
+     * {@link org.sandrob.bouncycastle.math.ec.multiplier.WTauNafMultiplier.multiply()
      * WTauNafMultiplier.multiply()}</code>.
      */
     WTauNafPreCompInfo(ECPoint.F2m[] preComp)
@@ -29,7 +29,7 @@ class WTauNafPreCompInfo implements PreCompInfo
     /**
      * @return the array holding the precomputed <code>ECPoint.F2m</code>s
      * used for the WTNAF multiplication in <code>
-     * {@link org.bouncycastle.math.ec.multiplier.WTauNafMultiplier.multiply()
+     * {@link org.sandrob.bouncycastle.math.ec.multiplier.WTauNafMultiplier.multiply()
      * WTauNafMultiplier.multiply()}</code>.
      */
     protected ECPoint.F2m[] getPreComp()

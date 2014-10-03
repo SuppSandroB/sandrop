@@ -372,7 +372,7 @@ public abstract class ECPoint
         }
 
         /* (non-Javadoc)
-         * @see org.bouncycastle.math.ec.ECPoint#getEncoded()
+         * @see org.sandrob.bouncycastle.math.ec.ECPoint#getEncoded()
          */
         public byte[] getEncoded()
         {
@@ -442,7 +442,7 @@ public abstract class ECPoint
         }
 
         /* (non-Javadoc)
-         * @see org.bouncycastle.math.ec.ECPoint#add(org.bouncycastle.math.ec.ECPoint)
+         * @see org.sandrob.bouncycastle.math.ec.ECPoint#add(org.sandrob.bouncycastle.math.ec.ECPoint)
          */
         public ECPoint add(ECPoint b)
         {
@@ -501,7 +501,7 @@ public abstract class ECPoint
         }
 
         /* (non-Javadoc)
-         * @see org.bouncycastle.math.ec.ECPoint#subtract(org.bouncycastle.math.ec.ECPoint)
+         * @see org.sandrob.bouncycastle.math.ec.ECPoint#subtract(org.sandrob.bouncycastle.math.ec.ECPoint)
          */
         public ECPoint subtract(ECPoint b)
         {
@@ -530,7 +530,7 @@ public abstract class ECPoint
         }
 
         /* (non-Javadoc)
-         * @see org.bouncycastle.math.ec.ECPoint#twice()
+         * @see org.sandrob.bouncycastle.math.ec.ECPoint#twice()
          */
         public ECPoint twice()
         {

@@ -196,16 +196,16 @@ public final class CAST5
     {
         public Mappings()
         {
-            put("AlgorithmParameters.CAST5", "org.bouncycastle.jce.provider.symmetric.CAST5$AlgParams");
+            put("AlgorithmParameters.CAST5", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST5$AlgParams");
             put("Alg.Alias.AlgorithmParameters.1.2.840.113533.7.66.10", "CAST5");
 
-            put("AlgorithmParameterGenerator.CAST5", "org.bouncycastle.jce.provider.symmetric.CAST5$AlgParamGen");
+            put("AlgorithmParameterGenerator.CAST5", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST5$AlgParamGen");
             put("Alg.Alias.AlgorithmParameterGenerator.1.2.840.113533.7.66.10", "CAST5");
 
-            put("Cipher.CAST5", "org.bouncycastle.jce.provider.symmetric.CAST5$ECB");
-            put("Cipher.1.2.840.113533.7.66.10", "org.bouncycastle.jce.provider.symmetric.CAST5$CBC");
+            put("Cipher.CAST5", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST5$ECB");
+            put("Cipher.1.2.840.113533.7.66.10", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST5$CBC");
 
-            put("KeyGenerator.CAST5", "org.bouncycastle.jce.provider.symmetric.CAST5$KeyGen");
+            put("KeyGenerator.CAST5", "org.sandrob.bouncycastle.jce.provider.symmetric.CAST5$KeyGen");
             put("Alg.Alias.KeyGenerator.1.2.840.113533.7.66.10", "CAST5");
         }
     }

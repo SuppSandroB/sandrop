@@ -14,7 +14,7 @@ import org.sandrob.bouncycastle.crypto.params.DHPublicKeyParameters;
 
 /**
  * utility class for converting jce/jca DH objects
- * objects into their org.bouncycastle.crypto counterparts.
+ * objects into their org.sandrob.bouncycastle.crypto counterparts.
  */
 public class DHUtil
 {

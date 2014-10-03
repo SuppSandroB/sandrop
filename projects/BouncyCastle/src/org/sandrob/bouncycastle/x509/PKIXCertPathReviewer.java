@@ -89,7 +89,7 @@ public class PKIXCertPathReviewer extends CertPathValidatorUtilities
     private static final String CRL_DIST_POINTS = X509Extensions.CRLDistributionPoints.getId();
     private static final String AUTH_INFO_ACCESS = X509Extensions.AuthorityInfoAccess.getId();
     
-    private static final String RESOURCE_NAME = "org.bouncycastle.x509.CertPathReviewerMessages";
+    private static final String RESOURCE_NAME = "org.sandrob.bouncycastle.x509.CertPathReviewerMessages";
     
     // input parameters
     

@@ -16,7 +16,7 @@ public class AlwaysValidVerifyer implements CertificateVerifyer
     /**
      * Return true.
      * 
-     * @see org.bouncycastle.crypto.tls.CertificateVerifyer#isValid(org.bouncycastle.asn1.x509.X509CertificateStructure[])
+     * @see org.sandrob.bouncycastle.crypto.tls.CertificateVerifyer#isValid(org.sandrob.bouncycastle.asn1.x509.X509CertificateStructure[])
      */
     public boolean isValid(X509CertificateStructure[] certs)
     {

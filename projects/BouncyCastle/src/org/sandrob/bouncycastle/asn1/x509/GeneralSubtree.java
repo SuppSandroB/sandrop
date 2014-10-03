@@ -25,7 +25,7 @@ import org.sandrob.bouncycastle.asn1.DERTaggedObject;
  *       }
  * </pre>
  * 
- * @see org.bouncycastle.asn1.x509.NameConstraints
+ * @see org.sandrob.bouncycastle.asn1.x509.NameConstraints
  * 
  */
 public class GeneralSubtree 

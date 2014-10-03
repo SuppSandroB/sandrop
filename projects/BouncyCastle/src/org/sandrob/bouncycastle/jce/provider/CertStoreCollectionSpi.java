@@ -25,7 +25,7 @@ public class CertStoreCollectionSpi extends CertStoreSpi
 
         if (!(params instanceof CollectionCertStoreParameters))
         {
-            throw new InvalidAlgorithmParameterException("org.bouncycastle.jce.provider.CertStoreCollectionSpi: parameter must be a CollectionCertStoreParameters object\n" +  params.toString());
+            throw new InvalidAlgorithmParameterException("org.sandrob.bouncycastle.jce.provider.CertStoreCollectionSpi: parameter must be a CollectionCertStoreParameters object\n" +  params.toString());
         }
 
         this.params = (CollectionCertStoreParameters)params;

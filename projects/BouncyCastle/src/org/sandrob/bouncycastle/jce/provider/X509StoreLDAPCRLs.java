@@ -17,7 +17,7 @@ import java.util.Set;
  * A SPI implementation of Bouncy Castle <code>X509Store</code> for getting
  * certificate revocation lists from an LDAP directory.
  *
- * @see org.bouncycastle.x509.X509Store
+ * @see org.sandrob.bouncycastle.x509.X509Store
  */
 public class X509StoreLDAPCRLs extends X509StoreSpi
 {

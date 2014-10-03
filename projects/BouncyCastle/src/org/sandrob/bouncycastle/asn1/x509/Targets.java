@@ -27,8 +27,8 @@ import java.util.Enumeration;
  *            }
  * </pre>
  * 
- * @see org.bouncycastle.asn1.x509.Target
- * @see org.bouncycastle.asn1.x509.TargetInformation
+ * @see org.sandrob.bouncycastle.asn1.x509.Target
+ * @see org.sandrob.bouncycastle.asn1.x509.TargetInformation
  */
 public class Targets
     extends ASN1Encodable

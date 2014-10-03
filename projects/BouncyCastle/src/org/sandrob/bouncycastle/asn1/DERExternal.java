@@ -116,7 +116,7 @@ public class DERExternal
     }
 
     /* (non-Javadoc)
-     * @see org.bouncycastle.asn1.DERObject#encode(org.bouncycastle.asn1.DEROutputStream)
+     * @see org.sandrob.bouncycastle.asn1.DERObject#encode(org.sandrob.bouncycastle.asn1.DEROutputStream)
      */
     void encode(DEROutputStream out)
         throws IOException
@@ -140,7 +140,7 @@ public class DERExternal
     }
 
     /* (non-Javadoc)
-     * @see org.bouncycastle.asn1.ASN1Object#asn1Equals(org.bouncycastle.asn1.DERObject)
+     * @see org.sandrob.bouncycastle.asn1.ASN1Object#asn1Equals(org.sandrob.bouncycastle.asn1.DERObject)
      */
     boolean asn1Equals(DERObject o)
     {

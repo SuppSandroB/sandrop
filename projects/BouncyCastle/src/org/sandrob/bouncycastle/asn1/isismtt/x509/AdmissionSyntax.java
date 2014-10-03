@@ -113,9 +113,9 @@ import java.util.Enumeration;
  * are logically connected (e.g. they have been issued under the same admission
  * number).
  *
- * @see org.bouncycastle.asn1.isismtt.x509.Admissions
- * @see org.bouncycastle.asn1.isismtt.x509.ProfessionInfo
- * @see org.bouncycastle.asn1.isismtt.x509.NamingAuthority
+ * @see org.sandrob.bouncycastle.asn1.isismtt.x509.Admissions
+ * @see org.sandrob.bouncycastle.asn1.isismtt.x509.ProfessionInfo
+ * @see org.sandrob.bouncycastle.asn1.isismtt.x509.NamingAuthority
  */
 public class AdmissionSyntax
     extends ASN1Encodable

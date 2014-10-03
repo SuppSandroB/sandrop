@@ -46,9 +46,9 @@ public final class Rijndael
     {
         public Mappings()
         {
-            put("Cipher.RIJNDAEL", "org.bouncycastle.jce.provider.symmetric.Rijndael$ECB");
-            put("KeyGenerator.RIJNDAEL", "org.bouncycastle.jce.provider.symmetric.Rijndael$KeyGen");
-            put("AlgorithmParameters.RIJNDAEL", "org.bouncycastle.jce.provider.symmetric.Rijndael$AlgParams");
+            put("Cipher.RIJNDAEL", "org.sandrob.bouncycastle.jce.provider.symmetric.Rijndael$ECB");
+            put("KeyGenerator.RIJNDAEL", "org.sandrob.bouncycastle.jce.provider.symmetric.Rijndael$KeyGen");
+            put("AlgorithmParameters.RIJNDAEL", "org.sandrob.bouncycastle.jce.provider.symmetric.Rijndael$AlgParams");
         }
     }
 }

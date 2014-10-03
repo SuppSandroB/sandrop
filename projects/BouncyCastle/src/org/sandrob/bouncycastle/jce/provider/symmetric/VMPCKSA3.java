@@ -36,8 +36,8 @@ public final class VMPCKSA3
     {
         public Mappings()
         {
-            put("Cipher.VMPC-KSA3", "org.bouncycastle.jce.provider.symmetric.VMPCKSA3$Base");
-            put("KeyGenerator.VMPC-KSA3", "org.bouncycastle.jce.provider.symmetric.VMPCKSA3$KeyGen");
+            put("Cipher.VMPC-KSA3", "org.sandrob.bouncycastle.jce.provider.symmetric.VMPCKSA3$Base");
+            put("KeyGenerator.VMPC-KSA3", "org.sandrob.bouncycastle.jce.provider.symmetric.VMPCKSA3$KeyGen");
         }
     }
 }

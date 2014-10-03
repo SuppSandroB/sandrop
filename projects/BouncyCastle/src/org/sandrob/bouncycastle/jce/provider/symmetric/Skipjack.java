@@ -67,12 +67,12 @@ public final class Skipjack
     {
         public Mappings()
         {
-            put("Cipher.SKIPJACK", "org.bouncycastle.jce.provider.symmetric.Skipjack$ECB");
-            put("KeyGenerator.SKIPJACK", "org.bouncycastle.jce.provider.symmetric.Skipjack$KeyGen");
-            put("AlgorithmParameters.SKIPJACK", "org.bouncycastle.jce.provider.symmetric.Skipjack$AlgParams");
-            put("Mac.SKIPJACKMAC", "org.bouncycastle.jce.provider.symmetric.Skipjack$Mac");
+            put("Cipher.SKIPJACK", "org.sandrob.bouncycastle.jce.provider.symmetric.Skipjack$ECB");
+            put("KeyGenerator.SKIPJACK", "org.sandrob.bouncycastle.jce.provider.symmetric.Skipjack$KeyGen");
+            put("AlgorithmParameters.SKIPJACK", "org.sandrob.bouncycastle.jce.provider.symmetric.Skipjack$AlgParams");
+            put("Mac.SKIPJACKMAC", "org.sandrob.bouncycastle.jce.provider.symmetric.Skipjack$Mac");
             put("Alg.Alias.Mac.SKIPJACK", "SKIPJACKMAC");
-            put("Mac.SKIPJACKMAC/CFB8", "org.bouncycastle.jce.provider.symmetric.Skipjack$MacCFB8");
+            put("Mac.SKIPJACKMAC/CFB8", "org.sandrob.bouncycastle.jce.provider.symmetric.Skipjack$MacCFB8");
             put("Alg.Alias.Mac.SKIPJACK/CFB8", "SKIPJACKMAC/CFB8");
         }
     }

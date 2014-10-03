@@ -92,13 +92,13 @@ public final class Noekeon
     {
         public Mappings()
         {
-            put("AlgorithmParameters.NOEKEON", "org.bouncycastle.jce.provider.symmetric.Noekeon$AlgParams");
+            put("AlgorithmParameters.NOEKEON", "org.sandrob.bouncycastle.jce.provider.symmetric.Noekeon$AlgParams");
 
-            put("AlgorithmParameterGenerator.NOEKEON", "org.bouncycastle.jce.provider.symmetric.Noekeon$AlgParamGen");
+            put("AlgorithmParameterGenerator.NOEKEON", "org.sandrob.bouncycastle.jce.provider.symmetric.Noekeon$AlgParamGen");
 
-            put("Cipher.NOEKEON", "org.bouncycastle.jce.provider.symmetric.Noekeon$ECB");
+            put("Cipher.NOEKEON", "org.sandrob.bouncycastle.jce.provider.symmetric.Noekeon$ECB");
 
-            put("KeyGenerator.NOEKEON", "org.bouncycastle.jce.provider.symmetric.Noekeon$KeyGen");
+            put("KeyGenerator.NOEKEON", "org.sandrob.bouncycastle.jce.provider.symmetric.Noekeon$KeyGen");
         }
     }
 }

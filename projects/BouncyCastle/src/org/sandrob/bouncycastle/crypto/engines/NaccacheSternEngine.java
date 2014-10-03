@@ -33,8 +33,8 @@ public class NaccacheSternEngine
     /**
      * Initializes this algorithm. Must be called before all other Functions.
      * 
-     * @see org.bouncycastle.crypto.AsymmetricBlockCipher#init(boolean,
-     *      org.bouncycastle.crypto.CipherParameters)
+     * @see org.sandrob.bouncycastle.crypto.AsymmetricBlockCipher#init(boolean,
+     *      org.sandrobbouncycastle.bouncycastle.crypto.CipherParameters)
      */
     public void init(boolean forEncryption, CipherParameters param)
     {
@@ -90,7 +90,7 @@ public class NaccacheSternEngine
     /**
      * Returns the input block size of this algorithm.
      * 
-     * @see org.bouncycastle.crypto.AsymmetricBlockCipher#getInputBlockSize()
+     * @see org.sandrob.bouncycastle.crypto.AsymmetricBlockCipher#getInputBlockSize()
      */
     public int getInputBlockSize()
     {
@@ -109,7 +109,7 @@ public class NaccacheSternEngine
     /**
      * Returns the output block size of this algorithm.
      * 
-     * @see org.bouncycastle.crypto.AsymmetricBlockCipher#getOutputBlockSize()
+     * @see org.sandrob.bouncycastle.crypto.AsymmetricBlockCipher#getOutputBlockSize()
      */
     public int getOutputBlockSize()
     {
@@ -128,7 +128,7 @@ public class NaccacheSternEngine
     /**
      * Process a single Block using the Naccache-Stern algorithm.
      * 
-     * @see org.bouncycastle.crypto.AsymmetricBlockCipher#processBlock(byte[],
+     * @see org.sandrob.bouncycastle.crypto.AsymmetricBlockCipher#processBlock(byte[],
      *      int, int)
      */
     public byte[] processBlock(byte[] in, int inOff, int len) throws InvalidCipherTextException

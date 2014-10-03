@@ -46,9 +46,9 @@ public final class XTEA
     {
         public Mappings()
         {
-            put("Cipher.XTEA", "org.bouncycastle.jce.provider.symmetric.XTEA$ECB");
-            put("KeyGenerator.XTEA", "org.bouncycastle.jce.provider.symmetric.XTEA$KeyGen");
-            put("AlgorithmParameters.XTEA", "org.bouncycastle.jce.provider.symmetric.XTEA$AlgParams");
+            put("Cipher.XTEA", "org.sandrob.bouncycastle.jce.provider.symmetric.XTEA$ECB");
+            put("KeyGenerator.XTEA", "org.sandrob.bouncycastle.jce.provider.symmetric.XTEA$KeyGen");
+            put("AlgorithmParameters.XTEA", "org.sandrob.bouncycastle.jce.provider.symmetric.XTEA$AlgParams");
         }
     }
 }

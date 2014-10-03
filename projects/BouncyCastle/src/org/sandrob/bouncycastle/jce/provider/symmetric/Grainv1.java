@@ -36,8 +36,8 @@ public final class Grainv1
     {
         public Mappings()
         {
-            put("Cipher.Grainv1", "org.bouncycastle.jce.provider.symmetric.Grainv1$Base");
-            put("KeyGenerator.Grainv1", "org.bouncycastle.jce.provider.symmetric.Grainv1$KeyGen");
+            put("Cipher.Grainv1", "org.sandrob.bouncycastle.jce.provider.symmetric.Grainv1$Base");
+            put("KeyGenerator.Grainv1", "org.sandrob.bouncycastle.jce.provider.symmetric.Grainv1$KeyGen");
         }
     }
 }

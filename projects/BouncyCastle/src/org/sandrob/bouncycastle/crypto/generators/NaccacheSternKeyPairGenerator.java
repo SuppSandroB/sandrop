@@ -38,7 +38,7 @@ public class NaccacheSternKeyPairGenerator
     /*
      * (non-Javadoc)
      * 
-     * @see org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator#init(org.bouncycastle.crypto.KeyGenerationParameters)
+     * @see org.sandrob.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator#init(org.sandrob.bouncycastle.crypto.KeyGenerationParameters)
      */
     public void init(KeyGenerationParameters param)
     {
@@ -48,7 +48,7 @@ public class NaccacheSternKeyPairGenerator
     /*
      * (non-Javadoc)
      * 
-     * @see org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator#generateKeyPair()
+     * @see org.sandrob.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator#generateKeyPair()
      */
     public AsymmetricCipherKeyPair generateKeyPair()
     {
