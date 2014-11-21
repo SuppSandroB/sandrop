@@ -32,7 +32,10 @@
 package org.sandrop.webscarab.plugin.proxy;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.Socket;
+
+import android.util.Log;
 
 import netutils.build.IPv4PacketBuilder;
 import netutils.build.TCPPacketBuilder;
@@ -58,13 +61,52 @@ public class PcapWriter {
     
     public static void release() throws IOException{
         pcapFileWriterAll = null;
+        if (serverThread != null){
+            try {
+                serverThread.stop();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            try {
+                if (serverSocket != null){
+                    serverSocket.close();
+                    serverSocket = null;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            try {
+                if (serverSocketClient != null){
+                    serverSocketClient.close();
+                    serverSocketClient = null;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
+    
+    
     
     public static synchronized void writeToAll(byte[] data, long time) throws IOException{
         if (pcapFileWriterAll != null){
             pcapFileWriterAll.addPacket(data, time);
+            if (serverSocketClient != null && serverSocketClient.isConnected() && isClientConnected){
+                if (LOGD) Log.d(TAG, "Send data also to connected client");
+                try{
+                    serverSocketClient.getOutputStream().write(data);
+                }catch(Exception ex){
+                    ex.printStackTrace();
+                }
+            }
         }
     }
+    
+    private static ServerSocket serverSocket;
+    private static Socket serverSocketClient;
+    private static boolean isClientConnected = false;
+    private static Thread serverThread = null;
+    
     
     public PcapWriter(Socket client, Socket server, String fileName) throws Exception{
         pcapFileWriter = new PCapFileWriter(fileName);
@@ -73,6 +115,25 @@ public class PcapWriter {
         clientPort = client.getPort();
         serverPort = server.getPort();
         sequenceNumber = 1;
+        if (serverSocket == null){
+            serverSocket = new ServerSocket(5400);
+            serverThread = new Thread(new Runnable() {
+                
+                @Override
+                public void run() {
+                    try{
+                        serverThread.setName("PcapThread waiting for connection");
+                        serverSocketClient = serverSocket.accept();
+                        isClientConnected = true;
+                        serverThread.setName("PcapThread " + serverSocketClient.getInetAddress().getHostAddress());
+                    }catch(Exception ex){
+                        ex.printStackTrace();
+                    }
+                }
+            });
+            serverThread.setName("PcapThread");
+            serverThread.start();
+        }
     }
     
     public synchronized void writeData(byte[] data, long timestamp, boolean flip) throws Exception{
