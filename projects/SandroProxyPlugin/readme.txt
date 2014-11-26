@@ -7,6 +7,7 @@ X> Test plugin with project SandroProxyPlugin until it is ready.
 
 X> To get jar that can be used in sandroproxy you should build with ant.
    First check local.properties file that it points to android sdk. (android update project --path .)
+   Also you need to set local.properties in SandroProxyLib project to point to proper sdk location
  
  ant debug
  
