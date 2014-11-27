@@ -21,6 +21,7 @@ import org.sandroproxy.proxy.plugin.CustomPlugin;
 import org.sandroproxy.utils.NetworkHostNameResolver;
 import org.sandroproxy.utils.PreferenceUtils;
 import org.sandroproxy.utils.network.ClientResolver;
+import org.sandroproxy.web.SandroProxyWebService;
 import org.sandroproxy.webscarab.store.sql.SqlLiteStore;
 
 import android.os.AsyncTask;
@@ -181,6 +182,51 @@ public class MainActivity extends Activity {
     
     @Override 
     public boolean onCreateOptionsMenu(Menu menu) {
+        
+        MenuItem itemOnOfProxy = menu.add("On/Off");
+        if (SandroProxyWebService.webServerStarted){
+            itemOnOfProxy.setIcon(R.drawable.ic_menu_close_clear_cancel);
+        }else{
+            itemOnOfProxy.setIcon(R.drawable.ic_menu_play_clip);
+        }
+        
+        itemOnOfProxy.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
+        itemOnOfProxy.setOnMenuItemClickListener(new OnMenuItemClickListener() {
+            
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                    AsyncTask<Boolean, Void, Boolean> startStop = new AsyncTask<Boolean, Void, Boolean>(){
+                        @Override
+                        protected Boolean doInBackground(Boolean... params) {
+                            if (SandroProxyWebService.webServerStarted){
+                                try {
+                                    Intent service = new Intent(getApplicationContext(), SandroProxyWebService.class);
+                                    stopService(service);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                                
+                            }else{
+                                try {
+                                    Intent service = new Intent(getApplicationContext(), SandroProxyWebService.class);
+                                    startService(service);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            
+                            return true;
+                        }
+                    };
+                    startStop.execute(SandroProxyWebService.webServerStarted);
+                    if (SandroProxyWebService.webServerStarted){
+                        item.setIcon(R.drawable.ic_menu_play_clip);
+                    }else{
+                        item.setIcon(R.drawable.ic_menu_close_clear_cancel);
+                    }
+                return true;
+            }
+        });
         
         // export ca to android store
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH){

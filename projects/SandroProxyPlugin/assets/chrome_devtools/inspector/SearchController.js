@@ -1,0 +1,517 @@
+/*
+ * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007 Matt Lilek (pewtermoose@gmail.com).
+ * Copyright (C) 2009 Joseph Pecoraro
+ * Copyright (C) 2011 Google Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     its contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/**
+ * @constructor
+ * @implements {WebInspector.SuggestBoxDelegate}
+ */
+WebInspector.SearchController = function()
+{
+    this._element = document.createElement("table");
+    this._element.className = "toolbar-search";
+    this._element.cellSpacing = 0;
+
+    this._firstRowElement = this._element.createChild("tr");
+    this._secondRowElement = this._element.createChild("tr", "hidden");
+
+    // Column 1
+    var searchControlElementColumn = this._firstRowElement.createChild("td");
+    this._searchControlElement = searchControlElementColumn.createChild("span", "toolbar-search-control");
+    this._searchInputElement = this._searchControlElement.createChild("input", "search-replace");
+    this._searchInputElement.id = "search-input-field";
+    this._searchInputElement.placeholder = WebInspector.UIString("Find");
+
+    this._suggestBox = new WebInspector.SuggestBox(this, searchControlElementColumn);
+
+    this._matchesElement = this._searchControlElement.createChild("label", "search-results-matches");
+    this._matchesElement.setAttribute("for", "search-input-field");
+
+    this._searchNavigationElement = this._searchControlElement.createChild("div", "toolbar-search-navigation-controls");
+
+    this._searchNavigationPrevElement = this._searchNavigationElement.createChild("div", "toolbar-search-navigation toolbar-search-navigation-prev");
+    this._searchNavigationPrevElement.addEventListener("click", this._onPrevButtonSearch.bind(this), false);
+    this._searchNavigationPrevElement.title = WebInspector.UIString("Search Previous");
+
+    this._searchNavigationNextElement = this._searchNavigationElement.createChild("div", "toolbar-search-navigation toolbar-search-navigation-next");
+    this._searchNavigationNextElement.addEventListener("click", this._onNextButtonSearch.bind(this), false);
+    this._searchNavigationNextElement.title = WebInspector.UIString("Search Next");
+
+    this._searchInputElement.addEventListener("mousedown", this._onSearchFieldManualFocus.bind(this), false); // when the search field is manually selected
+    this._searchInputElement.addEventListener("keydown", this._onSearchKeyDown.bind(this), true);
+    this._searchInputElement.addEventListener("input", this._onInput.bind(this), false);
+
+    this._replaceInputElement = this._secondRowElement.createChild("td").createChild("input", "search-replace toolbar-replace-control");
+    this._replaceInputElement.addEventListener("keydown", this._onReplaceKeyDown.bind(this), true);
+    this._replaceInputElement.placeholder = WebInspector.UIString("Replace");
+
+    // Column 2
+    this._findButtonElement = this._firstRowElement.createChild("td").createChild("button", "hidden");
+    this._findButtonElement.textContent = WebInspector.UIString("Find");
+    this._findButtonElement.tabIndex = -1;
+    this._findButtonElement.addEventListener("click", this._onNextButtonSearch.bind(this), false);
+
+    this._replaceButtonElement = this._secondRowElement.createChild("td").createChild("button");
+    this._replaceButtonElement.textContent = WebInspector.UIString("Replace");
+    this._replaceButtonElement.disabled = true;
+    this._replaceButtonElement.tabIndex = -1;
+    this._replaceButtonElement.addEventListener("click", this._replace.bind(this), false);
+
+    // Column 3
+    this._prevButtonElement = this._firstRowElement.createChild("td").createChild("button", "hidden");
+    this._prevButtonElement.textContent = WebInspector.UIString("Previous");
+    this._prevButtonElement.disabled = true;
+    this._prevButtonElement.tabIndex = -1;
+    this._prevButtonElement.addEventListener("click", this._onPrevButtonSearch.bind(this), false);
+
+    this._replaceAllButtonElement = this._secondRowElement.createChild("td").createChild("button");
+    this._replaceAllButtonElement.textContent = WebInspector.UIString("Replace All");
+    this._replaceAllButtonElement.addEventListener("click", this._replaceAll.bind(this), false);
+
+    // Column 4
+    this._replaceElement = this._firstRowElement.createChild("td").createChild("span");
+
+    this._replaceCheckboxElement = this._replaceElement.createChild("input");
+    this._replaceCheckboxElement.type = "checkbox";
+    this._replaceCheckboxElement.id = "search-replace-trigger";
+    this._replaceCheckboxElement.addEventListener("click", this._updateSecondRowVisibility.bind(this), false);
+
+    this._replaceLabelElement = this._replaceElement.createChild("label");
+    this._replaceLabelElement.textContent = WebInspector.UIString("Replace");
+    this._replaceLabelElement.setAttribute("for", "search-replace-trigger");
+
+    // Column 6
+    var cancelButtonElement = this._firstRowElement.createChild("td").createChild("button");
+    cancelButtonElement.textContent = WebInspector.UIString("Cancel");
+    cancelButtonElement.tabIndex = -1;
+    cancelButtonElement.addEventListener("click", this.closeSearch.bind(this), false);
+}
+
+WebInspector.SearchController.prototype = {
+    /**
+     * @param {number} matches
+     * @param {WebInspector.Searchable} provider
+     */
+    updateSearchMatchesCount: function(matches, provider)
+    {
+        provider.currentSearchMatches = matches;
+
+        if (provider === this._searchProvider)
+            this._updateSearchMatchesCountAndCurrentMatchIndex(provider.currentQuery ? matches : 0, -1);
+    },
+
+    /**
+     * @param {number} currentMatchIndex
+     * @param {WebInspector.Searchable} provider
+     */
+    updateCurrentMatchIndex: function(currentMatchIndex, provider)
+    {
+        if (provider === this._searchProvider)
+            this._updateSearchMatchesCountAndCurrentMatchIndex(provider.currentSearchMatches, currentMatchIndex);
+    },
+
+    isSearchVisible: function()
+    {
+        return this._searchIsVisible;
+    },
+
+    closeSearch: function()
+    {
+        this.cancelSearch();
+        WebInspector.setCurrentFocusElement(WebInspector.previousFocusElement());
+    },
+
+    cancelSearch: function()
+    {
+        if (!this._searchIsVisible)
+            return;
+        this.resetSearch();
+        delete this._searchIsVisible;
+        this._searchHost.setFooterElement(null);
+        this.resetSearch();
+        delete this._searchHost;
+        delete this._searchProvider;
+    },
+
+    resetSearch: function()
+    {
+        this._suggestBox.hide();
+        this._clearSearch();
+        this._updateReplaceVisibility();
+        this._matchesElement.textContent = "";
+    },
+
+    /**
+     * @param {Event} event
+     * @return {boolean}
+     */
+    handleShortcut: function(event)
+    {
+        var isMac = WebInspector.isMac();
+
+        switch (event.keyIdentifier) {
+            case "U+0046": // F key
+                if (isMac)
+                    var isFindKey = event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
+                else
+                    var isFindKey = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
+                if (isFindKey) {
+                    this.showSearchField();
+                    event.consume(true);
+                    return true;
+                }
+                break;
+
+            case "F3":
+                if (!isMac) {
+                    this.showSearchField();
+                    event.consume(true);
+                    return true;
+                }
+                break;
+
+            case "U+0047": // G key
+                if (isMac && event.metaKey && !event.ctrlKey && !event.altKey && this._searchHost) {
+                    if (!this._searchProvider) {
+                        event.consume(true);
+                        return true;
+                    }
+                    if (event.shiftKey)
+                        this._searchProvider.jumpToPreviousSearchResult();
+                    else
+                        this._searchProvider.jumpToNextSearchResult();
+                    event.consume(true);
+                    return true;
+                }
+                break;
+        }
+        return false;
+    },
+
+    /**
+     * @param {boolean} enabled
+     */
+    _updateSearchNavigationButtonState: function(enabled)
+    {
+        this._replaceButtonElement.disabled = !enabled;
+        this._prevButtonElement.disabled = !enabled;
+        if (enabled) {
+            this._searchNavigationPrevElement.addStyleClass("enabled");
+            this._searchNavigationNextElement.addStyleClass("enabled");
+        } else {
+            this._searchNavigationPrevElement.removeStyleClass("enabled");
+            this._searchNavigationNextElement.removeStyleClass("enabled");
+        }
+    },
+
+    /**
+     * @param {number} matches
+     * @param {number} currentMatchIndex
+     */
+    _updateSearchMatchesCountAndCurrentMatchIndex: function(matches, currentMatchIndex)
+    {
+        if (!this._currentQuery)
+            this._matchesElement.textContent = "";
+        else if (matches === 0 || currentMatchIndex >= 0)
+            this._matchesElement.textContent = WebInspector.UIString("%d of %d", currentMatchIndex + 1, matches);
+        else if (matches === 1)
+            this._matchesElement.textContent = WebInspector.UIString("1 match");
+        else
+            this._matchesElement.textContent = WebInspector.UIString("%d matches", matches);
+        this._updateSearchNavigationButtonState(matches > 0);
+    },
+
+    showSearchField: function()
+    {
+        if (this._searchIsVisible)
+            this.cancelSearch();
+
+        // FIXME: fix this mess.
+        if (WebInspector.inspectorView.drawer().element.isAncestor(document.activeElement) && WebInspector.inspectorView.drawer().getSearchProvider())
+            this._searchHost = WebInspector.inspectorView.drawer();
+        else
+            this._searchHost = WebInspector.inspectorView;
+
+        this._searchProvider = this._searchHost.getSearchProvider();
+        if (!this._searchProvider)
+            return;
+
+        this._searchHost.setFooterElement(this._element);
+
+        this._updateReplaceVisibility();
+        if (WebInspector.currentFocusElement() !== this._searchInputElement) {
+            var selection = window.getSelection();
+            if (selection.rangeCount) {
+                var queryCandidate = selection.toString().replace(/\r?\n.*/, "");
+                if (queryCandidate)
+                    this._searchInputElement.value = queryCandidate;
+            }
+        }
+        this._performSearch(false, false);
+        this._searchInputElement.focus();
+        this._searchInputElement.select();
+        this._searchIsVisible = true;
+    },
+
+    _updateReplaceVisibility: function()
+    {
+        if (!this._searchProvider)
+            return;
+
+        if (this._searchProvider.canSearchAndReplace())
+            this._replaceElement.removeStyleClass("hidden");
+        else {
+            this._replaceElement.addStyleClass("hidden");
+            this._replaceCheckboxElement.checked = false;
+            this._updateSecondRowVisibility();
+        }
+    },
+
+    /**
+     * @param {Event} event
+     */
+    _onSearchFieldManualFocus: function(event)
+    {
+        WebInspector.setCurrentFocusElement(event.target);
+    },
+
+    /**
+     * @param {KeyboardEvent} event
+     */
+    _onSearchKeyDown: function(event)
+    {
+        if (this._suggestBox.visible()) {
+            this._suggestBox.keyPressed(event);
+            return;
+        }
+
+        if (isEnterKey(event)) {
+            // FIXME: This won't start backwards search with Shift+Enter correctly.
+            if (!this._currentQuery)
+                this._performSearch(true, true);
+            else
+                this._jumpToNextSearchResult(event.shiftKey);
+        }
+    },
+
+    /**
+     * @param {KeyboardEvent} event
+     */
+    _onReplaceKeyDown: function(event)
+    {
+        if (isEnterKey(event))
+            this._replace();
+    },
+
+    /**
+     * @param {boolean=} isBackwardSearch
+     */
+    _jumpToNextSearchResult: function(isBackwardSearch)
+    {
+        if (!this._currentQuery || !this._searchNavigationPrevElement.hasStyleClass("enabled"))
+            return;
+
+        if (isBackwardSearch)
+            this._searchProvider.jumpToPreviousSearchResult();
+        else
+            this._searchProvider.jumpToNextSearchResult();
+    },
+
+    _onNextButtonSearch: function(event)
+    {
+        if (!this._searchNavigationNextElement.hasStyleClass("enabled"))
+            return;
+        // Simulate next search on search-navigation-button click.
+        this._jumpToNextSearchResult();
+        this._searchInputElement.focus();
+    },
+
+    _onPrevButtonSearch: function(event)
+    {
+        if (!this._searchNavigationPrevElement.hasStyleClass("enabled"))
+            return;
+        // Simulate previous search on search-navigation-button click.
+        this._jumpToNextSearchResult(true);
+        this._searchInputElement.focus();
+    },
+
+    _clearSearch: function()
+    {
+        delete this._currentQuery;
+        if (this._searchHost){
+            var searchProvider = this._searchHost.getSearchProvider();
+            if (searchProvider && !!searchProvider.currentQuery) {
+                delete searchProvider.currentQuery;
+                searchProvider.searchCanceled();
+            }
+        }
+        this._updateSearchMatchesCountAndCurrentMatchIndex(0, -1);
+    },
+
+    /**
+     * @param {boolean} forceSearch
+     * @param {boolean} shouldJump
+     */
+    _performSearch: function(forceSearch, shouldJump)
+    {
+        var query = this._searchInputElement.value;
+        var minimalSearchQuerySize = this._searchProvider.minimalSearchQuerySize();
+        if (!query || !this._searchProvider || (!forceSearch && query.length < minimalSearchQuerySize && !this._currentQuery)) {
+            this._clearSearch();
+            return;
+        }
+
+        this._currentQuery = query;
+        this._searchProvider.currentQuery = query;
+        this._searchProvider.performSearch(query, shouldJump);
+    },
+
+    _updateSecondRowVisibility: function()
+    {
+        if (!this._searchIsVisible || !this._searchHost)
+            return;
+        if (this._replaceCheckboxElement.checked) {
+            this._element.addStyleClass("toolbar-search-replace");
+            this._secondRowElement.removeStyleClass("hidden");
+            this._prevButtonElement.removeStyleClass("hidden");
+            this._findButtonElement.removeStyleClass("hidden");
+            this._replaceCheckboxElement.tabIndex = -1;
+            this._replaceInputElement.focus();
+        } else {
+            this._element.removeStyleClass("toolbar-search-replace");
+            this._secondRowElement.addStyleClass("hidden");
+            this._prevButtonElement.addStyleClass("hidden");
+            this._findButtonElement.addStyleClass("hidden");
+            this._replaceCheckboxElement.tabIndex = 0;
+            this._searchInputElement.focus();
+        }
+        this._searchHost.setFooterElement(this._element);
+    },
+
+    _replace: function()
+    {
+        this._searchProvider.replaceSelectionWith(this._replaceInputElement.value);
+        delete this._currentQuery;
+        this._performSearch(true, true);
+    },
+
+    _replaceAll: function()
+    {
+        this._searchProvider.replaceAllWith(this._searchInputElement.value, this._replaceInputElement.value);
+    },
+
+
+    _onInput: function(event)
+    {
+        this._onValueChanged();
+    },
+
+    _onValueChanged: function()
+    {
+        var suggestions = this._searchProvider.buildSuggestions(this._searchInputElement);
+        if (suggestions && suggestions.length)
+            this._suggestBox.updateSuggestions(null, suggestions, 0, true, "");
+        else
+            this._suggestBox.hide();
+        this._performSearch(false, true);
+    },
+
+    /**
+     * @override
+     * @param {string} suggestion
+     * @param {boolean=} isIntermediateSuggestion
+     */
+    applySuggestion: function(suggestion, isIntermediateSuggestion)
+    {
+        if (isIntermediateSuggestion)
+            return;
+
+        var text = this._searchInputElement.value;
+        text = text.substring(0, text.lastIndexOf(" ") + 1) + suggestion;
+        this._searchInputElement.value = text;
+    },
+
+    /** @override */
+    acceptSuggestion: function()
+    {
+        this._searchInputElement.scrollLeft = this._searchInputElement.scrollWidth;
+        this._onValueChanged();
+    }
+}
+
+/**
+ * @type {?WebInspector.SearchController}
+ */
+WebInspector.searchController = null;
+
+/**
+ * @interface
+ */
+WebInspector.Searchable = function()
+{
+}
+
+WebInspector.Searchable.prototype = {
+    /**
+     * @return {boolean}
+     */
+    canSearchAndReplace: function() { },
+
+    searchCanceled: function() { },
+
+    /**
+     * @param {string} query
+     * @param {boolean} shouldJump
+     * @param {WebInspector.Searchable=} self
+     */
+    performSearch: function(query, shouldJump, self) { },
+
+    /**
+     * @return {number}
+     */
+    minimalSearchQuerySize: function() { },
+
+    /**
+     * @param {WebInspector.Searchable=} self
+     */
+    jumpToNextSearchResult: function(self) { },
+
+    /**
+     * @param {WebInspector.Searchable=} self
+     */
+    jumpToPreviousSearchResult: function(self) { },
+
+    /**
+     * @param {HTMLInputElement} input
+     * @return {?Array.<string>}
+     */
+    buildSuggestions: function(input) { }
+}

@@ -20,5 +20,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:enabled="true"
+            android:name="org.sandroproxy.web.SandroProxyWebService"
+            android:stopWithTask="false"
+            />
     </application>
 </manifest>
