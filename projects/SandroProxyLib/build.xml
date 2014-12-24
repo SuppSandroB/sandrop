@@ -36,6 +36,10 @@
     <condition property="sdk.dir" value="${env.ANDROID_HOME}">
         <isset property="env.ANDROID_HOME" />
     </condition>
+    
+    <condition property="ndk.dir" value="${env.ANDROID_NDK_HOME}">
+           <isset property="env.ANDROID_NDK_HOME"/>
+    </condition>
 
     <!-- The project.properties file is created and updated by the 'android'
          tool, as well as ADT.
@@ -52,6 +56,10 @@
     <fail
             message="sdk.dir is missing. Make sure to generate local.properties using 'android update project' or to inject it through the ANDROID_HOME environment variable."
             unless="sdk.dir"
+    />
+    <fail 
+            message="ndk.dir is missing. Make sure to add ndk.dir=/path/to/android-ndk to local.properties or to inject it through the ANDROID_NDK_HOME environment variable." 
+            unless="ndk.dir"
     />
 
     <!--
@@ -86,7 +94,23 @@
          In all cases you must update the value of version-tag below to read 'custom' instead of an integer,
          in order to avoid having your file be overridden by tools such as "android update project"
     -->
-	    <!-- version-tag: 1 -->
+        <!-- version-tag: 1 -->
+	<target name="-pre-build" depends="-check-native"/>
+	
+    <target name="-pre-compile">
+      <exec executable="${ndk.dir}/ndk-build" failonerror="true"/>
+    </target>
+	
+	<target name="-check-native">
+	    <available file="ndk-build" filepath="${ndk.dir}" property="ndk.present"/>
+	    <fail message="ndk-build not found in ${ndk.dir}. Is this the right path to the Android NDK? Please set ndk.dir in local.properties file" unless="${ndk.present}"/>
+	</target>
+
+    <target name="clean" depends="-check-native,android_rules.clean">
+      <exec executable="${ndk.dir}/ndk-build" failonerror="true">
+    <arg value="clean"/>
+      </exec>
+    </target>
     <import file="${sdk.dir}/tools/ant/build.xml" />
 
 </project>
